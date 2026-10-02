@@ -16,7 +16,7 @@ const COPY = {
     heading: 'Pozvani ste da učestvujete',
     intro: 'Kliknite na dugme ispod da pristupite obrascu informisanog pristanka za istraživanje.',
     buttonText: 'Otvori obrazac pristanka',
-    expiry: 'Napomena: link važi 24 sata od trenutka slanja ovog mejla. Ako istekne, obratite se istraživaču za novi.',
+    expiry: 'Napomena: link važi 7 dana od trenutka slanja ovog mejla. Ako istekne, obratite se istraživaču za novi.',
     footer: 'Za sva pitanja, kontaktirajte nas na',
   },
   en: {
@@ -25,7 +25,7 @@ const COPY = {
     heading: "You've been invited to participate",
     intro: 'Click the button below to access the informed consent form for the research.',
     buttonText: 'Open consent form',
-    expiry: 'Note: this link is valid for 24 hours from when this email was sent. If it expires, contact the researcher for a new one.',
+    expiry: 'Note: this link is valid for 7 days from when this email was sent. If it expires, contact the researcher for a new one.',
     footer: 'For any questions, contact us at',
   },
 };

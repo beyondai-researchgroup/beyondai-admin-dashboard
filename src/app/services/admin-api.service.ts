@@ -451,7 +451,7 @@ export interface ParticipantLink {
   url: string;
   createdAt: string;
   expiresAt: string;
-  status: 'valid' | 'expired';
+  status: 'valid' | 'expired' | 'completed';
 }
 
 export type TimelineStepKey =
@@ -469,6 +469,9 @@ export interface ParticipantOverview {
   baselineDoneAt: string | null;
   hasEmail: boolean;
   links: ParticipantLink[];
+  /** When the instrument behind each link type was filled out (null = not yet) — a completed
+   *  questionnaire's link no longer opens anything, so the Links table shows it as completed. */
+  linkCompletions: Partial<Record<LinkType, string | null>>;
   timeline: TimelineStep[];
   scheduling: {
     experimentalSession1: ParticipantOverviewScheduledSession | null;

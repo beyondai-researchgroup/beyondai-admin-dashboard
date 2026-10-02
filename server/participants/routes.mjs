@@ -403,6 +403,7 @@ router.get('/:participantId/overview', async (req, res) => {
     `;
     const rei40Rows = await sql`SELECT "CompletedAt" FROM "Rei40Result" WHERE "ParticipantGuid" = ${participant.Guid} LIMIT 1`;
     const bigfiveRows = await sql`SELECT "CompletedAt" FROM "BigFiveResult" WHERE "ParticipantGuid" = ${participant.Guid} LIMIT 1`;
+    const demographicRows = await sql`SELECT "CompletedAt" FROM "DemographicResponse" WHERE "ParticipantGuid" = ${participant.Guid} LIMIT 1`;
     const sessionRows = await sql`
       SELECT ps."SessionId", ps."SequenceOrder", ps."IsFinished", ps."FinishedAt", ps."ExperimentalSessionId",
              es."SessionDate", es."Label" AS "ExperimentalSessionLabel", ps."ScheduledTime",
@@ -413,6 +414,18 @@ router.get('/:participantId/overview', async (req, res) => {
       ORDER BY ps."SequenceOrder" NULLS LAST, ps."SessionId"
     `;
 
+    // When the instrument behind a link has already been filled out, its link no longer opens
+    // anything useful (the survey apps answer ALREADY_COMPLETED), so the Links table shows
+    // "completed" instead of a misleading "valid" — keyed by type, independent of whether a
+    // token row still exists. CODE_REVIEW spans several sessions and has its own Timeline, so
+    // it's deliberately not part of this.
+    const linkCompletions = {
+      CONSENT_ENTRY: participant.ConsentGivenAt ?? null,
+      REI40: rei40Rows[0]?.CompletedAt ?? null,
+      BIGFIVE: bigfiveRows[0]?.CompletedAt ?? null,
+      DEMOGRAPHIC: demographicRows[0]?.CompletedAt ?? null,
+    };
+
     const now = new Date();
     const links = tokenRows.map((t) => {
       const expired = new Date(t.ExpiresAt) < now;
@@ -421,7 +434,7 @@ router.get('/:participantId/overview', async (req, res) => {
         url: linkUrlFor(t.SurveyType, t.Token),
         createdAt: t.CreatedAt,
         expiresAt: t.ExpiresAt,
-        status: expired ? 'expired' : 'valid',
+        status: linkCompletions[t.SurveyType] ? 'completed' : expired ? 'expired' : 'valid',
       };
     });
 
@@ -505,6 +518,7 @@ router.get('/:participantId/overview', async (req, res) => {
       baselineDoneAt: participant.BaselineDoneAt ?? null,
       hasEmail: !!participant.Email,
       links,
+      linkCompletions,
       timeline,
       scheduling: {
         // dateOnly() avoids the documented local-timezone DATE round-trip shift (see that
@@ -589,6 +603,17 @@ router.post('/:participantId/links/:type', async (req, res) => {
         type === 'DEMOGRAPHIC' ? (r.UsesDemographics ?? false) : (r.UsesPsychTests ?? true);
       if (!applicable) {
         res.status(400).json({ error: 'NOT_APPLICABLE' });
+        return;
+      }
+    }
+
+    // A link to an already-filled-out questionnaire would only ever show "already completed" —
+    // refuse to mint one rather than hand the researcher a link that looks usable but isn't.
+    if (type === 'REI40' || type === 'BIGFIVE' || type === 'DEMOGRAPHIC') {
+      const resultTable = { REI40: 'Rei40Result', BIGFIVE: 'BigFiveResult', DEMOGRAPHIC: 'DemographicResponse' }[type];
+      const done = await sql.query(`SELECT 1 FROM "${resultTable}" WHERE "ParticipantGuid" = $1 LIMIT 1`, [participant.Guid]);
+      if (done.length > 0) {
+        res.status(409).json({ error: 'ALREADY_COMPLETED' });
         return;
       }
     }

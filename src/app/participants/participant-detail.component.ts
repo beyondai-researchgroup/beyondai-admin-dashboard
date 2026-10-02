@@ -118,6 +118,10 @@ export class ParticipantDetailComponent {
     })
   );
 
+  completedAt(overview: ParticipantOverview, type: LinkType): string | null {
+    return overview.linkCompletions?.[type] ?? null;
+  }
+
   findLink(links: ParticipantOverview['links'], type: LinkType) {
     return links.find((l) => l.type === type) ?? null;
   }

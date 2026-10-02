@@ -818,6 +818,8 @@
     "LINKS_NONE": "Nije generisan",
     "LINKS_VALID": "Važi",
     "LINKS_EXPIRED": "Istekao",
+    "LINKS_COMPLETED": "Popunjeno",
+    "LINKS_COMPLETED_AT": "Popunjeno {{date}}",
     "LINK_TYPE": {
       "CODE_REVIEW": "Code Review (lični link)",
       "CONSENT_ENTRY": "Obrazac pristanka",

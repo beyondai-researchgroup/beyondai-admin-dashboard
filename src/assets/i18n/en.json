@@ -818,6 +818,8 @@
     "LINKS_NONE": "Not generated",
     "LINKS_VALID": "Valid",
     "LINKS_EXPIRED": "Expired",
+    "LINKS_COMPLETED": "Completed",
+    "LINKS_COMPLETED_AT": "Completed {{date}}",
     "LINK_TYPE": {
       "CODE_REVIEW": "Code Review (personal link)",
       "CONSENT_ENTRY": "Consent form",

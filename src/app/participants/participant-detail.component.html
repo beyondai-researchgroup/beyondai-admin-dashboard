@@ -94,7 +94,9 @@
                 <tr>
                   <td>{{ 'PARTICIPANT_DETAIL.LINK_TYPE.' + type | translate }}</td>
                   <td>
-                    @if (!findLink(ov.links, type)) {
+                    @if (completedAt(ov, type)) {
+                      <span class="status-dot status-dot--done"></span> {{ 'PARTICIPANT_DETAIL.LINKS_COMPLETED' | translate }}
+                    } @else if (!findLink(ov.links, type)) {
                       <span class="status-dot"></span> {{ 'PARTICIPANT_DETAIL.LINKS_NONE' | translate }}
                     } @else if (findLink(ov.links, type)!.status === 'valid') {
                       <span class="status-dot status-dot--done"></span> {{ 'PARTICIPANT_DETAIL.LINKS_VALID' | translate }}
@@ -102,6 +104,10 @@
                       <span class="status-dot"></span> {{ 'PARTICIPANT_DETAIL.LINKS_EXPIRED' | translate }}
                     }
                   </td>
+                  @if (completedAt(ov, type); as doneAt) {
+                    <td>{{ 'PARTICIPANT_DETAIL.LINKS_COMPLETED_AT' | translate: { date: (doneAt | date: 'dd.MM.yyyy. HH:mm') } }}</td>
+                    <td class="links-actions"></td>
+                  } @else {
                   <td>{{ findLink(ov.links, type) ? (findLink(ov.links, type)!.expiresAt | date: 'dd.MM.yyyy. HH:mm') : '—' }}</td>
                   <td class="links-actions">
                     @if (findLink(ov.links, type); as link) {
@@ -119,6 +125,7 @@
                       }
                     </button>
                   </td>
+                  }
                 </tr>
               }
             </tbody>

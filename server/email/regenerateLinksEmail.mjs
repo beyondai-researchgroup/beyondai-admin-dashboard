@@ -23,7 +23,7 @@ const COPY = {
     demographicLabel: 'Demografski upitnik',
     buttonText: 'Otvori test',
     expiry:
-      'Napomena: linkovi važe 24 sata od trenutka slanja ovog mejla. Ako isteknu pre nego što ih popunite, javite se istraživaču kako bi Vam poslao nove.',
+      'Napomena: linkovi važe 7 dana od trenutka slanja ovog mejla. Ako isteknu pre nego što ih popunite, javite se istraživaču kako bi Vam poslao nove.',
     footer: 'Za sva pitanja, kontaktirajte nas na',
   },
   en: {
@@ -37,7 +37,7 @@ const COPY = {
     demographicLabel: 'Demographic questionnaire',
     buttonText: 'Open test',
     expiry:
-      "Note: these links are valid for 24 hours from when this email was sent. If they expire before you complete them, contact the researcher for new ones.",
+      "Note: these links are valid for 7 days from when this email was sent. If they expire before you complete them, contact the researcher for new ones.",
     footer: 'For any questions, contact us at',
   },
 };
