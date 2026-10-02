@@ -1,0 +1,170 @@
+<div class="card">
+  <h3 class="form-heading">{{ 'PR_CONFIG.ADD_HEADING' | translate }}</h3>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <div class="field-row">
+      <div class="field-group">
+        <label class="field-label" for="label">{{ 'PR_CONFIG.LABEL_LABEL' | translate }}</label>
+        <input id="label" type="text" class="text-input" formControlName="label" maxlength="40" [placeholder]="'PR_CONFIG.LABEL_PLACEHOLDER' | translate" />
+      </div>
+      <div class="field-group">
+        <div class="field-label-row">
+          <label class="field-label" for="owner">{{ 'PR_CONFIG.OWNER_LABEL' | translate }}</label>
+          <app-help-icon [title]="'PR_CONFIG.HELP_LINK_TITLE' | translate" [ariaLabel]="'PR_CONFIG.HELP_LINK_ARIA' | translate" [steps]="linkHelpSteps()"></app-help-icon>
+        </div>
+        <input id="owner" type="text" class="text-input" formControlName="owner" />
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="repo">{{ 'PR_CONFIG.REPO_LABEL' | translate }}</label>
+        <input id="repo" type="text" class="text-input" formControlName="repo" />
+      </div>
+      <div class="field-group">
+        <div class="field-label-row">
+          <label class="field-label" for="prNumber">{{ 'PR_CONFIG.PR_NUMBER_LABEL' | translate }}</label>
+          <app-help-icon [title]="'PR_CONFIG.HELP_PR_NUMBER_TITLE' | translate" [ariaLabel]="'PR_CONFIG.HELP_PR_NUMBER_ARIA' | translate" [steps]="prNumberHelpSteps()"></app-help-icon>
+        </div>
+        <input id="prNumber" type="number" class="text-input" formControlName="prNumber" min="1" />
+      </div>
+    </div>
+
+    <div class="field-group is-intro-field">
+      <label class="toggle-switch">
+        <input type="checkbox" formControlName="isIntro" />
+        <span class="toggle-track"></span>
+        <span class="toggle-label">{{ 'PR_CONFIG.IS_INTRO_LABEL' | translate }}</span>
+      </label>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label-row">
+        <label class="field-label" for="token">{{ 'PR_CONFIG.TOKEN_LABEL' | translate }}</label>
+        <app-help-icon
+          [title]="'PR_CONFIG.HELP_TOKEN_TITLE' | translate"
+          [ariaLabel]="'PR_CONFIG.HELP_TOKEN_ARIA' | translate"
+          [steps]="tokenHelpSteps()"
+          [note]="'PR_CONFIG.HELP_TOKEN_NOTE' | translate"
+        ></app-help-icon>
+      </div>
+      <input id="token" type="password" class="text-input" formControlName="token" autocomplete="new-password" [placeholder]="'PR_CONFIG.TOKEN_PLACEHOLDER' | translate" />
+      <span class="field-hint">{{ 'PR_CONFIG.TOKEN_HINT' | translate }}</span>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary form-submit" [disabled]="form.invalid || saving()">
+        @if (saving()) {
+          {{ 'PR_CONFIG.SUBMIT_SAVING' | translate }}
+        } @else {
+          {{ 'PR_CONFIG.SUBMIT' | translate }}
+        }
+      </button>
+    </div>
+
+    @if (saved()) {
+      <span class="field-success">{{ 'PR_CONFIG.SAVED' | translate }}</span>
+    }
+    @if (saveError()) {
+      <span class="field-error">{{ 'PR_CONFIG.ERROR' | translate }}</span>
+    }
+  </form>
+</div>
+
+<h3 class="raw-heading">{{ 'PR_CONFIG.LIST_HEADING' | translate }}</h3>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (error()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else if (!configs().length) {
+  <div class="empty-state">{{ 'PR_CONFIG.EMPTY' | translate }}</div>
+} @else {
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ 'PR_CONFIG.LABEL_LABEL' | translate }}</th>
+          <th>{{ 'PR_CONFIG.OWNER_LABEL' | translate }}</th>
+          <th>{{ 'PR_CONFIG.REPO_LABEL' | translate }}</th>
+          <th>{{ 'PR_CONFIG.PR_NUMBER_LABEL' | translate }}</th>
+          <th>{{ 'PR_CONFIG.TOKEN_LABEL' | translate }}</th>
+          <th>{{ 'PR_CONFIG.ADDED_LABEL' | translate }}</th>
+          <th>{{ 'PR_CONFIG.INTRO_COL' | translate }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of configs(); track c.id) {
+          <tr>
+            <td>
+              @if (editingLabelId() === c.id) {
+                <div class="label-edit-row">
+                  <input
+                    type="text"
+                    class="text-input label-edit-input"
+                    maxlength="40"
+                    [value]="labelDraft()"
+                    (input)="labelDraft.set($any($event.target).value)"
+                    (keydown.enter)="saveLabel(c.id)"
+                    (keydown.escape)="cancelEditLabel()"
+                  />
+                  <button type="button" class="btn-ghost row-action" [disabled]="labelSaving()" (click)="saveLabel(c.id)">
+                    {{ 'PR_CONFIG.LABEL_SAVE' | translate }}
+                  </button>
+                  <button type="button" class="btn-ghost row-action" (click)="cancelEditLabel()">
+                    {{ 'PR_CONFIG.LABEL_CANCEL' | translate }}
+                  </button>
+                </div>
+                @if (labelError()) {
+                  <span class="field-error">{{ 'PR_CONFIG.LABEL_ERROR' | translate }}</span>
+                }
+              } @else {
+                <button type="button" class="btn-ghost label-display" (click)="startEditLabel(c)">
+                  {{ c.label }}
+                </button>
+              }
+            </td>
+            <td>{{ c.owner }}</td>
+            <td>{{ c.repo }}</td>
+            <td>#{{ c.prNumber }}</td>
+            <td>{{ c.tokenMasked }}</td>
+            <td>{{ c.createdAt | date: 'dd.MM.yyyy. HH:mm' }}</td>
+            <td>
+              @if (c.isIntro) {
+                <span class="status-dot status-dot--done"></span>{{ 'PR_CONFIG.INTRO_YES' | translate }}
+              } @else {
+                <button
+                  type="button"
+                  class="btn-ghost row-action"
+                  [disabled]="settingIntroId() === c.id"
+                  (click)="setAsIntro(c.id)"
+                >
+                  @if (settingIntroId() === c.id) {
+                    {{ 'PR_CONFIG.INTRO_SETTING' | translate }}
+                  } @else {
+                    {{ 'PR_CONFIG.INTRO_SET' | translate }}
+                  }
+                </button>
+              }
+            </td>
+            <td>
+              <button
+                type="button"
+                class="btn-ghost row-action row-action--danger"
+                [disabled]="deletingId() === c.id"
+                (click)="deleteConfig(c.id)"
+              >
+                @if (deletingId() === c.id) {
+                  {{ 'PR_CONFIG.DELETING' | translate }}
+                } @else {
+                  {{ 'PR_CONFIG.DELETE' | translate }}
+                }
+              </button>
+              @if (deleteError() === c.id) {
+                <div class="field-error">{{ 'PR_CONFIG.DELETE_ERROR_IN_USE' | translate }}</div>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

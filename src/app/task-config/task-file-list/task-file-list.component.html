@@ -1,0 +1,91 @@
+<div
+  class="task-file-dropzone"
+  [class.task-file-dropzone--active]="dragging()"
+  [class.task-file-dropzone--uploading]="uploading()"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
+>
+  <label class="btn-ghost task-file-upload-btn">
+    @if (uploading()) {
+      {{ 'TASK_FILES.UPLOADING' | translate }}
+    } @else {
+      {{ 'TASK_FILES.UPLOAD_BUTTON' | translate }}
+    }
+    <input
+      #fileInput
+      type="file"
+      multiple
+      hidden
+      [disabled]="uploading()"
+      [attr.accept]="csvOnly() ? '.csv' : null"
+      (change)="onFilesSelected($event)"
+    />
+  </label>
+  <span class="task-file-dropzone__hint">
+    {{ (csvOnly() ? 'TASK_FILES.DROPZONE_HINT_CSV' : 'TASK_FILES.DROPZONE_HINT') | translate }}
+  </span>
+</div>
+
+@if (uploadError()) {
+  <div class="field-error upload-error">
+    @if (uploadRejections().length) {
+      <ul class="upload-error__list">
+        @for (rej of uploadRejections(); track rej.filename) {
+          <li>
+            <strong>{{ rej.filename }}</strong> -
+            @switch (rej.reason) {
+              @case ('NOT_CSV') { {{ 'TASK_FILES.REJECT_NOT_CSV' | translate }} }
+              @case ('FORM_MISMATCH') { {{ 'TASK_FILES.REJECT_FORM_MISMATCH' | translate: { matched: rej.matched, total: rej.total } }} }
+              @case ('CSV_PARSE_ERROR') { {{ 'TASK_FILES.REJECT_CSV_PARSE_ERROR' | translate }} }
+              @default { {{ 'TASK_FILES.UPLOAD_ERROR' | translate }} }
+            }
+          </li>
+        }
+      </ul>
+    } @else {
+      {{ 'TASK_FILES.UPLOAD_ERROR' | translate }}
+    }
+  </div>
+}
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else if (!files().length) {
+  <div class="empty-state">{{ 'TASK_FILES.EMPTY' | translate }}</div>
+} @else {
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ 'TASK_FILES.FILENAME_LABEL' | translate }}</th>
+          <th>{{ 'TASK_FILES.SIZE_LABEL' | translate }}</th>
+          <th>{{ 'TASK_FILES.UPLOADED_LABEL' | translate }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (f of files(); track f.id) {
+          <tr>
+            <td>{{ f.originalFilename }}</td>
+            <td>{{ formatSize(f.fileSizeBytes) }}</td>
+            <td>{{ f.uploadedAt | date: 'dd.MM.yyyy. HH:mm' }}</td>
+            <td>
+              <button type="button" class="btn-ghost row-action" (click)="download(f)">{{ 'TASK_FILES.DOWNLOAD' | translate }}</button>
+              <button
+                type="button"
+                class="btn-ghost row-action delete-file-btn"
+                [disabled]="deletingId() === f.id"
+                (click)="remove(f)"
+              >
+                {{ 'TASK_FILES.DELETE' | translate }}
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

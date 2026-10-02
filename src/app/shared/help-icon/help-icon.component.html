@@ -1,0 +1,39 @@
+<button
+  type="button"
+  class="help-icon-btn"
+  [attr.aria-label]="ariaLabel() || title()"
+  (click)="open.set(true)"
+>?</button>
+
+@if (open()) {
+  <div class="help-modal-backdrop" (click)="open.set(false)">
+    <div class="help-modal" (click)="$event.stopPropagation()">
+      <button class="help-modal__close" type="button" (click)="open.set(false)" [attr.aria-label]="'COMMON.CLOSE' | translate">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <div class="help-modal__title">{{ title() }}</div>
+
+      <div class="help-modal__intro">
+        <ng-content></ng-content>
+      </div>
+
+      @if (steps(); as stepList) {
+        @if (stepList.length) {
+          <ol class="help-modal__steps">
+            @for (step of stepList; track $index) {
+              <li class="help-modal__step">
+                <span class="help-modal__step-num">{{ $index + 1 }}</span>
+                <span class="help-modal__step-text">{{ step }}</span>
+              </li>
+            }
+          </ol>
+        }
+      }
+
+      @if (note()) {
+        <div class="help-modal__note">{{ note() }}</div>
+      }
+    </div>
+  </div>
+}

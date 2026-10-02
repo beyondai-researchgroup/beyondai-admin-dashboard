@@ -1,0 +1,24 @@
+# Local Postgres for "developer mode" (see docs/local-dev-database.md). Mirrors the shared Neon
+# project's schema+data for offline/quota-free local testing of admin-dashboard-andrejkatin and
+# consent-andrejkatin — production (npm run serve:api, .env, DATABASE_URL) is completely
+# untouched by this; it only exists for npm run serve:api:local (DB_MODE=local, .env.local).
+#
+# Port 5433 (not the default 5432) to avoid colliding with any other local Postgres already on
+# the machine. postgres:18 to match the real Neon project's server version (pg_dump refuses to
+# dump from a newer server than its own major version, confirmed live 2026-09-08).
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: beyondai_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      # postgres:18's image switched to storing data under /var/lib/postgresql (a
+      # major-version-specific subdirectory beneath it), not .../data — a bare .../data mount
+      # trips its own startup guard (confirmed live 2026-09-08). Mount the parent instead.
+      - beyondai_local_pg:/var/lib/postgresql
+volumes:
+  beyondai_local_pg:

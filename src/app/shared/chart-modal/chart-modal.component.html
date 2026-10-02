@@ -1,0 +1,16 @@
+<div class="chart-modal-backdrop" (click)="onBackdropClick()">
+  <div class="chart-modal" (click)="$event.stopPropagation()">
+    <button class="chart-modal__close" type="button" (click)="closed.emit()" aria-label="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div class="chart-modal__title">{{ title() }}</div>
+    @if (subtitle()) {
+      <p class="chart-modal__subtitle">{{ subtitle() }}</p>
+    }
+
+    <div class="chart-modal__canvas-wrap">
+      <app-bar-chart [labels]="labels()" [datasets]="datasets()"></app-bar-chart>
+    </div>
+  </div>
+</div>

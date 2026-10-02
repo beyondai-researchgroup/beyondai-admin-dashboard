@@ -1,0 +1,468 @@
+<a class="back-link" routerLink="/participants">← {{ 'PARTICIPANT_DETAIL.BACK' | translate }}</a>
+
+@if (participant(); as p) {
+  <div class="page-header">
+    <h2>{{ 'PARTICIPANT_DETAIL.TITLE' | translate: { id: p.participantId } }}</h2>
+    @if (p.isTestParticipant) {
+      <span class="status-badge status-badge--test">{{ 'PARTICIPANTS.TEST_BADGE' | translate }}</span>
+    }
+  </div>
+
+  @if (overview(); as ov) {
+    <div class="detail-group">
+      <h2 class="detail-group__heading">{{ 'PARTICIPANT_DETAIL.TIMELINE_HEADING' | translate }}</h2>
+      <div class="detail-section">
+        <ol class="timeline">
+          @for (step of ov.timeline; track step.step) {
+            <li class="timeline__step" [class]="'timeline__step--' + step.status">
+              <span class="timeline__dot"></span>
+              <span class="timeline__label">{{ 'PARTICIPANT_DETAIL.TIMELINE_STEP.' + step.step | translate }}</span>
+              @if (step.status === 'done' && step.at) {
+                <span class="timeline__at">{{ step.at | date: 'dd.MM.yyyy. HH:mm' }}</span>
+              }
+              @if (step.status === 'current') {
+                <span class="timeline__now">{{ 'PARTICIPANT_DETAIL.TIMELINE_CURRENT' | translate }}</span>
+              }
+              @if (scheduledInfoFor(step.step, ov); as sched) {
+                <span class="timeline__scheduled">
+                  {{ 'PARTICIPANT_DETAIL.TIMELINE_SCHEDULED_FOR' | translate }}
+                  {{ sched.date | date: 'dd.MM.yyyy.' }}@if (sched.time) { {{ sched.time.slice(0, 5) }} }
+                  @if (sched.id) {
+                    <a class="timeline__session-link" [routerLink]="['/experimental-sessions', sched.id]">
+                      ({{ sched.label ?? ('PARTICIPANT_DETAIL.TIMELINE_OPEN_SESSION' | translate) }})
+                    </a>
+                  }
+                  @if (sched.googleCalendarEventUrl) {
+                    <a class="calendar-sync-badge" [href]="sched.googleCalendarEventUrl" target="_blank" rel="noopener" [title]="'EXPERIMENTAL_SESSIONS.CALENDAR_OPEN_LINK' | translate">📅</a>
+                  } @else if (sched.googleCalendarEventId) {
+                    <span class="calendar-sync-badge" [title]="'EXPERIMENTAL_SESSIONS.CALENDAR_SYNCED' | translate">📅</span>
+                  }
+                </span>
+              }
+              @if (step.step === 'experimentalSession1' && !ov.baselineDoneAt && (step.status === 'current' || step.status === 'pending')) {
+                <span class="timeline__blocked">{{ 'PARTICIPANT_DETAIL.TIMELINE_BASELINE_PENDING' | translate }}</span>
+              }
+            </li>
+          }
+        </ol>
+        <button type="button" class="btn-ghost" [disabled]="settingBaseline()" (click)="toggleBaseline()">
+          @if (ov.baselineDoneAt) {
+            {{ 'PARTICIPANT_DETAIL.BASELINE_CLEAR' | translate: { date: (ov.baselineDoneAt | date: 'dd.MM.yyyy. HH:mm') } }}
+          } @else {
+            {{ 'PARTICIPANT_DETAIL.BASELINE_MARK' | translate }}
+          }
+        </button>
+
+        @if (consentStep(ov); as cs) {
+          @if (cs.status !== 'skipped') {
+            <button type="button" class="btn-ghost" [disabled]="sendingConsentEmail()" (click)="sendConsentEmail()">
+              @if (sendingConsentEmail()) {
+                {{ 'PARTICIPANT_DETAIL.SEND_CONSENT_EMAIL_SENDING' | translate }}
+              } @else if (cs.status === 'done') {
+                {{ 'PARTICIPANT_DETAIL.SEND_CONSENT_EMAIL_RESEND' | translate }}
+              } @else {
+                {{ 'PARTICIPANT_DETAIL.SEND_CONSENT_EMAIL' | translate }}
+              }
+            </button>
+            @if (sendConsentEmailResult() === 'ok') {
+              <span class="field-success">{{ 'PARTICIPANT_DETAIL.SEND_CONSENT_EMAIL_OK' | translate }}</span>
+            }
+            @if (sendConsentEmailResult() === 'NO_EMAIL') {
+              <span class="field-error">{{ 'PARTICIPANT_DETAIL.SEND_CONSENT_EMAIL_NO_EMAIL' | translate }}</span>
+            }
+            @if (sendConsentEmailResult() === 'NOT_FOUND' || sendConsentEmailResult() === 'SERVER_ERROR' || sendConsentEmailResult() === 'CONSENT_NOT_USED') {
+              <span class="field-error">{{ 'PARTICIPANT_DETAIL.SEND_CONSENT_EMAIL_ERROR' | translate }}</span>
+            }
+          }
+        }
+      </div>
+
+      <div class="detail-section">
+        <h3 class="detail-section__heading">{{ 'PARTICIPANT_DETAIL.LINKS_HEADING' | translate }}</h3>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ 'PARTICIPANT_DETAIL.LINKS_TYPE' | translate }}</th>
+                <th>{{ 'PARTICIPANT_DETAIL.LINKS_STATUS' | translate }}</th>
+                <th>{{ 'PARTICIPANT_DETAIL.LINKS_EXPIRES' | translate }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (type of linkTypes(); track type) {
+                <tr>
+                  <td>{{ 'PARTICIPANT_DETAIL.LINK_TYPE.' + type | translate }}</td>
+                  <td>
+                    @if (!findLink(ov.links, type)) {
+                      <span class="status-dot"></span> {{ 'PARTICIPANT_DETAIL.LINKS_NONE' | translate }}
+                    } @else if (findLink(ov.links, type)!.status === 'valid') {
+                      <span class="status-dot status-dot--done"></span> {{ 'PARTICIPANT_DETAIL.LINKS_VALID' | translate }}
+                    } @else {
+                      <span class="status-dot"></span> {{ 'PARTICIPANT_DETAIL.LINKS_EXPIRED' | translate }}
+                    }
+                  </td>
+                  <td>{{ findLink(ov.links, type) ? (findLink(ov.links, type)!.expiresAt | date: 'dd.MM.yyyy. HH:mm') : '—' }}</td>
+                  <td class="links-actions">
+                    @if (findLink(ov.links, type); as link) {
+                      <button type="button" class="btn-ghost row-action" (click)="copyLink(link)">
+                        {{ (copiedLinkType() === type ? 'PARTICIPANT_DETAIL.LINK_COPIED' : 'PARTICIPANT_DETAIL.LINK_COPY') | translate }}
+                      </button>
+                    }
+                    <button type="button" class="btn-ghost row-action" [disabled]="generatingLinkType() === type" (click)="generateLink(type)">
+                      @if (generatingLinkType() === type) {
+                        {{ 'PARTICIPANT_DETAIL.LINK_GENERATING' | translate }}
+                      } @else if (findLink(ov.links, type)) {
+                        {{ 'PARTICIPANT_DETAIL.LINK_REGENERATE' | translate }}
+                      } @else {
+                        {{ 'PARTICIPANT_DETAIL.LINK_GENERATE' | translate }}
+                      }
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div class="detail-section">
+    <button type="button" class="btn-ghost" [disabled]="regenerating()" (click)="regenerateLinks()">
+      @if (regenerating()) {
+        {{ 'PARTICIPANT_DETAIL.REGENERATE_LINKS_SENDING' | translate }}
+      } @else {
+        {{ 'PARTICIPANT_DETAIL.REGENERATE_LINKS' | translate }}
+      }
+    </button>
+    @if (regenerateResult() === 'ok') {
+      <span class="field-success">{{ 'PARTICIPANT_DETAIL.REGENERATE_LINKS_OK' | translate }}</span>
+    }
+    @if (regenerateResult() === 'NOT_CONSENTED') {
+      <span class="field-error">{{ 'PARTICIPANT_DETAIL.REGENERATE_LINKS_NOT_CONSENTED' | translate }}</span>
+    }
+    @if (regenerateResult() === 'NO_EMAIL') {
+      <span class="field-error">{{ 'PARTICIPANT_DETAIL.REGENERATE_LINKS_NO_EMAIL' | translate }}</span>
+    }
+    @if (regenerateResult() === 'NO_LINKS_TO_ISSUE') {
+      <span class="field-error">{{ 'PARTICIPANT_DETAIL.REGENERATE_LINKS_NO_LINKS_TO_ISSUE' | translate }}</span>
+    }
+    @if (regenerateResult() === 'NOT_FOUND' || regenerateResult() === 'SERVER_ERROR') {
+      <span class="field-error">{{ 'PARTICIPANT_DETAIL.REGENERATE_LINKS_ERROR' | translate }}</span>
+    }
+  </div>
+
+  <div class="detail-group">
+    <h2 class="detail-group__heading">{{ 'PARTICIPANT_DETAIL.SESSIONS_GROUP_HEADING' | translate }}</h2>
+
+    <div class="detail-section">
+      <h3 class="detail-section__heading">{{ 'PARTICIPANT_DETAIL.SESSIONS_HEADING' | translate }}</h3>
+      <div class="session-badges">
+        @for (s of p.sessions; track s.sessionId) {
+          <span class="session-badge" [class.session-badge--done]="s.isFinished">
+            <span class="status-dot" [class.status-dot--done]="s.isFinished"></span>
+            {{ s.sessionName }}
+            @if (s.prNumber) {
+              <span class="session-badge__pr">PR #{{ s.prNumber }}</span>
+            }
+          </span>
+        }
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3 class="detail-section__heading">{{ 'PARTICIPANT_DETAIL.TLX_HEADING' | translate }}</h3>
+      @if (tlxRows().length) {
+        <div class="chart-card">
+          <div class="chart-card__canvas-wrap">
+            <app-bar-chart [labels]="tlxLabels()" [datasets]="tlxDatasets()"></app-bar-chart>
+          </div>
+        </div>
+        <app-raw-table
+          [columns]="tlxColumns"
+          [rows]="tlxRows()"
+          rowActionLabel="PARTICIPANT_DETAIL.VIEW_POST_SESSION"
+          (rowAction)="selectedPostSessionRow.set($event)"
+        ></app-raw-table>
+      } @else {
+        <p class="empty-state">{{ 'PARTICIPANT_DETAIL.NO_RESULT' | translate }}</p>
+      }
+    </div>
+
+    @if (showSurveySection()) {
+      <div class="detail-section">
+        <h3 class="detail-section__heading">{{ 'PARTICIPANT_DETAIL.SURVEY_HEADING' | translate }}</h3>
+        @if (surveyMatched()) {
+          <table class="answer-table survey-answer-table">
+            <tbody>
+              @for (a of surveyAnswers(); track a.columnKey) {
+                <tr>
+                  <td class="answer-table__text">{{ a.label }}</td>
+                  <td class="answer-table__value">{{ a.value || '-' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="empty-state">{{ 'PARTICIPANT_DETAIL.SURVEY_NOT_MATCHED' | translate }}</p>
+        }
+      </div>
+    }
+
+    @if (showActivityLogSection()) {
+      <div class="detail-section">
+        <h3 class="detail-section__heading">{{ 'PARTICIPANT_DETAIL.ACTIVITY_LOG_HEADING' | translate }}</h3>
+        <p class="field-hint">{{ 'PARTICIPANT_DETAIL.ACTIVITY_LOG_HINT' | translate }}</p>
+
+        <div class="segmented-control">
+          @for (s of activityLogSessions; track s.sessionId) {
+            <input
+              type="radio"
+              [id]="'activity-log-session-' + s.sessionId"
+              name="activity-log-session"
+              [checked]="selectedActivityLogSessionId() === s.sessionId"
+              (change)="selectActivityLog(s.sessionId)" />
+            <label [for]="'activity-log-session-' + s.sessionId">
+              {{ 'PARTICIPANT_DETAIL.ACTIVITY_LOG_SESSION.' + s.labelKey | translate }}
+            </label>
+          }
+        </div>
+
+        @if (activityLogLoading()) {
+          <app-loading-spinner></app-loading-spinner>
+        } @else {
+          @if (activityLog(); as log) {
+            <p class="eeg-meta">
+              {{ 'PARTICIPANT_DETAIL.ACTIVITY_LOG_METADATA' | translate: {
+                filename: log.originalFilename,
+                mode: log.reviewMode,
+                rows: log.rowCount,
+                date: (log.savedAt | date: 'dd.MM.yyyy. HH:mm')
+              } }}
+            </p>
+
+            <div class="eeg-actions">
+              <button type="button" class="btn-ghost" [disabled]="activityLogDownloading()" (click)="downloadActivityLog()">
+                {{ activityLogDownloading() ? ('COMMON.LOADING' | translate) : ('PARTICIPANT_DETAIL.ACTIVITY_LOG_DOWNLOAD' | translate) }}
+              </button>
+            </div>
+
+            <app-raw-table [columns]="activityLogColumns()" [rows]="log.rows"></app-raw-table>
+          } @else {
+            <p class="empty-state">{{ 'PARTICIPANT_DETAIL.ACTIVITY_LOG_NO_LOG' | translate }}</p>
+          }
+        }
+      </div>
+    }
+
+    @if (usesEeg()) {
+      <div class="detail-section">
+        <h3 class="detail-section__heading">{{ 'PARTICIPANT_DETAIL.EEG_HEADING' | translate }}</h3>
+
+        @if (eegMeta(); as meta) {
+          @if (meta.exists) {
+            <p class="eeg-meta">
+              {{ 'PARTICIPANT_DETAIL.EEG_METADATA' | translate: {
+                filename: meta.originalFilename,
+                device: meta.deviceType || '-',
+                rows: meta.rowCount,
+                columns: meta.columns?.length,
+                date: (meta.uploadedAt | date: 'dd.MM.yyyy. HH:mm')
+              } }}
+            </p>
+            @if (eegOverallSignalQuality(); as quality) {
+              <p class="eeg-meta">
+                {{ 'PARTICIPANT_DETAIL.EEG_SIGNAL_QUALITY_OVERALL' | translate: { quality: (quality | number: '1.0-0') } }}
+              </p>
+            }
+
+            <div class="eeg-actions">
+              <button type="button" class="btn-ghost" (click)="downloadEeg()">{{ 'PARTICIPANT_DETAIL.EEG_DOWNLOAD' | translate }}</button>
+              <label class="btn-ghost file-input-label">
+                {{ eegUploading() ? ('COMMON.LOADING' | translate) : ('PARTICIPANT_DETAIL.EEG_REPLACE' | translate) }}
+                <input type="file" accept=".csv" (change)="onEegFileSelected($event)" [disabled]="eegUploading()" />
+              </label>
+            </div>
+
+            @if (!eegIsInsight5()) {
+              <p class="field-hint">{{ 'PARTICIPANT_DETAIL.EEG_OTHER_DEVICE_HINT' | translate }}</p>
+            } @else {
+              @if (eegInterpretation(); as interp) {
+                @if (interp.recognized) {
+                <h4 class="eeg-subheading">{{ 'PARTICIPANT_DETAIL.EEG_INDEX_HEADING' | translate }}</h4>
+                <div class="chart-card">
+                  <div class="chart-card__canvas-wrap">
+                    <app-line-chart [labels]="eegIndexLabels()" [datasets]="eegIndexDatasets()"></app-line-chart>
+                  </div>
+                </div>
+
+                @if (eegSegments().length) {
+                  <h4 class="eeg-subheading">{{ 'PARTICIPANT_DETAIL.EEG_SEGMENT_COMPARISON_HEADING' | translate }}</h4>
+                  <div class="eeg-segment-grid">
+                    <div class="chart-card chart-card--small">
+                      <div class="chart-card__title">{{ 'PARTICIPANT_DETAIL.EEG_INDEX.ENGAGEMENT' | translate }}</div>
+                      <div class="chart-card__canvas-wrap chart-card__canvas-wrap--small">
+                        <app-bar-chart [labels]="eegSegmentLabels()" [datasets]="eegEngagementBarDatasets()"></app-bar-chart>
+                      </div>
+                    </div>
+                    <div class="chart-card chart-card--small">
+                      <div class="chart-card__title">{{ 'PARTICIPANT_DETAIL.EEG_INDEX.COGNITIVE_LOAD' | translate }}</div>
+                      <div class="chart-card__canvas-wrap chart-card__canvas-wrap--small">
+                        <app-bar-chart [labels]="eegSegmentLabels()" [datasets]="eegCognitiveLoadBarDatasets()"></app-bar-chart>
+                      </div>
+                    </div>
+                    <div class="chart-card chart-card--small">
+                      <div class="chart-card__title">{{ 'PARTICIPANT_DETAIL.EEG_INDEX.FRONTAL_ASYMMETRY' | translate }}</div>
+                      <div class="chart-card__canvas-wrap chart-card__canvas-wrap--small">
+                        <app-bar-chart [labels]="eegSegmentLabels()" [datasets]="eegFrontalAsymmetryBarDatasets()"></app-bar-chart>
+                      </div>
+                    </div>
+                    <div class="chart-card chart-card--small">
+                      <div class="chart-card__title">{{ 'PARTICIPANT_DETAIL.EEG_SIGNAL_QUALITY_HEADING' | translate }}</div>
+                      <ul class="eeg-signal-quality-list">
+                        @for (s of eegSegments(); track $index) {
+                          <li>
+                            <span class="eeg-signal-quality-list__label">{{ eegSegmentLabels()[$index] }}</span>
+                            <span class="eeg-signal-quality-list__value">
+                              {{ s.avgSignalQuality !== null ? (s.avgSignalQuality | number: '1.0-0') + '%' : '-' }}
+                            </span>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  </div>
+                }
+
+                @if (eegMarkers().length) {
+                  <h4 class="eeg-subheading">{{ 'PARTICIPANT_DETAIL.EEG_MARKERS_HEADING' | translate }}</h4>
+                  <ul class="eeg-marker-list">
+                    @for (m of eegMarkers(); track $index) {
+                      <li><span class="eeg-marker-list__code">{{ m.code }}</span> {{ m.timestamp }}</li>
+                    }
+                  </ul>
+                }
+
+                <h4 class="eeg-subheading">{{ 'PARTICIPANT_DETAIL.EEG_BANDS_HEADING' | translate }}</h4>
+                <!-- 5 small multiples, each with its own Y-axis - band magnitudes differ enough
+                     by nature (theta/alpha typically much larger than gamma) that overlaying them
+                     on one shared axis flattened the smaller bands to a near-invisible line. -->
+                <div class="eeg-segment-grid">
+                  <div class="chart-card chart-card--small">
+                    <div class="chart-card__title">{{ 'PARTICIPANT_DETAIL.EEG_BAND.THETA' | translate }}</div>
+                    <div class="chart-card__canvas-wrap chart-card__canvas-wrap--small">
+                      <app-line-chart [labels]="eegIndexLabels()" [datasets]="eegThetaDataset()"></app-line-chart>
+                    </div>
+                  </div>
+                  <div class="chart-card chart-card--small">
+                    <div class="chart-card__title">{{ 'PARTICIPANT_DETAIL.EEG_BAND.ALPHA' | translate }}</div>
+                    <div class="chart-card__canvas-wrap chart-card__canvas-wrap--small">
+                      <app-line-chart [labels]="eegIndexLabels()" [datasets]="eegAlphaDataset()"></app-line-chart>
+                    </div>
+                  </div>
+                  <div class="chart-card chart-card--small">
+                    <div class="chart-card__title">{{ 'PARTICIPANT_DETAIL.EEG_BAND.BETA_L' | translate }}</div>
+                    <div class="chart-card__canvas-wrap chart-card__canvas-wrap--small">
+                      <app-line-chart [labels]="eegIndexLabels()" [datasets]="eegBetaLDataset()"></app-line-chart>
+                    </div>
+                  </div>
+                  <div class="chart-card chart-card--small">
+                    <div class="chart-card__title">{{ 'PARTICIPANT_DETAIL.EEG_BAND.BETA_H' | translate }}</div>
+                    <div class="chart-card__canvas-wrap chart-card__canvas-wrap--small">
+                      <app-line-chart [labels]="eegIndexLabels()" [datasets]="eegBetaHDataset()"></app-line-chart>
+                    </div>
+                  </div>
+                  <div class="chart-card chart-card--small">
+                    <div class="chart-card__title">{{ 'PARTICIPANT_DETAIL.EEG_BAND.GAMMA' | translate }}</div>
+                    <div class="chart-card__canvas-wrap chart-card__canvas-wrap--small">
+                      <app-line-chart [labels]="eegIndexLabels()" [datasets]="eegGammaDataset()"></app-line-chart>
+                    </div>
+                  </div>
+                </div>
+              } @else {
+                <p class="field-hint field-hint--locked">{{ 'PARTICIPANT_DETAIL.EEG_FORMAT_MISMATCH_HINT' | translate }}</p>
+              }
+            }
+          }
+          } @else {
+            <p class="empty-state">{{ 'PARTICIPANT_DETAIL.EEG_NO_RECORDING' | translate }}</p>
+            <label class="btn-primary file-input-label">
+              {{ eegUploading() ? ('COMMON.LOADING' | translate) : ('PARTICIPANT_DETAIL.EEG_UPLOAD' | translate) }}
+              <input type="file" accept=".csv" (change)="onEegFileSelected($event)" [disabled]="eegUploading()" />
+            </label>
+          }
+        }
+
+        @if (eegFormatError()) {
+          <p class="field-error">{{ 'PARTICIPANT_DETAIL.EEG_UPLOAD_FORMAT_ERROR' | translate }}</p>
+        } @else if (eegError()) {
+          <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="detail-group">
+    <h2 class="detail-group__heading">{{ 'PARTICIPANT_DETAIL.ONETIME_GROUP_HEADING' | translate }}</h2>
+
+    <div class="detail-section">
+      <h3 class="detail-section__heading">{{ 'PARTICIPANT_DETAIL.REI40_HEADING' | translate }}</h3>
+      @if (rei40Rows().length) {
+        <div class="chart-card">
+          <div class="chart-card__canvas-wrap">
+            <app-bar-chart [labels]="rei40Labels()" [datasets]="rei40Datasets()"></app-bar-chart>
+          </div>
+        </div>
+        <app-raw-table
+          [columns]="rei40Columns"
+          [rows]="rei40Rows()"
+          rowActionLabel="RESULTS.VIEW_ANSWERS"
+          (rowAction)="selectedAnswerRow.set({ instrument: 'rei40', row: $event })"
+        ></app-raw-table>
+      } @else {
+        <p class="empty-state">{{ 'PARTICIPANT_DETAIL.NO_RESULT' | translate }}</p>
+      }
+    </div>
+
+    <div class="detail-section">
+      <h3 class="detail-section__heading">{{ 'PARTICIPANT_DETAIL.BIGFIVE_HEADING' | translate }}</h3>
+      @if (bigfiveRows().length) {
+        <div class="chart-card">
+          <div class="chart-card__canvas-wrap">
+            <app-bar-chart [labels]="bigfiveLabels" [datasets]="bigfiveDatasets()"></app-bar-chart>
+          </div>
+        </div>
+        <app-raw-table
+          [columns]="bigfiveColumns"
+          [rows]="bigfiveRows()"
+          rowActionLabel="RESULTS.VIEW_ANSWERS"
+          (rowAction)="selectedAnswerRow.set({ instrument: 'bigfive', row: $event })"
+        ></app-raw-table>
+      } @else {
+        <p class="empty-state">{{ 'PARTICIPANT_DETAIL.NO_RESULT' | translate }}</p>
+      }
+    </div>
+  </div>
+} @else if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (notFound()) {
+  <p class="field-error">{{ 'PARTICIPANT_DETAIL.NOT_FOUND' | translate }}</p>
+}
+
+@if (selectedAnswerRow(); as sel) {
+  <app-answer-detail-modal
+    [instrument]="sel.instrument"
+    [participantId]="participantId"
+    [answers]="$any(sel.row['Answers'])"
+    [variant]="$any(sel.row['Variant'] ?? null)"
+    (close)="selectedAnswerRow.set(null)"
+  ></app-answer-detail-modal>
+}
+
+@if (selectedPostSessionRow(); as row) {
+  <app-post-session-answers-modal
+    [sessionId]="$any(row['DbSessionId'])"
+    [answers]="$any(row['PostSessionAnswers'] ?? null)"
+    (close)="selectedPostSessionRow.set(null)"
+  ></app-post-session-answers-modal>
+}

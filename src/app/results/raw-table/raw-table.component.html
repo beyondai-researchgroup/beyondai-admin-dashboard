@@ -1,0 +1,65 @@
+<div class="filter-bar">
+  <div class="filter-input-wrap">
+    <input
+      type="text"
+      class="text-input"
+      [placeholder]="'RESULTS.FILTER_PLACEHOLDER' | translate"
+      [value]="filterText()"
+      (input)="onFilterInput($any($event.target).value)"
+    />
+  </div>
+  <span class="filter-count">
+    {{ 'RESULTS.FILTER_COUNT' | translate: { shown: sortedRows().length, total: rows().length } }}
+  </span>
+</div>
+
+@if (!rows().length) {
+  <div class="empty-state">{{ 'RESULTS.NO_ROWS' | translate }}</div>
+} @else if (!sortedRows().length) {
+  <div class="empty-state">{{ 'RESULTS.NO_MATCHES' | translate }}</div>
+} @else {
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          @for (col of columns(); track col.key) {
+            <th class="sortable" (click)="toggleSort(col.key)">
+              <span class="th-inner">
+                {{ col.label }}
+                <span
+                  class="sort-arrow"
+                  [class.sort-arrow--active]="sortKey() === col.key"
+                >{{ sortKey() === col.key && sortDir() === 'desc' ? '▼' : '▲' }}</span>
+              </span>
+            </th>
+          }
+          @if (rowActionLabel()) {
+            <th></th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of sortedRows(); track $index) {
+          <tr>
+            @for (col of columns(); track col.key) {
+              <td>
+                @if (col.type === 'date' && row[col.key]) {
+                  {{ $any(row[col.key]) | date: dateFormat }}
+                } @else {
+                  {{ row[col.key] ?? '-' }}
+                }
+              </td>
+            }
+            @if (rowActionLabel(); as label) {
+              <td>
+                <button type="button" class="btn-ghost btn-ghost--small" (click)="rowAction.emit(row)">
+                  {{ label | translate }}
+                </button>
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

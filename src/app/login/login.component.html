@@ -1,0 +1,72 @@
+<div class="page-centered">
+  <div class="login-container">
+    <header class="login-header">
+      <h1 class="login-title">{{ 'LOGIN.TITLE' | translate }}</h1>
+      <p class="login-subtitle">{{ 'LOGIN.SUBTITLE' | translate }}</p>
+    </header>
+
+    <div class="card login-card">
+      <form [formGroup]="form" (ngSubmit)="submit()">
+
+        <div class="field-group">
+          <label class="field-label">{{ 'LOGIN.LANG_LABEL' | translate }}</label>
+          <div class="lang-toggle">
+            <button type="button" class="lang-toggle__btn" [class.lang-toggle__btn--active]="currentLang() === 'sr'" (click)="setLang('sr')">SR - Srpski</button>
+            <button type="button" class="lang-toggle__btn" [class.lang-toggle__btn--active]="currentLang() === 'en'" (click)="setLang('en')">EN - English</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="email">{{ 'LOGIN.EMAIL_LABEL' | translate }}</label>
+          <input
+            id="email"
+            type="email"
+            class="text-input"
+            formControlName="email"
+            [placeholder]="'LOGIN.EMAIL_PLACEHOLDER' | translate"
+            autocomplete="email"
+            [attr.aria-label]="'LOGIN.EMAIL_LABEL' | translate"
+            (input)="onInput()"
+          />
+          @if (form.controls.email.invalid && form.controls.email.touched) {
+            <span class="field-error">{{ 'LOGIN.EMAIL_ERROR' | translate }}</span>
+          }
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="password">{{ 'LOGIN.PASSWORD_LABEL' | translate }}</label>
+          <input
+            id="password"
+            type="password"
+            class="text-input"
+            formControlName="password"
+            [placeholder]="'LOGIN.PASSWORD_PLACEHOLDER' | translate"
+            autocomplete="current-password"
+            [attr.aria-label]="'LOGIN.PASSWORD_LABEL' | translate"
+            (input)="onInput()"
+          />
+          @if (form.controls.password.invalid && form.controls.password.touched) {
+            <span class="field-error">{{ 'LOGIN.PASSWORD_ERROR' | translate }}</span>
+          }
+        </div>
+
+        @if (loginFailed()) {
+          <span class="field-error">{{ 'LOGIN.LOGIN_FAILED' | translate }}</span>
+        }
+
+        <button
+          type="submit"
+          class="btn-primary"
+          [disabled]="form.invalid || isChecking()"
+        >
+          @if (isChecking()) {
+            {{ 'LOGIN.SUBMIT_CHECKING' | translate }}
+          } @else {
+            {{ 'LOGIN.SUBMIT' | translate }}
+          }
+        </button>
+
+      </form>
+    </div>
+  </div>
+</div>

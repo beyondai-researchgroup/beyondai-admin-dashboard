@@ -1,0 +1,29 @@
+:host {
+  display: block;
+}
+
+.r-editor-host {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  overflow: hidden;
+}
+
+// CodeMirror inserts its DOM imperatively (new EditorView(...)), not through Angular's own
+// template rendering, so its elements never carry the emulated-encapsulation content attribute a
+// plain nested selector here would require — ::ng-deep is the supported way to still scope
+// styles at these elements from this component's own stylesheet.
+.r-editor-host ::ng-deep .cm-editor {
+  font-family: 'Fira Code', Consolas, monospace;
+  font-size: 13px;
+  height: 320px;
+}
+
+.r-editor-host ::ng-deep .cm-scroller {
+  overflow: auto;
+}
+
+.r-editor-host ::ng-deep .cm-gutters {
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  border-right: 1px solid var(--color-border);
+}

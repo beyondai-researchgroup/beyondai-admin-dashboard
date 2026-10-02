@@ -1,0 +1,53 @@
+<div class="page-centered">
+  <div class="login-container">
+    <header class="login-header">
+      <h1 class="login-title">{{ 'ACCEPT_INVITE.TITLE' | translate }}</h1>
+      @if (email(); as e) {
+        <p class="login-subtitle">{{ e }}</p>
+      }
+    </header>
+
+    <div class="card login-card">
+      @if (resolving()) {
+        <app-loading-spinner></app-loading-spinner>
+      } @else if (resolveError() === 'NOT_FOUND') {
+        <p class="field-error">{{ 'ACCEPT_INVITE.ERROR_NOT_FOUND' | translate }}</p>
+      } @else if (resolveError() === 'EXPIRED') {
+        <p class="field-error">{{ 'ACCEPT_INVITE.ERROR_EXPIRED' | translate }}</p>
+      } @else if (resolveError() === 'ALREADY_USED') {
+        <p class="field-error">{{ 'ACCEPT_INVITE.ERROR_ALREADY_USED' | translate }}</p>
+        <button type="button" class="btn-primary" (click)="goToLogin()">{{ 'ACCEPT_INVITE.GO_TO_LOGIN' | translate }}</button>
+      } @else if (done()) {
+        <p class="field-success">{{ 'ACCEPT_INVITE.DONE_TEXT' | translate }}</p>
+        <button type="button" class="btn-primary" (click)="goToLogin()">{{ 'ACCEPT_INVITE.GO_TO_LOGIN' | translate }}</button>
+      } @else {
+        <p class="field-hint">{{ 'ACCEPT_INVITE.HINT' | translate }}</p>
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <div class="field-group">
+            <label class="field-label" for="newPassword">{{ 'PROFILE.NEW_PASSWORD_LABEL' | translate }}</label>
+            <input id="newPassword" type="password" class="text-input" formControlName="newPassword" autocomplete="new-password" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="confirmPassword">{{ 'PROFILE.CONFIRM_PASSWORD_LABEL' | translate }}</label>
+            <input id="confirmPassword" type="password" class="text-input" formControlName="confirmPassword" autocomplete="new-password" />
+          </div>
+
+          @if (submitError() === 'MISMATCH') {
+            <span class="field-error">{{ 'PROFILE.PASSWORD_MISMATCH' | translate }}</span>
+          }
+          @if (submitError() && submitError() !== 'MISMATCH') {
+            <span class="field-error">{{ 'ACCEPT_INVITE.ERROR_GENERIC' | translate }}</span>
+          }
+
+          <button type="submit" class="btn-primary" [disabled]="form.invalid || submitting()">
+            @if (submitting()) {
+              {{ 'RESEARCHERS.SUBMIT_SAVING' | translate }}
+            } @else {
+              {{ 'ACCEPT_INVITE.SUBMIT' | translate }}
+            }
+          </button>
+        </form>
+      }
+    </div>
+  </div>
+</div>

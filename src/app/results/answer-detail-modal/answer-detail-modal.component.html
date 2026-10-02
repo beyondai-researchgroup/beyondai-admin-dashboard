@@ -1,0 +1,38 @@
+<div class="chart-modal-backdrop" (click)="close.emit()">
+  <div class="chart-modal answer-modal" (click)="$event.stopPropagation()">
+    <button class="chart-modal__close" type="button" (click)="close.emit()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div class="chart-modal__title">{{ 'RESULTS.ANSWERS_TITLE' | translate }} - {{ participantId() }}</div>
+
+    @if (!answers()) {
+      <p class="empty-state">{{ 'RESULTS.ANSWERS_MISSING' | translate }}</p>
+    } @else if (itemsUnavailable()) {
+      <p class="empty-state">{{ 'RESULTS.ANSWERS_ITEMS_UNAVAILABLE' | translate: { variant: variant() } }}</p>
+    } @else {
+      <div class="answer-modal__body">
+        @for (group of groups(); track group.label) {
+          <div class="answer-group">
+            <h4 class="answer-group__heading">{{ group.label }}</h4>
+            <table class="answer-table">
+              <tbody>
+                @for (row of group.rows; track row.id) {
+                  <tr>
+                    <td class="answer-table__text">
+                      {{ row.text }}
+                      @if (row.reverse) {
+                        <span class="reverse-badge" [title]="'RESULTS.ANSWERS_REVERSE_HINT' | translate">R</span>
+                      }
+                    </td>
+                    <td class="answer-table__value">{{ row.value }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,29 @@
+<div class="results-header">
+  <h2>{{ title }}</h2>
+  <button class="btn-ghost" type="button" (click)="export()">{{ 'RESULTS.EXPORT_CSV' | translate }}</button>
+</div>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (error()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else {
+  <app-aggregate-summary [result]="aggregate()" [dimensions]="dimensions"></app-aggregate-summary>
+  <h3 class="raw-heading">{{ 'RESULTS.RAW_HEADING' | translate }}</h3>
+  <app-raw-table
+    [columns]="columns"
+    [rows]="rows()"
+    [rowActionLabel]="rowActionLabel"
+    (rowAction)="onRowAction($event)"
+  ></app-raw-table>
+}
+
+@if (selectedAnswerRow(); as row) {
+  <app-answer-detail-modal
+    [instrument]="instrument"
+    [participantId]="$any(row['ParticipantId'])"
+    [answers]="$any(row['Answers'])"
+    [variant]="$any(row['Variant'] ?? null)"
+    (close)="selectedAnswerRow.set(null)"
+  ></app-answer-detail-modal>
+}

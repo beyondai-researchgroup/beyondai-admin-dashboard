@@ -1,0 +1,7 @@
+// Same small red-outline treatment as task-file-list.component.scss's own .delete-file-btn /
+// configuration.component.scss's .instrument-row__delete — duplicated per this project's
+// established per-component styling convention rather than promoted to a global class.
+.delete-file-btn {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}

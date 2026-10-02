@@ -1,0 +1,69 @@
+.r-analysis-block {
+  margin-top: 24px;
+}
+
+.r-analysis-toggle {
+  width: auto;
+}
+
+.r-analysis-convention {
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+.r-analysis-upload-btn {
+  width: auto;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.status-dot--error {
+  background: var(--color-error);
+  box-shadow: 0 0 6px rgba(var(--color-error-rgb, 220, 38, 38), 0.5);
+}
+
+.r-analysis-row--selected {
+  background: var(--color-surface-alt);
+}
+
+.r-analysis-plots {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.r-analysis-plot {
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+}
+
+.r-analysis-results-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.r-analysis-results-text,
+.r-analysis-stderr {
+  margin: 0;
+  padding: 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.r-analysis-stderr {
+  color: var(--color-error);
+  margin-top: 12px;
+}

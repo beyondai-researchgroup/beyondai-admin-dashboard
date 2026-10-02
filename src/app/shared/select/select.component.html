@@ -1,0 +1,23 @@
+<div class="app-select" [class.app-select--open]="isOpen()" [class.app-select--disabled]="disabled()">
+  <button type="button" class="app-select__trigger" [disabled]="disabled()" (click)="toggle()">
+    <span class="app-select__value">{{ selectedLabel }}</span>
+    <svg class="app-select__chevron" width="10" height="6" viewBox="0 0 10 6" fill="none">
+      <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  @if (isOpen()) {
+    <div class="app-select__panel" role="listbox">
+      @for (opt of options(); track opt.value) {
+        <button
+          type="button"
+          class="app-select__option"
+          [class.app-select__option--selected]="isSelected(opt)"
+          role="option"
+          [attr.aria-selected]="isSelected(opt)"
+          (click)="select(opt)"
+        >{{ opt.label }}</button>
+      }
+    </div>
+  }
+</div>

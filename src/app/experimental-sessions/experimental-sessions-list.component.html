@@ -1,0 +1,88 @@
+<div class="page-header page-header--row">
+  <div>
+    <h2>{{ 'EXPERIMENTAL_SESSIONS.TITLE' | translate }}</h2>
+    <p>{{ 'EXPERIMENTAL_SESSIONS.HINT' | translate }}</p>
+  </div>
+  <button type="button" class="btn-primary new-session-btn" (click)="openCreateModal()">
+    <svg class="new-session-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19"/>
+      <line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    {{ 'EXPERIMENTAL_SESSIONS.NEW_BUTTON' | translate }}
+  </button>
+</div>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (error()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else if (!sessions().length) {
+  <div class="empty-state">{{ 'EXPERIMENTAL_SESSIONS.EMPTY' | translate }}</div>
+} @else {
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ 'EXPERIMENTAL_SESSIONS.DATE_LABEL' | translate }}</th>
+          <th>{{ 'EXPERIMENTAL_SESSIONS.LABEL_LABEL' | translate }}</th>
+          <th>{{ 'EXPERIMENTAL_SESSIONS.COL_COUNT' | translate }}</th>
+          <th>{{ 'EXPERIMENTAL_SESSIONS.NOTES_LABEL' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of sessions(); track s.id) {
+          <tr class="data-table__row--clickable" tabindex="0" role="button" (click)="openSession(s.id)" (keydown.enter)="openSession(s.id)">
+            <td>{{ s.sessionDate | date: dateFormat }}</td>
+            <td>{{ s.label ?? '-' }}</td>
+            <td>{{ s.participantSessionCount }}</td>
+            <td class="notes-preview">{{ s.notes ?? '-' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}
+
+@if (showCreateModal()) {
+  <div class="chart-modal-backdrop" (click)="closeCreateModal()">
+    <div class="chart-modal create-modal" (click)="$event.stopPropagation()">
+      <button class="chart-modal__close" type="button" (click)="closeCreateModal()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="chart-modal__title">{{ 'EXPERIMENTAL_SESSIONS.CREATE_MODAL_TITLE' | translate }}</div>
+
+      <form [formGroup]="form" (ngSubmit)="create()">
+        <div class="field-group">
+          <label class="field-label" for="sessionDate">{{ 'EXPERIMENTAL_SESSIONS.DATE_LABEL' | translate }} *</label>
+          <input id="sessionDate" type="date" class="text-input" formControlName="sessionDate" required />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="label">{{ 'EXPERIMENTAL_SESSIONS.LABEL_LABEL' | translate }}</label>
+          <input
+            id="label"
+            type="text"
+            class="text-input"
+            formControlName="label"
+            [placeholder]="'EXPERIMENTAL_SESSIONS.LABEL_PLACEHOLDER' | translate"
+          />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="notes">{{ 'EXPERIMENTAL_SESSIONS.NOTES_LABEL' | translate }}</label>
+          <textarea id="notes" class="text-input" rows="3" formControlName="notes"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary form-submit" [disabled]="creating() || !form.value.sessionDate">
+            @if (creating()) {
+              {{ 'EXPERIMENTAL_SESSIONS.CREATE_SAVING' | translate }}
+            } @else {
+              {{ 'EXPERIMENTAL_SESSIONS.CREATE' | translate }}
+            }
+          </button>
+          @if (createError()) {
+            <span class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</span>
+          }
+        </div>
+      </form>
+    </div>
+  </div>
+}

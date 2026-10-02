@@ -1,0 +1,215 @@
+.page-header--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+
+  h2 { margin-bottom: 0; }
+}
+
+.delete-session-btn {
+  flex-shrink: 0;
+  width: auto;
+  padding: 10px 18px;
+  font-size: 13px;
+  color: var(--color-error);
+  border-color: var(--color-error);
+
+  &:hover:not(:disabled) {
+    background: rgba(220, 38, 38, 0.08);
+  }
+}
+
+// Assign form: a fixed-column grid instead of flex-wrap. Two real bugs came from the flex
+// version: (1) global .field-group has `&:last-of-type { margin-bottom: 0; }` — meant for
+// vertically-stacked fields, but here the LAST field in the row (the button's wrapper, being the
+// last <div> child) is the one that matched :last-of-type, so it alone lost its 20px
+// margin-bottom while the three dropdowns kept theirs — with align-items: flex-end that 20px gap
+// showed up as the button sitting visibly lower than the others. (2) flex-wrap: wrap silently
+// split the row into an uneven 2+2 once the card got narrower than the combined min-widths,
+// dropping Time + the button to a second line. A grid with a bounded auto-sizing button column
+// avoids both: no wrap, no per-child margin surprises (margin-bottom: 0 applied uniformly below).
+.assign-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) minmax(140px, 220px) minmax(120px, 180px) auto;
+  align-items: end;
+  gap: 16px;
+
+  .field-group {
+    margin-bottom: 0;
+    min-width: 0;
+  }
+}
+
+.field-label--spacer {
+  visibility: hidden;
+}
+
+// Card spacing: .card has no margin of its own (relies on whatever precedes it), and nothing
+// sat between the participant-sessions table and this card — added explicitly rather than
+// relying on an adjacent heading's margin, since this card follows the table directly with none.
+.assign-card {
+  margin-top: 28px;
+}
+
+.calendar-sync-badge {
+  margin-left: 4px;
+  font-size: 11px;
+  opacity: 0.85;
+  text-decoration: none;
+}
+
+span.calendar-sync-badge { cursor: default; }
+a.calendar-sync-badge { cursor: pointer; }
+
+.participant-link {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 600;
+
+  &:hover { text-decoration: underline; }
+}
+
+.tags-cell {
+  position: relative;
+  min-width: 200px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+
+  &--positive {
+    background: rgba(var(--color-accent-rgb), 0.14);
+    color: var(--color-accent);
+    border-color: rgba(var(--color-accent-rgb), 0.3);
+  }
+
+  &--negative {
+    background: rgba(220, 38, 38, 0.12);
+    color: var(--color-error);
+    border-color: rgba(220, 38, 38, 0.28);
+  }
+
+  &--neutral {
+    background: var(--color-surface-alt);
+    color: var(--color-text-secondary);
+    border-color: var(--color-border-strong);
+  }
+}
+
+.tag-chip__remove {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 1px;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+
+  &:hover { opacity: 1; }
+}
+
+.tag-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px dashed var(--color-border-strong);
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+}
+
+.tag-picker {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  min-width: 220px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-input);
+  box-shadow: var(--shadow-elevated);
+}
+
+.tag-picker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.tag-picker__title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+
+.tag-picker__close {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+
+  &:hover { color: var(--color-text-secondary); }
+}
+
+.tag-picker__option {
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { filter: brightness(1.1); }
+}
+
+.tag-picker__custom {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+
+  .text-input {
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 12.5px;
+  }
+}

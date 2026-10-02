@@ -1,0 +1,125 @@
+.question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.question-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+
+  &.cdk-drag-preview {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  &.cdk-drag-placeholder {
+    opacity: 0.3;
+  }
+}
+
+.question-drag-handle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding-top: 8px;
+  color: var(--color-muted);
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.question-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.remove-question-btn {
+  flex-shrink: 0;
+  width: auto;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.add-question-btn {
+  width: auto;
+  margin-bottom: 24px;
+}
+
+// Nested, independently-reorderable option list within a SINGLE_CHOICE question card — one
+// level deeper than the question list's own drag-reorder, same visual idiom scaled down.
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &.cdk-drag-preview {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    background: var(--color-surface);
+  }
+
+  &.cdk-drag-placeholder {
+    opacity: 0.3;
+  }
+}
+
+.option-drag-handle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--color-muted);
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.option-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.option-other-toggle {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.remove-option-btn {
+  flex-shrink: 0;
+  width: auto;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.add-option-btn {
+  width: auto;
+  margin-top: 8px;
+  font-size: 12.5px;
+  padding: 6px 14px;
+}

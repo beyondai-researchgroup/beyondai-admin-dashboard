@@ -1,0 +1,275 @@
+<div class="page-header">
+  <h2>{{ 'RESEARCHERS.TITLE' | translate }}</h2>
+  <p>{{ 'RESEARCHERS.HINT' | translate }}</p>
+</div>
+
+@if (!editingId()) {
+  <div class="segmented-control">
+    <input type="radio" id="mode-new" name="mode" [checked]="mode() === 'new'" (change)="mode.set('new')" />
+    <label for="mode-new">{{ 'RESEARCHERS.MODE_NEW' | translate }}</label>
+    <input type="radio" id="mode-existing" name="mode" [checked]="mode() === 'existing'" (change)="mode.set('existing')" />
+    <label for="mode-existing">{{ 'RESEARCHERS.MODE_EXISTING' | translate }}</label>
+  </div>
+}
+
+@if (editingId() || mode() === 'new') {
+  <div class="card">
+    <h3 class="form-heading">
+      {{ editingId() ? ('RESEARCHERS.EDIT_HEADING' | translate) : ('RESEARCHERS.ADD_HEADING' | translate) }}
+    </h3>
+    @if (!editingId()) {
+      <p class="field-hint">{{ 'RESEARCHERS.INVITE_HINT' | translate }}</p>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label" for="firstName">{{ 'RESEARCHERS.FIRST_NAME_LABEL' | translate }}</label>
+          <input id="firstName" type="text" class="text-input" formControlName="firstName" autocomplete="off" />
+          @if (form.controls.firstName.invalid && form.controls.firstName.touched) {
+            <span class="field-error">{{ 'RESEARCHERS.NAME_ERROR' | translate }}</span>
+          }
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="lastName">{{ 'RESEARCHERS.LAST_NAME_LABEL' | translate }}</label>
+          <input id="lastName" type="text" class="text-input" formControlName="lastName" autocomplete="off" />
+          @if (form.controls.lastName.invalid && form.controls.lastName.touched) {
+            <span class="field-error">{{ 'RESEARCHERS.NAME_ERROR' | translate }}</span>
+          }
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label" for="email">{{ 'RESEARCHERS.EMAIL_LABEL' | translate }}</label>
+          <input id="email" type="email" class="text-input" formControlName="email" autocomplete="off" />
+          @if (form.controls.email.invalid && form.controls.email.touched) {
+            <span class="field-error">{{ 'RESEARCHERS.EMAIL_ERROR' | translate }}</span>
+          }
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="dateOfBirth">{{ 'RESEARCHERS.DOB_LABEL' | translate }}</label>
+          <input id="dateOfBirth" type="date" class="text-input" formControlName="dateOfBirth" />
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">{{ 'RESEARCHERS.ACADEMIC_STATUS_LABEL' | translate }}</label>
+          <app-select
+            [options]="academicStatusOptions()"
+            [value]="form.controls.academicStatus.value"
+            (valueChange)="onAcademicStatusChange($event)"
+          ></app-select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">{{ 'RESEARCHERS.COUNTRY_LABEL' | translate }}</label>
+          <app-select
+            [options]="countryOptions"
+            [value]="form.controls.country.value"
+            (valueChange)="onCountryChange($event)"
+          ></app-select>
+        </div>
+      </div>
+
+      @if (editingId()) {
+        <div class="field-group">
+          <label class="field-label" for="newPassword">{{ 'RESEARCHERS.NEW_PASSWORD_LABEL' | translate }}</label>
+          <input id="newPassword" type="password" class="text-input" formControlName="newPassword" autocomplete="new-password" />
+          <span class="field-hint">{{ 'RESEARCHERS.NEW_PASSWORD_HINT' | translate }}</span>
+        </div>
+      } @else {
+        <p class="field-hint">{{ 'RESEARCHERS.NO_PASSWORD_HINT' | translate }}</p>
+      }
+
+      <div class="field-group">
+        <label class="toggle-switch">
+          <input type="checkbox" formControlName="isSuperAdmin" />
+          <span class="toggle-track"></span>
+          <span class="toggle-label">{{ 'RESEARCHERS.IS_SUPERADMIN_LABEL' | translate }}</span>
+        </label>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">{{ 'RESEARCHERS.RESEARCHES_LABEL' | translate }}</label>
+        @if (isSuperAdminSelected()) {
+          <span class="field-hint">{{ 'RESEARCHERS.RESEARCHES_HINT' | translate }}</span>
+        } @else {
+          <div class="chip-checkbox-list">
+            @for (r of researchesStore.researches(); track r.id) {
+              <span class="chip-checkbox-with-role">
+                <span class="chip-checkbox">
+                  <input
+                    type="checkbox"
+                    [id]="'research-chip-' + r.id"
+                    [checked]="isResearchChecked(r.id)"
+                    (change)="toggleResearch(r.id, $any($event.target).checked)"
+                  />
+                  <label [for]="'research-chip-' + r.id">{{ r.name }}</label>
+                </span>
+                @if (isResearchChecked(r.id)) {
+                  <app-select
+                    class="role-select"
+                    [options]="roleOptions()"
+                    [value]="roleFor(r.id)"
+                    (valueChange)="onRoleChange(r.id, $event)"
+                  ></app-select>
+                }
+              </span>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary form-submit" [disabled]="form.invalid || saving()">
+          @if (saving()) {
+            {{ 'RESEARCHERS.SUBMIT_SAVING' | translate }}
+          } @else if (editingId()) {
+            {{ 'RESEARCHERS.SUBMIT_EDIT' | translate }}
+          } @else {
+            {{ 'RESEARCHERS.SUBMIT_ADD' | translate }}
+          }
+        </button>
+        @if (editingId()) {
+          <button type="button" class="btn-ghost" (click)="cancelEdit()">{{ 'RESEARCHERS.CANCEL_EDIT' | translate }}</button>
+        }
+      </div>
+
+      @if (saved() && !inviteEmailFailed()) {
+        <span class="field-success">{{ editingId() ? ('RESEARCHERS.SAVED' | translate) : ('RESEARCHERS.INVITE_SENT' | translate) }}</span>
+      }
+      @if (saved() && inviteEmailFailed()) {
+        <span class="field-error">{{ 'RESEARCHERS.INVITE_EMAIL_FAILED' | translate }}</span>
+      }
+      @if (saved() && editingId() && newInvitesSent() > 0) {
+        <span class="field-success">{{ 'RESEARCHERS.NEW_INVITES_SENT' | translate: { n: newInvitesSent() } }}</span>
+      }
+      @if (error()) {
+        <span class="field-error">{{ error()! | translate }}</span>
+      }
+    </form>
+  </div>
+} @else {
+  <div class="card">
+    <h3 class="form-heading heading-with-help">
+      {{ 'RESEARCHERS.EXISTING_HEADING' | translate }}
+      <app-help-icon [title]="'RESEARCHERS.EXISTING_HEADING' | translate">
+        <p>{{ 'RESEARCHERS.EXISTING_HINT' | translate }}</p>
+      </app-help-icon>
+    </h3>
+
+    <div class="field-group">
+      <label class="field-label">{{ 'RESEARCHERS.PICK_RESEARCHER_LABEL' | translate }}</label>
+      <app-select
+        [options]="existingResearcherOptions()"
+        [value]="existingResearcherId()"
+        [placeholder]="'RESEARCHERS.PICK_RESEARCHER_PLACEHOLDER' | translate"
+        (valueChange)="onExistingResearcherChange($event)"
+      ></app-select>
+    </div>
+
+    @if (existingResearcherId() != null) {
+      <div class="field-group">
+        <label class="field-label">{{ 'RESEARCHERS.RESEARCHES_LABEL' | translate }}</label>
+        <div class="chip-checkbox-list">
+          @for (r of researchesStore.researches(); track r.id) {
+            <span class="chip-checkbox-with-role">
+              <span class="chip-checkbox">
+                <input
+                  type="checkbox"
+                  [id]="'existing-research-chip-' + r.id"
+                  [checked]="isExistingResearchChecked(r.id)"
+                  (change)="toggleExistingResearch(r.id, $any($event.target).checked)"
+                />
+                <label [for]="'existing-research-chip-' + r.id">{{ r.name }}</label>
+              </span>
+              @if (isExistingResearchChecked(r.id)) {
+                <app-select
+                  class="role-select"
+                  [options]="roleOptions()"
+                  [value]="existingRoleFor(r.id)"
+                  (valueChange)="onExistingRoleChange(r.id, $event)"
+                ></app-select>
+              }
+            </span>
+          }
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-primary form-submit" [disabled]="saving()" (click)="submitExisting()">
+          @if (saving()) {
+            {{ 'RESEARCHERS.SUBMIT_SAVING' | translate }}
+          } @else {
+            {{ 'RESEARCHERS.SUBMIT_ASSIGN' | translate }}
+          }
+        </button>
+      </div>
+
+      @if (saved() && newInvitesSent() === 0) {
+        <span class="field-success">{{ 'RESEARCHERS.SAVED' | translate }}</span>
+      }
+      @if (saved() && newInvitesSent() > 0) {
+        <span class="field-success">{{ 'RESEARCHERS.NEW_INVITES_SENT' | translate: { n: newInvitesSent() } }}</span>
+      }
+      @if (error()) {
+        <span class="field-error">{{ error()! | translate }}</span>
+      }
+    }
+  </div>
+}
+
+<h3 class="raw-heading">{{ 'RESEARCHERS.LIST_HEADING' | translate }}</h3>
+
+@if (deleteError()) {
+  <span class="field-error">{{ deleteError()! | translate }}</span>
+}
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (!researchers().length) {
+  <div class="empty-state">{{ 'RESEARCHERS.EMPTY' | translate }}</div>
+} @else {
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ 'RESEARCHERS.NAME_LABEL' | translate }}</th>
+          <th>{{ 'RESEARCHERS.EMAIL_LABEL' | translate }}</th>
+          <th>{{ 'RESEARCHERS.ROLE_LABEL' | translate }}</th>
+          <th>{{ 'RESEARCHERS.RESEARCHES_LABEL' | translate }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of researchers(); track r.id) {
+          <tr>
+            <td>
+              {{ fullName(r) }}
+              @if (r.mustChangePassword) {
+                <span class="field-hint">{{ 'RESEARCHERS.INVITE_PENDING' | translate }}</span>
+              }
+            </td>
+            <td>{{ r.email }}</td>
+            <td>
+              <span class="status-dot" [class.status-dot--done]="r.isSuperAdmin"></span>
+              {{ r.isSuperAdmin ? ('RESEARCHERS.ROLE_SUPERADMIN' | translate) : ('RESEARCHERS.ROLE_RESEARCHER' | translate) }}
+            </td>
+            <td>
+              @if (r.isSuperAdmin) {
+                {{ 'RESEARCHERS.NONE' | translate }}
+              } @else {
+                {{ researchNames(r) || ('RESEARCHERS.NONE' | translate) }}
+              }
+            </td>
+            <td>
+              <button type="button" class="btn-ghost row-action" (click)="startEdit(r)">{{ 'RESEARCHERS.EDIT' | translate }}</button>
+              <button type="button" class="btn-ghost row-action delete-researcher-btn" (click)="remove(r)">{{ 'RESEARCHERS.DELETE' | translate }}</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

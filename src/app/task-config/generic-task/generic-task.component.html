@@ -1,0 +1,261 @@
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else {
+  <div class="card">
+    <div class="field-group">
+      <label class="field-label" for="taskInstructions">{{ 'TASK_CONFIG.INSTRUCTIONS_LABEL' | translate }}</label>
+      <textarea
+        id="taskInstructions"
+        class="text-input textarea"
+        rows="5"
+        [ngModel]="taskInstructions()"
+        (ngModelChange)="taskInstructions.set($event)"
+        [placeholder]="'TASK_CONFIG.INSTRUCTIONS_PLACEHOLDER' | translate"
+      ></textarea>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn-primary form-submit" [disabled]="saving()" (click)="submit()">
+        @if (saving()) {
+          {{ 'TASK_CONFIG.SUBMIT_SAVING' | translate }}
+        } @else {
+          {{ 'TASK_CONFIG.SUBMIT' | translate }}
+        }
+      </button>
+      @if (saved()) {
+        <span class="field-success">{{ 'TASK_CONFIG.SAVED' | translate }}</span>
+      }
+      @if (saveError()) {
+        <span class="field-error">{{ 'TASK_CONFIG.DETAILS_ERROR' | translate }}</span>
+      }
+    </div>
+  </div>
+
+  @if (scope.selectedResearchId(); as researchId) {
+    <h3 class="raw-heading heading-with-help">
+      {{ 'TASK_CONFIG.GENERIC_FILES_HEADING' | translate }}
+      <app-help-icon [title]="'TASK_CONFIG.GENERIC_FILES_HEADING' | translate">
+        <p>{{ 'TASK_CONFIG.GENERIC_FILES_HINT' | translate }}</p>
+      </app-help-icon>
+    </h3>
+    <app-task-file-list [researchId]="researchId"></app-task-file-list>
+
+    <h3 class="raw-heading heading-with-help">
+      {{ 'TASK_CONFIG.GENERIC_TASKS_HEADING' | translate }}
+      <app-help-icon [title]="'TASK_CONFIG.GENERIC_TASKS_HEADING' | translate">
+        <p>{{ 'TASK_CONFIG.GENERIC_TASKS_HINT' | translate }}</p>
+      </app-help-icon>
+    </h3>
+
+    @if (tasksLoading()) {
+      <app-loading-spinner></app-loading-spinner>
+    } @else if (tasksLoadError()) {
+      <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+    } @else if (builderMode() === 'list') {
+      <div class="card">
+        @if (!tasks().length) {
+          <p class="field-hint">{{ 'TASK_CONFIG.GENERIC_TASKS_EMPTY' | translate }}</p>
+        } @else {
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>{{ 'TASK_CONFIG.GENERIC_TASK_TITLE_LABEL' | translate }}</th>
+                  <th>{{ 'TASK_CONFIG.GENERIC_TASK_CONTENT_LABEL' | translate }}</th>
+                  <th>{{ 'TASK_CONFIG.GENERIC_TASK_TIMER_LABEL' | translate }}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (task of tasks(); track task.id) {
+                  <tr>
+                    <td>{{ task.title }}</td>
+                    <td class="field-hint">
+                      @if (task.hasText) { {{ 'TASK_CONFIG.GENERIC_TASK_HAS_TEXT' | translate }} }
+                      @if (task.hasText && task.hasPdf) { , }
+                      @if (task.hasPdf) { {{ task.pdfFilename }} }
+                    </td>
+                    <td>{{ task.timerMinutes }} {{ 'TASK_CONFIG.GENERIC_TASK_MINUTES_SUFFIX' | translate }}</td>
+                    <td class="note-actions">
+                      @if (task.hasPdf) {
+                        <button type="button" class="btn-ghost row-action" (click)="downloadPdf(task)">{{ 'TASK_FILES.DOWNLOAD' | translate }}</button>
+                      }
+                      <button type="button" class="btn-ghost row-action" (click)="startEdit(task)">{{ 'TASK_CONFIG.GENERIC_TASK_EDIT' | translate }}</button>
+                      <button
+                        type="button"
+                        class="btn-ghost row-action delete-file-btn"
+                        [disabled]="deletingTaskId() === task.id"
+                        (click)="deleteTask(task)"
+                      >
+                        {{ 'TASK_CONFIG.GENERIC_TASK_DELETE' | translate }}
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+        <div class="form-actions">
+          <button type="button" class="btn-ghost" (click)="startCreate()">{{ 'TASK_CONFIG.GENERIC_TASK_ADD' | translate }}</button>
+        </div>
+      </div>
+    } @else {
+      <div class="card">
+        <div class="field-group">
+          <label class="field-label" for="genericTaskTitle">{{ 'TASK_CONFIG.GENERIC_TASK_TITLE_LABEL' | translate }}</label>
+          <input
+            id="genericTaskTitle"
+            type="text"
+            class="text-input"
+            maxlength="200"
+            [ngModel]="builderTitle()"
+            (ngModelChange)="builderTitle.set($event)"
+          />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="genericTaskInstructions">{{ 'TASK_CONFIG.INSTRUCTIONS_LABEL' | translate }}</label>
+          <textarea
+            id="genericTaskInstructions"
+            class="text-input textarea"
+            rows="4"
+            [ngModel]="builderInstructions()"
+            (ngModelChange)="builderInstructions.set($event)"
+          ></textarea>
+        </div>
+        <div class="field-group">
+          <label class="field-label">{{ 'TASK_CONFIG.GENERIC_TASK_PDF_LABEL' | translate }}</label>
+          @if (builderExistingPdfFilename() && !builderRemovePdf()) {
+            <p class="field-hint">
+              {{ builderExistingPdfFilename() }}
+              <button type="button" class="btn-ghost row-action" (click)="markRemovePdf()">{{ 'TASK_CONFIG.GENERIC_TASK_PDF_REMOVE' | translate }}</button>
+            </p>
+          }
+          <label class="btn-ghost">
+            {{ 'TASK_CONFIG.GENERIC_TASK_PDF_UPLOAD' | translate }}
+            <input type="file" hidden accept=".pdf" (change)="onPdfSelected($event)" />
+          </label>
+          @if (builderPdfFile(); as file) {
+            <p class="field-hint">{{ file.name }}</p>
+          }
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="genericTaskTimer">
+            {{ 'TASK_CONFIG.GENERIC_TASK_TIMER_LABEL' | translate }}
+            <app-help-icon [title]="'TASK_CONFIG.GENERIC_TASK_TIMER_LABEL' | translate">
+              <p>{{ 'TASK_CONFIG.GENERIC_TASK_TIMER_HINT' | translate }}</p>
+            </app-help-icon>
+          </label>
+          <input
+            id="genericTaskTimer"
+            type="number"
+            class="text-input"
+            min="1"
+            max="180"
+            [ngModel]="builderTimerMinutes()"
+            (ngModelChange)="builderTimerMinutes.set($event)"
+          />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">
+            {{ 'TASK_CONFIG.GENERIC_TASK_FILE_TYPES_LABEL' | translate }}
+            <app-help-icon [title]="'TASK_CONFIG.GENERIC_TASK_FILE_TYPES_LABEL' | translate">
+              <p>{{ 'TASK_CONFIG.GENERIC_TASK_FILE_TYPES_HINT' | translate }}</p>
+            </app-help-icon>
+          </label>
+          <div class="chip-checkbox-list">
+            @for (type of fileTypeOptions; track type) {
+              <label class="chip-checkbox">
+                <input
+                  type="checkbox"
+                  [checked]="builderAllowedFileTypes().includes(type)"
+                  (change)="toggleBuilderFileType(type)"
+                />
+                <span>{{ 'TASK_CONFIG.GENERIC_TASK_FILE_TYPE_' + type | translate }}</span>
+              </label>
+            }
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="toggle-switch">
+            <input
+              type="checkbox"
+              [ngModel]="builderAllowMultipleFiles()"
+              (ngModelChange)="builderAllowMultipleFiles.set($event)"
+            />
+            <span>{{ 'TASK_CONFIG.GENERIC_TASK_ALLOW_MULTIPLE_LABEL' | translate }}</span>
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-primary form-submit" [disabled]="builderSaving() || !builderTitle().trim()" (click)="saveTask()">
+            @if (builderSaving()) {
+              {{ 'TASK_CONFIG.SUBMIT_SAVING' | translate }}
+            } @else {
+              {{ 'TASK_CONFIG.SUBMIT' | translate }}
+            }
+          </button>
+          <button type="button" class="btn-ghost" [disabled]="builderSaving()" (click)="cancelBuilder()">{{ 'TASK_CONFIG.GENERIC_TASK_CANCEL' | translate }}</button>
+          @if (builderSaveError() === 'AT_LEAST_ONE_REQUIRED') {
+            <span class="field-error">{{ 'TASK_CONFIG.GENERIC_TASK_CONTENT_REQUIRED' | translate }}</span>
+          } @else if (builderSaveError() === 'INVALID_TIMER') {
+            <span class="field-error">{{ 'TASK_CONFIG.GENERIC_TASK_TIMER_INVALID' | translate }}</span>
+          } @else if (builderSaveError()) {
+            <span class="field-error">{{ 'TASK_CONFIG.DETAILS_ERROR' | translate }}</span>
+          }
+        </div>
+      </div>
+    }
+
+    <h3 class="raw-heading heading-with-help">
+      {{ 'TASK_CONFIG.GENERIC_ASSIGNMENT_HEADING' | translate }}
+      <app-help-icon [title]="'TASK_CONFIG.GENERIC_ASSIGNMENT_HEADING' | translate">
+        <p>{{ 'TASK_CONFIG.GENERIC_ASSIGNMENT_HINT' | translate }}</p>
+      </app-help-icon>
+    </h3>
+
+    @if (participantsLoading()) {
+      <app-loading-spinner></app-loading-spinner>
+    } @else if (participantsLoadError()) {
+      <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+    } @else if (!participants().length) {
+      <p class="field-hint">{{ 'TASK_CONFIG.GENERIC_ASSIGNMENT_EMPTY' | translate }}</p>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>{{ 'PARTICIPANTS.COL_ID' | translate }}</th>
+              <th>{{ 'TASK_CONFIG.GENERIC_ASSIGNMENT_NAME_LABEL' | translate }}</th>
+              <th>{{ 'TASK_CONFIG.GENERIC_ASSIGNMENT_TASK_LABEL' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of participants(); track p.participantId) {
+              <tr>
+                <td>{{ p.participantId }}</td>
+                <td>{{ p.firstName }} {{ p.lastName }}</td>
+                <td>
+                  <app-select
+                    [options]="taskOptions()"
+                    [value]="p.genericTaskId ?? 'none'"
+                    [disabled]="assignmentSavingId() === p.participantId"
+                    (valueChange)="onAssignmentChange(p.participantId, $event)"
+                  ></app-select>
+                  @if (assignmentErrorId() === p.participantId) {
+                    <span class="field-error">{{ 'TASK_CONFIG.DETAILS_ERROR' | translate }}</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+}

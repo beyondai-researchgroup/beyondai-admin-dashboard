@@ -1,0 +1,30 @@
+<div class="chart-modal-backdrop" (click)="close.emit()">
+  <div class="chart-modal answer-modal post-session-modal" (click)="$event.stopPropagation()">
+    <button class="chart-modal__close" type="button" (click)="close.emit()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div class="chart-modal__title">{{ 'POST_SESSION.MODAL_TITLE' | translate }}</div>
+
+    @if (!answers()) {
+      <p class="empty-state">{{ 'POST_SESSION.MODAL_MISSING' | translate }}</p>
+    } @else {
+      <div class="answer-modal__body">
+        @for (row of rows(); track row.key) {
+          <div class="post-session-row">
+            <div class="post-session-row__prompt">{{ row.prompt }}</div>
+            @if (row.low !== null) {
+              <div class="post-session-row__value post-session-row__value--likert">
+                <span class="post-session-row__anchor">{{ row.low }}</span>
+                <span class="post-session-row__likert-value">{{ row.value }}</span>
+                <span class="post-session-row__anchor post-session-row__anchor--right">{{ row.high }}</span>
+              </div>
+            } @else {
+              <div class="post-session-row__value post-session-row__value--text">{{ row.value }}</div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

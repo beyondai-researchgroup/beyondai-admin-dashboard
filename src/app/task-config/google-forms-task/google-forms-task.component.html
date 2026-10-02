@@ -1,0 +1,60 @@
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else {
+  <div class="card">
+    <div class="field-group">
+      <label class="field-label" for="googleFormsUrl">{{ 'TASK_CONFIG.GOOGLE_FORMS_URL_LABEL' | translate }}</label>
+      <input
+        id="googleFormsUrl"
+        type="url"
+        class="text-input"
+        [ngModel]="googleFormsUrl()"
+        (ngModelChange)="googleFormsUrl.set($event)"
+        [placeholder]="'TASK_CONFIG.GOOGLE_FORMS_URL_PLACEHOLDER' | translate"
+      />
+      <span class="field-hint">{{ 'TASK_CONFIG.GOOGLE_FORMS_URL_HINT' | translate }}</span>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn-primary form-submit" [disabled]="saving()" (click)="submit()">
+        @if (saving()) {
+          {{ 'TASK_CONFIG.SUBMIT_SAVING' | translate }}
+        } @else {
+          {{ 'TASK_CONFIG.SUBMIT' | translate }}
+        }
+      </button>
+      @if (saved()) {
+        <span class="field-success">{{ 'TASK_CONFIG.SAVED' | translate }}</span>
+      }
+      @if (saveError()) {
+        <span class="field-error">{{ 'TASK_CONFIG.DETAILS_ERROR' | translate }}</span>
+      }
+    </div>
+  </div>
+
+  @if (scope.selectedResearchId(); as researchId) {
+    <h3 class="raw-heading heading-with-help">
+      {{ 'TASK_CONFIG.GOOGLE_FORMS_FILES_HEADING' | translate }}
+      <app-help-icon [title]="'TASK_CONFIG.GOOGLE_FORMS_FILES_HEADING' | translate">
+        <p>{{ 'TASK_CONFIG.GOOGLE_FORMS_FILES_HINT' | translate }}</p>
+      </app-help-icon>
+    </h3>
+    <app-task-file-list [researchId]="researchId" [csvOnly]="true" (filesChange)="hasFiles.set($event.length > 0)"></app-task-file-list>
+
+    @if (hasSavedGoogleFormsUrl()) {
+      <app-form-structure [researchId]="researchId"></app-form-structure>
+    } @else {
+      <p class="field-hint">{{ 'TASK_CONFIG.FORM_STRUCTURE.NEEDS_URL_HINT' | translate }}</p>
+    }
+
+    @if (hasFiles()) {
+      <app-descriptive-stats [researchId]="researchId"></app-descriptive-stats>
+    } @else {
+      <p class="field-hint">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.NEEDS_FILE_HINT' | translate }}</p>
+    }
+
+    <app-r-analysis [researchId]="researchId"></app-r-analysis>
+  }
+}

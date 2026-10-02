@@ -1,0 +1,53 @@
+<div class="chart-modal-backdrop" (click)="close.emit()">
+  <div class="chart-modal question-modal" (click)="$event.stopPropagation()">
+    <button class="chart-modal__close" type="button" (click)="close.emit()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div class="chart-modal__title">
+      {{ column().label }}
+      @if (!column().mapped) {
+        <span class="unmapped-badge">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.UNMAPPED' | translate }}</span>
+      }
+    </div>
+    <p class="chart-modal__subtitle">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.TYPE_' + column().questionType | translate }}</p>
+
+    <div class="question-modal__stats">
+      <div class="stat-number">
+        <span class="stat-number__value">{{ column().count }}</span>
+        <span class="stat-number__label">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.COUNT_LABEL' | translate }}</span>
+      </div>
+      @if (hasStats()) {
+        <div class="stat-number">
+          <span class="stat-number__value">{{ column().mean | number: '1.0-2' }}</span>
+          <span class="stat-number__label">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.MEAN' | translate }}</span>
+        </div>
+        <div class="stat-number">
+          <span class="stat-number__value">{{ column().stddev | number: '1.0-2' }}</span>
+          <span class="stat-number__label">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.STDDEV' | translate }}</span>
+        </div>
+        <div class="stat-number">
+          <span class="stat-number__value">{{ column().min }}–{{ column().max }}</span>
+          <span class="stat-number__label">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.RANGE' | translate }}</span>
+        </div>
+      }
+    </div>
+
+    @if (hasChart()) {
+      <div class="question-modal__chart">
+        <app-bar-chart [labels]="chartLabels()" [datasets]="chartDatasets()"></app-bar-chart>
+      </div>
+    } @else if (column().sampleAnswers?.length) {
+      <div class="question-modal__answers">
+        <h4 class="answer-group__heading">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.ANSWERS_HEADING' | translate }}</h4>
+        <ul class="answer-list">
+          @for (a of column().sampleAnswers; track $index) {
+            <li>{{ a }}</li>
+          }
+        </ul>
+      </div>
+    } @else {
+      <p class="empty-state">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.NO_ANSWERS' | translate }}</p>
+    }
+  </div>
+</div>

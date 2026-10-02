@@ -1,0 +1,110 @@
+<h3 class="raw-heading heading-with-help">
+  {{ 'CONSENT_FORM.DELIVERY_HEADING' | translate }}
+  <app-help-icon [title]="'CONSENT_FORM.DELIVERY_HEADING' | translate">
+    <p>{{ 'CONSENT_FORM.DELIVERY_HINT' | translate }}</p>
+  </app-help-icon>
+</h3>
+
+<div class="card delivery-card">
+  <div class="delivery-mode">
+    <h4 class="delivery-mode__title">{{ 'CONSENT_FORM.DELIVERY_LINK_HEADING' | translate }}</h4>
+    <p class="field-hint">{{ 'CONSENT_FORM.DELIVERY_LINK_HINT' | translate }}</p>
+    @if (portalUrlLoading()) {
+      <app-loading-spinner></app-loading-spinner>
+    } @else {
+      @if (portalUrl(); as url) {
+        <div class="portal-url-row">
+          <input type="text" class="text-input" readonly [value]="url" (click)="$any($event.target).select()" />
+          <button type="button" class="btn-ghost" (click)="copyPortalUrl()">
+            {{ (copied() ? 'CONSENT_FORM.DELIVERY_LINK_COPIED' : 'CONSENT_FORM.DELIVERY_LINK_COPY') | translate }}
+          </button>
+        </div>
+
+        <div class="portal-status-row">
+          <span class="status-dot" [class.status-dot--done]="portalActive()"></span>
+          <span class="portal-status-row__label">
+            {{ (portalActive() ? 'CONSENT_FORM.DELIVERY_PORTAL_ACTIVE' : 'CONSENT_FORM.DELIVERY_PORTAL_INACTIVE') | translate }}
+          </span>
+          <button type="button" class="btn-ghost" [disabled]="togglingActive()" (click)="toggleActive()">
+            @if (togglingActive()) {
+              {{ (portalActive() ? 'CONSENT_FORM.DELIVERY_PORTAL_DEACTIVATING' : 'CONSENT_FORM.DELIVERY_PORTAL_ACTIVATING') | translate }}
+            } @else {
+              {{ (portalActive() ? 'CONSENT_FORM.DELIVERY_PORTAL_DEACTIVATE' : 'CONSENT_FORM.DELIVERY_PORTAL_ACTIVATE') | translate }}
+            }
+          </button>
+        </div>
+        <p class="field-hint portal-status-row__note">{{ 'CONSENT_FORM.DELIVERY_PORTAL_HINT' | translate }}</p>
+
+        @if (editingSlug()) {
+          <div class="slug-edit-row">
+            <span class="slug-edit-row__prefix">{{ 'CONSENT_FORM.DELIVERY_SLUG_PREFIX' | translate }}</span>
+            <input
+              type="text"
+              class="text-input"
+              [ngModel]="slugInput()"
+              (ngModelChange)="slugInput.set($event)"
+              [placeholder]="'CONSENT_FORM.DELIVERY_SLUG_PLACEHOLDER' | translate"
+              [disabled]="slugSaving()"
+            />
+            <button type="button" class="btn-primary" [disabled]="slugSaving() || !slugInput().trim()" (click)="saveSlug()">
+              @if (slugSaving()) {
+                {{ 'CONSENT_FORM.DELIVERY_SLUG_SAVING' | translate }}
+              } @else {
+                {{ 'CONSENT_FORM.DELIVERY_SLUG_SAVE' | translate }}
+              }
+            </button>
+            <button type="button" class="btn-ghost" [disabled]="slugSaving()" (click)="cancelEditSlug()">
+              {{ 'CONSENT_FORM.DELIVERY_SLUG_CANCEL' | translate }}
+            </button>
+          </div>
+          @if (slugError(); as err) {
+            <span class="field-error">{{ 'CONSENT_FORM.DELIVERY_SLUG_ERROR_' + err | translate }}</span>
+          }
+        } @else {
+          <button type="button" class="btn-ghost slug-edit-toggle" (click)="startEditSlug()">
+            {{ 'CONSENT_FORM.DELIVERY_SLUG_EDIT' | translate }}
+          </button>
+        }
+      } @else {
+        <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+      }
+    }
+  </div>
+
+  <div class="delivery-mode delivery-mode--mailing">
+    <h4 class="delivery-mode__title">{{ 'CONSENT_FORM.DELIVERY_MAILING_HEADING' | translate }}</h4>
+    <p class="field-hint">{{ 'CONSENT_FORM.DELIVERY_MAILING_HINT' | translate }}</p>
+    <p class="field-hint delivery-mode__format">{{ 'CONSENT_FORM.DELIVERY_MAILING_FORMAT' | translate }}</p>
+
+    <label class="btn-ghost mailing-upload-btn">
+      @if (uploading()) {
+        {{ 'CONSENT_FORM.DELIVERY_MAILING_UPLOADING' | translate }}
+      } @else {
+        {{ 'CONSENT_FORM.DELIVERY_MAILING_UPLOAD' | translate }}
+      }
+      <input #fileInput type="file" accept=".csv" hidden [disabled]="uploading()" (change)="onFileSelected($event)" />
+    </label>
+
+    @if (uploadError(); as err) {
+      <p class="field-error">
+        {{ (err === 'PORTAL_INACTIVE' ? 'CONSENT_FORM.DELIVERY_MAILING_ERROR_PORTAL_INACTIVE' : 'CONSENT_FORM.DELIVERY_MAILING_ERROR') | translate }}
+      </p>
+    }
+
+    @if (result(); as r) {
+      <div class="mailing-result">
+        <p class="field-success">{{ 'CONSENT_FORM.DELIVERY_MAILING_SENT' | translate: { n: r.sent } }}</p>
+        @if (r.errors.length) {
+          <ul class="mailing-result__errors">
+            @for (e of r.errors; track e.row) {
+              <li>
+                {{ 'CONSENT_FORM.DELIVERY_MAILING_ROW' | translate: { row: e.row } }} -
+                {{ 'CONSENT_FORM.DELIVERY_MAILING_REASON_' + e.reasonCode | translate }}
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,42 @@
+<div class="page-centered">
+  <div class="login-container">
+    <header class="login-header">
+      <h1 class="login-title">{{ 'TEAM_INVITE.TITLE' | translate }}</h1>
+      @if (researchName(); as name) {
+        <p class="login-subtitle">{{ name }}</p>
+      }
+    </header>
+
+    <div class="card login-card">
+      @if (resolving()) {
+        <app-loading-spinner></app-loading-spinner>
+      } @else if (resolveError() === 'NOT_FOUND') {
+        <p class="field-error">{{ 'TEAM_INVITE.ERROR_NOT_FOUND' | translate }}</p>
+      } @else if (resolveError() === 'EXPIRED') {
+        <p class="field-error">{{ 'TEAM_INVITE.ERROR_EXPIRED' | translate }}</p>
+      } @else if (resolveError() === 'ALREADY_ACCEPTED') {
+        <p class="field-success">{{ 'TEAM_INVITE.ERROR_ALREADY_ACCEPTED' | translate }}</p>
+        <button type="button" class="btn-primary" (click)="goToLogin()">{{ 'TEAM_INVITE.GO_TO_LOGIN' | translate }}</button>
+      } @else if (done()) {
+        <p class="field-success">{{ 'TEAM_INVITE.DONE_TEXT' | translate }}</p>
+        <button type="button" class="btn-primary" (click)="goToLogin()">{{ 'TEAM_INVITE.GO_TO_LOGIN' | translate }}</button>
+      } @else {
+        <p class="field-hint">
+          {{ 'TEAM_INVITE.HINT' | translate: { name: researcherFirstName(), research: researchName() } }}
+        </p>
+
+        @if (acceptError()) {
+          <span class="field-error">{{ 'TEAM_INVITE.ERROR_GENERIC' | translate }}</span>
+        }
+
+        <button type="button" class="btn-primary" [disabled]="accepting()" (click)="accept()">
+          @if (accepting()) {
+            {{ 'TEAM_INVITE.ACCEPTING' | translate }}
+          } @else {
+            {{ 'TEAM_INVITE.ACCEPT' | translate }}
+          }
+        </button>
+      }
+    </div>
+  </div>
+</div>

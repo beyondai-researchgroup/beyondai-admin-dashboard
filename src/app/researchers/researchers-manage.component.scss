@@ -1,0 +1,28 @@
+// Research-assignment picker now uses the shared .chip-checkbox-list/.chip-checkbox classes
+// (src/styles.scss, 2026-08-20) instead of its own bare-checkbox styling — kept in sync with the
+// rest of the design system's custom form controls (.toggle-switch, .segmented-control).
+
+// Spacing between the New/Existing mode switch and the form card below it — otherwise they sit
+// flush against each other (2026-08-20 fix).
+.segmented-control {
+  margin-bottom: 24px;
+}
+
+.delete-researcher-btn {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+// Role granularity (Phase 6, 2026-09-04) — pairs each checked research chip with a compact role
+// picker right next to it, so the two read as one unit inside .chip-checkbox-list's wrapping flex
+// row rather than the role select drifting to its own line.
+.chip-checkbox-with-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-select {
+  width: 130px;
+  flex-shrink: 0;
+}

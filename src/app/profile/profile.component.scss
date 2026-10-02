@@ -1,0 +1,50 @@
+.avatar-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.avatar-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-preview__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-preview__initials {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.avatar-upload-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.avatar-instructions {
+  margin: 0;
+}
+
+.avatar-upload-btn {
+  width: auto;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}

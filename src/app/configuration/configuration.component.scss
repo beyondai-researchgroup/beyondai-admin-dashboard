@@ -1,0 +1,82 @@
+.config-section + .config-section {
+  margin-top: 40px;
+}
+
+// Team section (Part B of the platform re-architecture, 2026-09-07) — same row-list pattern the
+// now-removed Custom Instruments page used to define (custom-instruments.component.scss), kept
+// here since this is the only surviving consumer.
+.instrument-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.instrument-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.instrument-row__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.instrument-row__title {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.instrument-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.instrument-row__delete {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.team-row {
+  margin-bottom: 0;
+}
+
+.pending-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+  background: var(--color-border);
+}
+
+.team-add-row {
+  align-items: flex-end;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+
+  // Bug fix (2026-09-09): the global `.field-group` rule (styles.scss) zeroes margin-bottom only
+  // on `:last-of-type` — with two field-groups side by side here, that matches just the second
+  // one (ULOGA), so the first (DODAJ ISTRAŽIVAČA) kept its normal 20px margin-bottom. Since these
+  // are flex siblings under `align-items: flex-end`, that extra margin is part of the first
+  // field-group's box, so its *content* (label + select) rendered ~20px higher than the second
+  // field-group's and the button — the exact "dropdowns aren't identical/aligned" the user
+  // reported. Zeroing it on both here (scoped to this row, not the global rule) makes every
+  // select's bottom edge — and the Dodaj button's — land on the same line.
+  .field-group {
+    margin-bottom: 0;
+  }
+}
+
+// The old per-page Calendar-connect help modal (a bespoke `.help-modal*` shell + its own "?"
+// button next to the Connect link) was folded into the section heading's shared
+// <app-help-icon> (2026-09-07) — see help-icon.component.scss for the one modal design now used
+// everywhere in the app.

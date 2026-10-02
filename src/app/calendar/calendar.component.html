@@ -1,0 +1,100 @@
+<div class="page-header page-header--row">
+  <div>
+    <h2>{{ 'CALENDAR.TITLE' | translate }}</h2>
+    <p>{{ 'CALENDAR.HINT' | translate }}</p>
+  </div>
+</div>
+
+<div class="cal-toolbar">
+  <div class="cal-nav">
+    <button type="button" class="btn-ghost btn-ghost--small" (click)="prevMonth()" [attr.aria-label]="'CALENDAR.PREV' | translate">‹</button>
+    <span class="cal-month-label">{{ monthLabel() }}</span>
+    <button type="button" class="btn-ghost btn-ghost--small" (click)="nextMonth()" [attr.aria-label]="'CALENDAR.NEXT' | translate">›</button>
+  </div>
+  <button type="button" class="btn-ghost btn-ghost--small" (click)="goToday()">{{ 'CALENDAR.TODAY' | translate }}</button>
+</div>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (error()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+}
+
+<div class="cal-grid" cdkDropListGroup>
+  <div class="cal-weekday-row">
+    @for (wd of weekdayKeys; track wd) {
+      <div class="cal-weekday">{{ 'CALENDAR.WEEKDAY.' + wd | translate }}</div>
+    }
+  </div>
+
+  @for (week of weeks(); track $index) {
+    <div class="cal-week-row">
+      @for (day of week; track day.dateKey) {
+        <div
+          class="cal-day"
+          [class.cal-day--outside]="!day.inMonth"
+          [class.cal-day--today]="day.isToday"
+          cdkDropList
+          [id]="'day-' + day.dateKey"
+          [cdkDropListData]="entriesFor(day)"
+          (cdkDropListDropped)="onDrop($event, day)"
+          (click)="openCreateModal(day)"
+        >
+          <span class="cal-day-number">{{ day.date.getDate() }}</span>
+          <div class="cal-day-entries">
+            @for (entry of entriesFor(day); track entry.id) {
+              <div class="cal-chip" cdkDrag [cdkDragData]="entry" (click)="openSession(entry, $event)">
+                <span class="cal-chip__label">{{ entry.label ?? ('CALENDAR.UNTITLED' | translate) }}</span>
+                <span class="cal-chip__count">{{ entry.participantSessionCount }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+@if (showCreateModal()) {
+  <div class="chart-modal-backdrop" (click)="closeCreateModal()">
+    <div class="chart-modal create-modal" (click)="$event.stopPropagation()">
+      <button class="chart-modal__close" type="button" (click)="closeCreateModal()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="chart-modal__title">{{ 'EXPERIMENTAL_SESSIONS.CREATE_MODAL_TITLE' | translate }}</div>
+
+      <form [formGroup]="form" (ngSubmit)="create()">
+        <div class="field-group">
+          <label class="field-label" for="sessionDate">{{ 'EXPERIMENTAL_SESSIONS.DATE_LABEL' | translate }} *</label>
+          <input id="sessionDate" type="date" class="text-input" formControlName="sessionDate" required />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="label">{{ 'EXPERIMENTAL_SESSIONS.LABEL_LABEL' | translate }}</label>
+          <input
+            id="label"
+            type="text"
+            class="text-input"
+            formControlName="label"
+            [placeholder]="'EXPERIMENTAL_SESSIONS.LABEL_PLACEHOLDER' | translate"
+          />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="notes">{{ 'EXPERIMENTAL_SESSIONS.NOTES_LABEL' | translate }}</label>
+          <textarea id="notes" class="text-input" rows="3" formControlName="notes"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary form-submit" [disabled]="creating() || !form.value.sessionDate">
+            @if (creating()) {
+              {{ 'EXPERIMENTAL_SESSIONS.CREATE_SAVING' | translate }}
+            } @else {
+              {{ 'EXPERIMENTAL_SESSIONS.CREATE' | translate }}
+            }
+          </button>
+          @if (createError()) {
+            <span class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</span>
+          }
+        </div>
+      </form>
+    </div>
+  </div>
+}

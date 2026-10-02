@@ -1,0 +1,126 @@
+.import-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 44px 24px;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-input);
+  background: var(--color-bg);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+
+  &:hover { border-color: var(--color-accent); background: rgba(var(--color-accent-rgb), 0.04); }
+
+  &--active {
+    border-color: var(--color-accent);
+    background: rgba(var(--color-accent-rgb), 0.08);
+  }
+
+  &--has-file {
+    border-style: solid;
+    cursor: default;
+  }
+
+  &__icon { color: var(--color-muted); }
+
+  &--active &__icon,
+  &--has-file &__icon { color: var(--color-accent); }
+
+  &__title {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--color-text);
+    margin: 0;
+  }
+
+  &__subtitle {
+    font-size: 12.5px;
+    color: var(--color-muted);
+    margin: 0;
+  }
+
+  &__filename {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--color-text);
+    margin: 0 0 4px;
+    word-break: break-all;
+  }
+}
+
+.parse-status {
+  margin-top: 16px;
+  color: var(--color-muted);
+  font-size: 13.5px;
+}
+
+.parse-issues {
+  margin-top: 18px;
+
+  &__title { margin-bottom: 8px; font-weight: 600; }
+
+  &__loc {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--color-muted);
+    background: rgba(var(--color-muted-rgb), 0.12);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-right: 8px;
+    white-space: nowrap;
+  }
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+  }
+}
+
+.parse-preview {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.import-submit {
+  align-self: flex-start;
+  width: auto;
+  min-width: 220px;
+}
+
+.result-card {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  h3 { margin-bottom: 4px; }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-text);
+  }
+}

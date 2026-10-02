@@ -1,0 +1,104 @@
+<div class="results-header">
+  <h2>{{ 'NAV.RESULTS_R_ANALYSIS' | translate }}</h2>
+  @if (hasSuccessfulRun()) {
+    <button class="btn-ghost" type="button" [disabled]="exporting()" (click)="exportLatest()">
+      {{ exporting() ? ('R_ANALYSIS.EXPORT_LATEST_RUNNING' | translate) : ('R_ANALYSIS.EXPORT_LATEST' | translate) }}
+    </button>
+  }
+</div>
+@if (exportError()) {
+  <p class="field-error">{{ 'R_ANALYSIS.EXPORT_LATEST_ERROR' | translate }}</p>
+}
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else if (!script()?.exists) {
+  <div class="empty-state">{{ 'R_ANALYSIS.NO_SCRIPT' | translate }}</div>
+} @else {
+  @if (script(); as s) {
+    <p class="field-hint">
+      {{ 'R_ANALYSIS.CURRENT_SCRIPT' | translate: { filename: s.originalFilename, date: (s.uploadedAt | date: 'dd.MM.yyyy. HH:mm') } }}
+    </p>
+  }
+
+  <h3 class="raw-heading">{{ 'R_ANALYSIS.RUNS_HEADING' | translate }}</h3>
+
+  @if (!runs().length) {
+    <div class="empty-state">{{ 'R_ANALYSIS.RUNS_EMPTY' | translate }}</div>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>{{ 'R_ANALYSIS.STATUS_LABEL' | translate }}</th>
+            <th>{{ 'R_ANALYSIS.STARTED_LABEL' | translate }}</th>
+            <th>{{ 'R_ANALYSIS.FINISHED_LABEL' | translate }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of runs(); track r.id) {
+            <tr [class.r-analysis-row--selected]="selectedRunId() === r.id">
+              <td>
+                <span
+                  class="status-dot"
+                  [class.status-dot--done]="r.status === 'SUCCESS'"
+                  [class.status-dot--error]="r.status === 'FAILED' || r.status === 'TIMEOUT'"
+                ></span>
+                {{ ('R_ANALYSIS.STATUS_' + r.status) | translate }}
+              </td>
+              <td>{{ r.startedAt ? (r.startedAt | date: 'dd.MM.yyyy. HH:mm:ss') : '-' }}</td>
+              <td>{{ r.finishedAt ? (r.finishedAt | date: 'dd.MM.yyyy. HH:mm:ss') : '-' }}</td>
+              <td>
+                <button type="button" class="btn-ghost row-action" (click)="selectRun(r.id)">
+                  {{ 'R_ANALYSIS.VIEW' | translate }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (selectedRun(); as run) {
+    <h3 class="raw-heading">{{ 'R_ANALYSIS.RESULTS_HEADING' | translate }}</h3>
+
+    @if (selectedRunLoading()) {
+      <app-loading-spinner></app-loading-spinner>
+    } @else {
+      <div class="card">
+        @if (run.plots.length) {
+          <div class="r-analysis-plots">
+            @for (plot of run.plots; track plot.id) {
+              @if (plotUrls()[plot.id]; as url) {
+                <img [src]="url" [alt]="plot.filename" class="r-analysis-plot" />
+              }
+            }
+          </div>
+        }
+
+        @if (run.resultsText) {
+          <div class="r-analysis-results-actions">
+            <button type="button" class="btn-ghost" (click)="copyResults()">
+              {{ copied() ? ('R_ANALYSIS.COPIED' | translate) : ('R_ANALYSIS.COPY' | translate) }}
+            </button>
+            <button type="button" class="btn-ghost" (click)="downloadResults()">{{ 'R_ANALYSIS.DOWNLOAD_RESULTS' | translate }}</button>
+          </div>
+          <pre class="r-analysis-results-text">{{ run.resultsText }}</pre>
+        } @else if (run.status === 'SUCCESS') {
+          <p class="field-hint">{{ 'R_ANALYSIS.NO_RESULTS_TEXT' | translate }}</p>
+        }
+
+        @if (run.status === 'FAILED' || run.status === 'TIMEOUT') {
+          <p class="field-error">{{ ('R_ANALYSIS.STATUS_' + run.status) | translate }}</p>
+          @if (run.stdErr) {
+            <pre class="r-analysis-stderr">{{ run.stdErr }}</pre>
+          }
+        }
+      </div>
+    }
+  }
+}

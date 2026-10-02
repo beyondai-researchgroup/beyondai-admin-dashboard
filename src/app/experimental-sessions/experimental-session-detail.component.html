@@ -1,0 +1,206 @@
+<a class="back-link" routerLink="/experimental-sessions">← {{ 'EXPERIMENTAL_SESSIONS.BACK' | translate }}</a>
+
+@if (session(); as s) {
+  <div class="page-header page-header--row">
+    <h2>{{ 'EXPERIMENTAL_SESSIONS.DETAIL_TITLE' | translate: { date: (s.sessionDate | date: dateFormat) } }}</h2>
+    <button type="button" class="btn-ghost delete-session-btn" [disabled]="deleting()" (click)="deleteSession()">
+      @if (deleting()) {
+        {{ 'EXPERIMENTAL_SESSIONS.DELETE_SAVING' | translate }}
+      } @else {
+        {{ 'EXPERIMENTAL_SESSIONS.DELETE' | translate }}
+      }
+    </button>
+  </div>
+  @if (deleteError()) {
+    <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+  }
+
+  <div class="card">
+    <form [formGroup]="form" (ngSubmit)="saveGeneral()">
+      <h3 class="form-heading">{{ 'EXPERIMENTAL_SESSIONS.NEW_HEADING' | translate }}</h3>
+      <div class="field-group">
+        <label class="field-label" for="sessionDate">{{ 'EXPERIMENTAL_SESSIONS.DATE_LABEL' | translate }}</label>
+        <input id="sessionDate" type="date" class="text-input" formControlName="sessionDate" />
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="label">{{ 'EXPERIMENTAL_SESSIONS.LABEL_LABEL' | translate }}</label>
+        <input id="label" type="text" class="text-input" formControlName="label" />
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="notes">{{ 'EXPERIMENTAL_SESSIONS.NOTES_LABEL' | translate }}</label>
+        <textarea id="notes" class="text-input" rows="3" formControlName="notes"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary form-submit" [disabled]="saving()">
+          @if (saving()) {
+            {{ 'STUDY_CONFIG.SUBMIT_SAVING' | translate }}
+          } @else {
+            {{ 'STUDY_CONFIG.SUBMIT' | translate }}
+          }
+        </button>
+        @if (saved()) {
+          <span class="field-success">{{ 'STUDY_CONFIG.SAVED' | translate }}</span>
+        }
+        @if (saveError()) {
+          <span class="field-error">{{ 'STUDY_CONFIG.ERROR' | translate }}</span>
+        }
+      </div>
+    </form>
+  </div>
+
+  <h3 class="raw-heading">{{ 'EXPERIMENTAL_SESSIONS.PARTICIPANTS_HEADING' | translate }}</h3>
+
+  @if (!s.participantSessions.length) {
+    <div class="empty-state">{{ 'EXPERIMENTAL_SESSIONS.NO_PARTICIPANTS' | translate }}</div>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>{{ 'PARTICIPANTS.COL_ID' | translate }}</th>
+            <th>{{ 'EXPERIMENTAL_SESSIONS.COL_SESSION' | translate }}</th>
+            <th>{{ 'EXPERIMENTAL_SESSIONS.COL_TIME' | translate }}</th>
+            <th>{{ 'EXPERIMENTAL_SESSIONS.COL_FINISHED' | translate }}</th>
+            <th>{{ 'EXPERIMENTAL_SESSIONS.NOTES_LABEL' | translate }}</th>
+            <th>{{ 'EXPERIMENTAL_SESSIONS.COL_TAGS' | translate }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of s.participantSessions; track rowKey(row)) {
+            <tr>
+              <td><a class="participant-link" [routerLink]="['/participants', row.participantId]">{{ row.participantId }}</a></td>
+              <td>{{ row.sessionName }}</td>
+              <td>
+                {{ row.scheduledTime ?? '-' }}
+                @if (row.googleCalendarEventUrl) {
+                  <a class="calendar-sync-badge" [href]="row.googleCalendarEventUrl" target="_blank" rel="noopener" [title]="'EXPERIMENTAL_SESSIONS.CALENDAR_OPEN_LINK' | translate">📅</a>
+                } @else if (row.googleCalendarEventId) {
+                  <span class="calendar-sync-badge" [title]="'EXPERIMENTAL_SESSIONS.CALENDAR_SYNCED' | translate">📅</span>
+                }
+              </td>
+              <td>
+                <span class="status-dot" [class.status-dot--done]="row.isFinished"></span>
+                {{ row.isFinished ? '✓' : '-' }}
+              </td>
+              <td class="note-cell">
+                <input
+                  type="text"
+                  class="text-input"
+                  [value]="noteDraft(row)"
+                  (input)="onNoteInput(row, $any($event.target).value)"
+                />
+              </td>
+              <td class="tags-cell" (click)="$event.stopPropagation()">
+                <div class="tag-list">
+                  @for (t of row.tags; track t) {
+                    <span [class]="'tag-chip tag-chip--' + tagTone(t)">
+                      {{ tagLabel(t) }}
+                      <button type="button" class="tag-chip__remove" (click)="removeTag(row, t)" aria-label="Remove">×</button>
+                    </span>
+                  }
+                  @if (row.tags.length < maxTags) {
+                    <button type="button" class="tag-add-btn" (click)="toggleTagPicker(row)">+</button>
+                  }
+                </div>
+                @if (tagPickerOpenFor() === rowKey(row)) {
+                  <div class="tag-picker">
+                    <div class="tag-picker__header">
+                      <span class="tag-picker__title">{{ 'EXPERIMENTAL_SESSIONS.ADD_TAG' | translate }}</span>
+                      <button type="button" class="tag-picker__close" (click)="closeTagPicker()" [attr.aria-label]="'COMMON.CLOSE' | translate">×</button>
+                    </div>
+                    @for (t of availablePredefinedTags(row); track t.id) {
+                      <button type="button" [class]="'tag-picker__option tag-chip--' + t.tone" (click)="addPredefinedTag(row, t.id)">
+                        {{ tagLabel(t.id) }}
+                      </button>
+                    }
+                    <div class="tag-picker__custom">
+                      <input
+                        type="text"
+                        class="text-input"
+                        [value]="customTagDraft()"
+                        (input)="customTagDraft.set($any($event.target).value)"
+                        (keydown.enter)="addCustomTag(row)"
+                        [placeholder]="'EXPERIMENTAL_SESSIONS.CUSTOM_TAG_PLACEHOLDER' | translate"
+                        maxlength="30"
+                      />
+                      <button type="button" class="btn-ghost btn-ghost--small" (click)="addCustomTag(row)">
+                        {{ 'EXPERIMENTAL_SESSIONS.ADD_TAG' | translate }}
+                      </button>
+                    </div>
+                  </div>
+                }
+              </td>
+              <td class="note-actions">
+                <button
+                  type="button"
+                  class="btn-ghost btn-ghost--small"
+                  [disabled]="noteSaving() === rowKey(row)"
+                  (click)="saveNote(row)"
+                >{{ 'EXPERIMENTAL_SESSIONS.SAVE_NOTE' | translate }}</button>
+                <button type="button" class="btn-ghost btn-ghost--small" (click)="unassign(row)">
+                  {{ 'EXPERIMENTAL_SESSIONS.UNASSIGN' | translate }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <div class="card assign-card">
+    <h3 class="form-heading">{{ 'EXPERIMENTAL_SESSIONS.ASSIGN_HEADING' | translate }}</h3>
+    <div class="assign-row">
+      <div class="field-group">
+        <label class="field-label">{{ 'PARTICIPANTS.COL_ID' | translate }}</label>
+        <app-select
+          [options]="participantOptions()"
+          [value]="assignParticipantId()"
+          (valueChange)="assignParticipantId.set($any($event)); assignSessionId.set(null)"
+        ></app-select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">{{ 'EXPERIMENTAL_SESSIONS.COL_SESSION' | translate }}</label>
+        <app-select
+          [options]="sessionOptions()"
+          [value]="assignSessionId()"
+          (valueChange)="assignSessionId.set($any($event))"
+        ></app-select>
+      </div>
+      <div class="field-group">
+        <label class="field-label">{{ 'EXPERIMENTAL_SESSIONS.COL_TIME' | translate }} *</label>
+        <app-select
+          [options]="timeOptions"
+          [value]="assignTime()"
+          [placeholder]="'EXPERIMENTAL_SESSIONS.TIME_PLACEHOLDER' | translate"
+          (valueChange)="assignTime.set($any($event))"
+        ></app-select>
+      </div>
+      <div class="field-group field-group--button">
+        <span class="field-label field-label--spacer" aria-hidden="true">&nbsp;</span>
+        <button
+          type="button"
+          class="btn-primary form-submit"
+          [disabled]="assigning() || !assignParticipantId() || assignSessionId() === null || !assignTime()"
+          (click)="assign()"
+        >
+          @if (assigning()) {
+            {{ 'EXPERIMENTAL_SESSIONS.ASSIGN_SAVING' | translate }}
+          } @else {
+            {{ 'EXPERIMENTAL_SESSIONS.ASSIGN' | translate }}
+          }
+        </button>
+      </div>
+    </div>
+    @if (assignErrorCode() === 'ALREADY_ASSIGNED') {
+      <span class="field-error">{{ 'EXPERIMENTAL_SESSIONS.ALREADY_ASSIGNED_ERROR' | translate }}</span>
+    } @else if (assignErrorCode() === 'SERVER_ERROR') {
+      <span class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</span>
+    }
+  </div>
+} @else if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (notFound()) {
+  <p class="field-error">{{ 'EXPERIMENTAL_SESSIONS.NOT_FOUND' | translate }}</p>
+}

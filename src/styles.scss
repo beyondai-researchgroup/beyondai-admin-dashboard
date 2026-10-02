@@ -1,0 +1,1366 @@
+:root {
+  --color-bg: #0a0e14;
+  --color-surface: #121922;
+  --color-surface-alt: #0a0e14;
+  --color-header-bg: rgba(18, 25, 34, 0.96);
+  --color-border: #1e2d3d;
+  --color-border-strong: #2d3f52;
+  --color-accent: #00ff88;
+  --color-accent-dim: #00cc6a;
+  --color-accent-rgb: 0, 255, 136;
+  --color-muted: #4a5568;
+  --color-muted-rgb: 74, 85, 104;
+  --color-text: #e2e8f0;
+  --color-text-secondary: #a0aec0;
+  --color-white: #ffffff;
+  --color-navy: #1a2744;
+  --color-error: #fc8181;
+  --color-error-rgb: 252, 129, 129;
+  --color-error-bg: rgba(252, 129, 129, 0.07);
+  --color-error-border: rgba(252, 129, 129, 0.25);
+  --color-on-accent: #0a0e14;
+  --bg-image: url('/assets/bg-nasa-dark.png');
+
+  --header-text: #cfd8d0;
+  --header-ctrl-color: #4a6a58;
+  --header-ctrl-border: #253c50;
+  --header-ctrl-hover-color: #cfd8d0;
+  --header-ctrl-active-bg: #2d6e4e;
+  --header-ctrl-active-color: #e8f4ee;
+
+  // Chart tick/legend text — lighter than --color-accent so it stays readable on dark
+  // canvases without competing with the accent-colored bars/lines themselves.
+  --color-chart-text: #8ff5c2;
+  --color-chart-text-strong: #d4fbe8;
+
+  // Categorical palette for the EEG band chart (5 genuinely distinct series identities —
+  // not a scale, so these stay separate from the accent-based --color-chart-text above).
+  // Validated CVD-safe/contrast-safe against this app's chart surfaces via the dataviz
+  // skill's validate_palette.js. Fixed slot order — never re-cycle/reassign.
+  --color-band-theta: #3987e5;
+  --color-band-alpha: #d95926;
+  --color-band-betal: #199e70;
+  --color-band-betah: #c98500;
+  --color-band-gamma: #d55181;
+
+  --radius-card: 14px;
+  --radius-input: 10px;
+  --radius-tag: 9999px;
+  --shadow-card: 0 0 0 1px var(--color-border), 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-elevated: 0 0 0 1px var(--color-border-strong), 0 12px 32px rgba(0,0,0,0.5);
+  --shadow-focus: 0 0 0 4px rgba(var(--color-accent-rgb), 0.16);
+
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+}
+
+[data-theme='light'] {
+  --color-bg: #f2f7f4;
+  --color-surface: #ffffff;
+  --color-surface-alt: #eaf2ec;
+  --color-header-bg: #1a3a28;
+  --color-border: #c0dbc9;
+  --color-border-strong: #a8cdb5;
+  --color-accent: #16a34a;
+  --color-accent-dim: #15803d;
+  --color-accent-rgb: 22, 163, 74;
+  --color-muted: #6b7280;
+  --color-muted-rgb: 107, 114, 128;
+  --color-text: #1a2e1a;
+  --color-text-secondary: #374151;
+  --color-error: #dc2626;
+  --color-error-rgb: 220, 38, 38;
+  --color-error-bg: #fef2f2;
+  --color-error-border: #fca5a5;
+  --color-on-accent: #ffffff;
+  --bg-image: url('/assets/bg-nasa-light.png');
+
+  --header-text: #ffffff;
+  --header-ctrl-color: rgba(255, 255, 255, 0.55);
+  --header-ctrl-border: rgba(255, 255, 255, 0.25);
+  --header-ctrl-hover-color: #ffffff;
+  --header-ctrl-active-bg: rgba(255, 255, 255, 0.18);
+  --header-ctrl-active-color: #ffffff;
+
+  // Light theme's dark-on-light bars are already readable with the normal text colors —
+  // only dark theme needed a dedicated lighter shade for chart text.
+  --color-chart-text: var(--color-text-secondary);
+  --color-chart-text-strong: var(--color-text);
+
+  --color-band-theta: #2a78d6;
+  --color-band-alpha: #eb6834;
+  --color-band-betal: #1baf7a;
+  --color-band-betah: #eda100;
+  --color-band-gamma: #e87ba4;
+
+  --shadow-card: 0 0 0 1px var(--color-border), 0 4px 24px rgba(0,0,0,0.08);
+  --shadow-elevated: 0 0 0 1px var(--color-border-strong), 0 12px 32px rgba(0,0,0,0.12);
+  --shadow-focus: 0 0 0 4px rgba(var(--color-accent-rgb), 0.14);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--font-body);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--bg-image) center / cover no-repeat;
+  opacity: 0.09;
+  pointer-events: none;
+  z-index: 0;
+}
+
+app-root {
+  position: relative;
+  z-index: 1;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+  margin: 0;
+}
+
+p { color: var(--color-text-secondary); }
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+
+  &:hover { color: var(--color-accent-dim); }
+}
+
+::selection {
+  background: rgba(var(--color-accent-rgb), 0.3);
+  color: var(--color-text);
+}
+
+* { scrollbar-color: var(--color-border-strong) transparent; scrollbar-width: thin; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-tag);
+  border: 2px solid var(--color-bg);
+}
+
+// ─── Angular Material dark overrides ────────────────────────────────────────
+
+.mat-mdc-form-field {
+  --mdc-filled-text-field-container-color: var(--color-surface);
+  --mdc-filled-text-field-focus-active-indicator-color: var(--color-accent);
+  --mdc-filled-text-field-label-text-color: var(--color-muted);
+  --mdc-filled-text-field-input-text-color: var(--color-text);
+  --mdc-filled-text-field-focus-label-text-color: var(--color-accent);
+  --mdc-filled-text-field-active-indicator-color: var(--color-border);
+}
+
+.mat-mdc-slider {
+  --mdc-slider-active-track-color: var(--color-accent);
+  --mdc-slider-inactive-track-color: var(--color-border);
+  --mdc-slider-handle-color: var(--color-accent);
+  --mdc-slider-focus-handle-color: var(--color-accent);
+  --mdc-slider-hover-handle-color: var(--color-accent-dim);
+  --mdc-slider-label-container-color: var(--color-accent);
+  --mdc-slider-label-label-text-color: var(--color-on-accent);
+  --mat-slider-ripple-color: rgba(var(--color-accent-rgb),0.15);
+  --mat-slider-hover-state-layer-color: rgba(var(--color-accent-rgb),0.08);
+  --mat-slider-focus-state-layer-color: rgba(var(--color-accent-rgb),0.12);
+}
+
+.mat-mdc-checkbox {
+  --mdc-checkbox-selected-checkmark-color: var(--color-on-accent);
+  --mdc-checkbox-selected-icon-color: var(--color-accent);
+  --mdc-checkbox-selected-focus-icon-color: var(--color-accent);
+  --mdc-checkbox-selected-hover-icon-color: var(--color-accent-dim);
+  --mdc-checkbox-selected-pressed-icon-color: var(--color-accent);
+  --mdc-checkbox-unselected-icon-color: var(--color-muted);
+  --mat-checkbox-label-text-color: var(--color-text);
+}
+
+.mat-mdc-radio-button {
+  --mdc-radio-selected-icon-color: var(--color-accent);
+  --mdc-radio-selected-focus-icon-color: var(--color-accent);
+  --mdc-radio-selected-hover-icon-color: var(--color-accent-dim);
+  --mdc-radio-selected-pressed-icon-color: var(--color-accent);
+  --mdc-radio-unselected-icon-color: var(--color-muted);
+  --mat-radio-label-text-color: var(--color-text);
+  --mat-radio-ripple-color: rgba(var(--color-accent-rgb),0.15);
+}
+
+// ─── Shared layout helpers ───────────────────────────────────────────────────
+
+.page-wrapper {
+  min-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 16px;
+}
+
+.page-centered {
+  min-height: calc(100vh - 60px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 32px;
+  transition: box-shadow var(--transition-base), transform var(--transition-base), border-color var(--transition-base);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dim));
+  color: var(--color-on-accent);
+  border: none;
+  border-radius: var(--radius-input);
+  padding: 14px 28px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: filter var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  width: 100%;
+  box-shadow: 0 2px 12px rgba(var(--color-accent-rgb), 0.25);
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(var(--color-accent-rgb), 0.35);
+  }
+
+  &:active:not(:disabled) { transform: translateY(0); }
+
+  &:focus-visible { outline: none; box-shadow: var(--shadow-focus), 0 2px 12px rgba(var(--color-accent-rgb), 0.25); }
+
+  &:disabled {
+    background: var(--color-border);
+    color: var(--color-muted);
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--color-surface);
+  color: var(--color-accent);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-input);
+  padding: 12px 24px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: rgba(var(--color-accent-rgb),0.08);
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+
+  &:disabled {
+    color: var(--color-muted);
+    border-color: var(--color-border);
+    cursor: not-allowed;
+    transform: none;
+  }
+}
+
+.btn-ghost--small {
+  padding: 6px 12px;
+  font-size: 12.5px;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover { background: var(--color-surface-alt); color: var(--color-text); border-color: var(--color-border-strong); }
+}
+
+// ─── Form controls (inputs, selects, field groups, segmented control) ───────
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+
+  &:last-of-type { margin-bottom: 0; }
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-secondary);
+}
+
+.text-input,
+.select-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+
+  &::placeholder { color: var(--color-muted); }
+
+  &:hover:not(:disabled):not(:focus) { border-color: var(--color-border-strong); }
+
+  &:focus {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-focus);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  // Chrome/Edge paint an autofilled field with their own opaque white/yellow background + black
+  // text, ignoring this app's dark theme entirely (a browser behavior, not something this app's
+  // CSS ever set) — most visible on the PR Configuration page's token field, which browsers like
+  // to offer to save/fill as a password. The inset box-shadow trick is the standard fix: it's
+  // layered opaquely over the browser's own fill color since -webkit doesn't allow overriding
+  // background directly on an autofilled input. The very long transition delays the color change
+  // long enough that it never visibly flashes before this rule applies.
+  &:-webkit-autofill,
+  &:-webkit-autofill:hover,
+  &:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-text);
+    -webkit-box-shadow: 0 0 0px 1000px var(--color-bg) inset;
+    box-shadow: 0 0 0px 1000px var(--color-bg) inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+}
+
+input.text-input[type="password"] { font-family: var(--font-mono); letter-spacing: 0.05em; }
+
+.select-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23a0aec0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
+[data-theme='light'] .select-input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23374151' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.field-hint {
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+
+.field-hint--locked {
+  color: var(--color-error);
+}
+
+.warning-badge {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--color-error);
+  cursor: help;
+}
+
+.notes-preview {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-muted);
+}
+
+.note-cell {
+  min-width: 220px;
+}
+
+.note-actions {
+  display: flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.field-error {
+  font-size: 12.5px;
+  color: var(--color-error);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.field-success {
+  font-size: 13px;
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+// Inside a .field-group the flex-column gap already spaces things out — a validation error
+// directly under an input shouldn't add the standalone top margin on top of that.
+.field-group .field-error {
+  margin-top: 0;
+}
+
+.field-row {
+  display: flex;
+  gap: 16px;
+
+  .field-group { flex: 1; }
+}
+
+.textarea {
+  resize: vertical;
+  font-family: var(--font-body);
+}
+
+.form-heading {
+  margin-bottom: 20px;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.form-submit {
+  width: auto;
+  min-width: 180px;
+}
+
+.row-action {
+  width: auto;
+  padding: 6px 14px;
+  font-size: 12.5px;
+}
+
+// A pill-style replacement for native radio buttons — e.g. AI-first / Report-first choice.
+.segmented-control {
+  display: inline-flex;
+  padding: 4px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  gap: 4px;
+
+  input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border-radius: calc(var(--radius-input) - 3px);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+    user-select: none;
+  }
+
+  input[type="radio"]:checked + label {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    box-shadow: 0 2px 10px rgba(var(--color-accent-rgb), 0.3);
+  }
+
+  input[type="radio"]:focus-visible + label { box-shadow: var(--shadow-focus); }
+
+  label:hover { color: var(--color-text); }
+  input[type="radio"]:checked + label:hover { color: var(--color-on-accent); }
+}
+
+// A wrapping list of pill-style checkboxes — same hide-native-input-behind-a-styled-label
+// technique as .segmented-control above, but for a multi-select set (checkbox, not radio) whose
+// item count varies and can be long, e.g. picking which researches a researcher is assigned to.
+// Added 2026-08-20 to replace a bare, unstyled native <input type="checkbox"> list that clashed
+// with the rest of this design system.
+.chip-checkbox-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-input);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.chip-checkbox {
+  input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius-tag);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast),
+      border-color var(--transition-fast), box-shadow var(--transition-fast);
+    user-select: none;
+  }
+
+  label:hover { color: var(--color-text); border-color: var(--color-muted); }
+
+  input[type="checkbox"]:checked + label {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-on-accent);
+    box-shadow: 0 2px 10px rgba(var(--color-accent-rgb), 0.3);
+  }
+
+  input[type="checkbox"]:checked + label:hover { color: var(--color-on-accent); }
+
+  input[type="checkbox"]:focus-visible + label { box-shadow: var(--shadow-focus); }
+}
+
+// ─── Custom range slider ─────────────────────────────────────────────────────
+
+input[type="range"].tlx-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    var(--color-accent) 0%,
+    var(--color-accent) var(--fill, 50%),
+    var(--color-border) var(--fill, 50%),
+    var(--color-border) 100%
+  );
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    border: 2px solid var(--color-bg);
+    box-shadow: 0 0 0 2px var(--color-accent);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  &::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    border: 2px solid var(--color-bg);
+    box-shadow: 0 0 0 2px var(--color-accent);
+  }
+
+  &:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 4px rgba(var(--color-accent-rgb),0.25);
+    transform: scale(1.1);
+  }
+
+  &:focus { outline: none; }
+}
+
+// ─── Toggle switch ────────────────────────────────────────────────────────────
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+
+  input[type="checkbox"] { display: none; }
+
+  .toggle-track {
+    width: 44px;
+    height: 24px;
+    background: var(--color-border);
+    border-radius: var(--radius-tag);
+    position: relative;
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      background: var(--color-muted);
+      border-radius: 50%;
+      transition: transform var(--transition-fast), background var(--transition-fast);
+    }
+  }
+
+  input:checked ~ .toggle-track {
+    background: rgba(var(--color-accent-rgb),0.15);
+    border: 1px solid var(--color-accent);
+
+    &::after {
+      background: var(--color-accent);
+      transform: translateX(20px);
+    }
+  }
+
+  .toggle-label {
+    font-size: 14px;
+    color: var(--color-text);
+  }
+}
+
+// ─── Progress bar ─────────────────────────────────────────────────────────────
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+
+  .progress-fill {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 2px;
+    transition: width 250ms ease;
+  }
+}
+
+// ─── Admin Dashboard: page chrome, data table, summary/stat cards, charts ───
+
+h2 {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+h3 {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.page-header {
+  margin-bottom: 24px;
+
+  h2 { margin-bottom: 4px; }
+
+  p { margin: 0; font-size: 14px; }
+}
+
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+
+  h2 { margin-bottom: 0; }
+}
+
+.results-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.raw-heading {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 32px 0 14px;
+  color: var(--color-text-secondary);
+}
+
+// Added alongside .raw-heading/.form-heading on a heading that carries an <app-help-icon> next
+// to its text (2026-09-07) — keeps that class's own margin/font rules untouched, just lays the
+// heading text and the icon out in a row instead of the icon wrapping onto its own line.
+.heading-with-help {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// A `.raw-heading`-shaped row with a right-aligned link/action — used where a section heading
+// needs a "view all"/"see more" link next to it (Overview's featured survey charts, 2026-09-08).
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 32px 0 14px;
+
+  h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-secondary);
+  }
+}
+
+// Two or more independent toggle-switches side by side (not a mutually-exclusive radio group,
+// so plain flex-wrap rather than `.segmented-control`) — used by the consent-language checkboxes
+// on both Configuration and Study Builder (2026-09-08 follow-up).
+.checkbox-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.section-header__link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Search/filter bar shown above a data table.
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.filter-input-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 320px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    background: currentColor;
+    color: var(--color-muted);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E") center / contain no-repeat;
+    pointer-events: none;
+  }
+
+  .text-input { padding-left: 36px; }
+}
+
+.filter-count {
+  font-size: 12.5px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.table-wrap {
+  overflow: auto;
+  max-height: 560px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  white-space: nowrap;
+
+  th, td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--color-surface-alt);
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    box-shadow: inset 0 -1px 0 var(--color-border);
+  }
+
+  th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color var(--transition-fast);
+
+    &:hover { color: var(--color-text); }
+  }
+
+  &__row--clickable {
+    cursor: pointer;
+    transition: background var(--transition-fast);
+
+    &:hover, &:focus-visible { background: var(--color-surface-alt); outline: none; }
+  }
+
+  .th-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sort-arrow {
+    font-size: 9px;
+    opacity: 0.4;
+    transition: opacity var(--transition-fast);
+
+    &--active { opacity: 1; color: var(--color-accent); }
+  }
+
+  tbody tr { transition: background var(--transition-fast); }
+  tbody tr:nth-child(even) { background: rgba(var(--color-muted-rgb), 0.035); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(var(--color-accent-rgb), 0.06); }
+
+  td { color: var(--color-text-secondary); font-family: var(--font-mono); font-size: 13px; }
+  td:first-child { color: var(--color-text); font-family: var(--font-body); font-weight: 500; }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 48px 24px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-card);
+  color: var(--color-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.seq {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+  margin-right: 4px;
+
+  &--done { background: var(--color-accent); box-shadow: 0 0 6px rgba(var(--color-accent-rgb), 0.6); }
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  margin-bottom: 18px;
+  transition: color var(--transition-fast);
+
+  &:hover { color: var(--color-accent); }
+}
+
+.detail-group {
+  margin-bottom: 40px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-of-type { border-bottom: none; }
+
+  &__heading {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-muted);
+    margin: 0 0 18px;
+  }
+}
+
+.detail-section {
+  margin-bottom: 32px;
+
+  &__heading {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text);
+    margin: 0 0 14px;
+  }
+
+  .chart-card {
+    margin-bottom: 16px;
+  }
+}
+
+// Participant Detail's "Odgovori na anketu" section (2026-09-08 follow-up) — this component has
+// no styleUrl of its own (relies entirely on this global stylesheet already), so these live here
+// rather than duplicated into a new per-component .scss. A simple label→value list, deliberately
+// not the same markup/class as answer-detail-modal's own `.answer-table` (that one is scoped
+// inside a different component and unreachable from here under view encapsulation).
+.survey-answer-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  td {
+    padding: 7px 8px;
+    font-size: 13.5px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .answer-table__text {
+    color: var(--color-text-secondary);
+    width: 50%;
+  }
+
+  .answer-table__value {
+    color: var(--color-text);
+    font-weight: 600;
+    text-align: right;
+  }
+}
+
+.eeg-meta {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
+.eeg-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.eeg-channel-picker {
+  max-width: 280px;
+  margin-bottom: 16px;
+}
+
+.eeg-subheading {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 20px 0 12px;
+
+  &:first-child { margin-top: 0; }
+}
+
+.eeg-segment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.chart-card--small {
+  padding: 16px 18px;
+
+  .chart-card__title { font-size: 13px; margin-bottom: 10px; }
+}
+
+.chart-card__canvas-wrap--small {
+  height: 160px;
+}
+
+.eeg-signal-quality-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--color-border);
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__label { color: var(--color-text-secondary); }
+
+  &__value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+}
+
+.eeg-marker-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+
+  li {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  &__code {
+    display: inline-block;
+    min-width: 110px;
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+}
+
+.file-input-label {
+  position: relative;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+
+  input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+  }
+}
+
+.session-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.session-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+
+  &--done { color: var(--color-text); border-color: var(--color-border-strong); }
+
+  &__pr {
+    margin-left: 8px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(var(--color-accent-rgb), 0.12);
+    color: var(--color-accent);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+}
+
+.summary-meta {
+  color: var(--color-muted);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.summary-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: 16px 18px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevated);
+    border-color: var(--color-border-strong);
+  }
+
+  &__label {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-muted);
+    margin-bottom: 8px;
+  }
+
+  &__value {
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  &__sub {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-muted);
+    margin-top: 2px;
+  }
+}
+
+// ─── Overview page: stat cards + chart cards ────────────────────────────────
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: 20px 22px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--color-accent), transparent);
+    opacity: 0.8;
+  }
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-elevated);
+    border-color: var(--color-border-strong);
+  }
+
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(var(--color-accent-rgb), 0.12);
+    color: var(--color-accent);
+    font-size: 17px;
+    margin-bottom: 14px;
+  }
+
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-muted);
+    margin-bottom: 6px;
+  }
+
+  &__value {
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-text);
+    line-height: 1.1;
+  }
+
+  &__sub {
+    font-size: 12.5px;
+    color: var(--color-text-secondary);
+    margin-top: 6px;
+  }
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.chart-card {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 22px 24px;
+
+  &__title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 2px;
+  }
+
+  &__subtitle {
+    font-size: 12.5px;
+    color: var(--color-muted);
+    margin: 0 0 16px;
+  }
+
+  &__canvas-wrap {
+    position: relative;
+    height: 280px;
+  }
+
+  &--full {
+    grid-column: 1 / -1;
+  }
+
+  &--large {
+    .chart-card__title { font-size: 17px; }
+    .chart-card__canvas-wrap { height: 420px; }
+  }
+
+  &--expandable {
+    cursor: pointer;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+
+    &:hover, &:focus-visible {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-elevated);
+      border-color: var(--color-border-strong);
+      outline: none;
+    }
+
+    &:focus-visible { box-shadow: var(--shadow-elevated), var(--shadow-focus); }
+  }
+
+  &__expand-hint {
+    position: absolute;
+    top: 20px;
+    right: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--color-muted);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    pointer-events: none;
+
+    &::before {
+      content: '';
+      width: 12px;
+      height: 12px;
+      background: currentColor;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6'/%3E%3Cpath d='M9 21H3v-6'/%3E%3Cpath d='M21 3l-7 7'/%3E%3Cpath d='M3 21l7-7'/%3E%3C/svg%3E") center / contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6'/%3E%3Cpath d='M9 21H3v-6'/%3E%3Cpath d='M21 3l-7 7'/%3E%3Cpath d='M3 21l7-7'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+  }
+
+  &--expandable:hover &__expand-hint,
+  &--expandable:focus-visible &__expand-hint {
+    opacity: 1;
+  }
+
+  &--expandable &__title {
+    padding-right: 110px;
+  }
+}

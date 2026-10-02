@@ -1,0 +1,16 @@
+@if (result(); as r) {
+  <div class="summary-meta">{{ 'RESULTS.COUNT' | translate: { count: r.count } }}</div>
+  <div class="summary-cards">
+    @for (dim of dimensions(); track dim.key) {
+      <div class="summary-card">
+        <div class="summary-card__label">{{ dim.label }}</div>
+        <div class="summary-card__value">
+          {{ r.means[dim.key] !== null && r.means[dim.key] !== undefined ? (r.means[dim.key] | number: '1.0-2') : '-' }}
+        </div>
+        <div class="summary-card__sub">
+          ± {{ r.stdDevs[dim.key] !== null && r.stdDevs[dim.key] !== undefined ? (r.stdDevs[dim.key] | number: '1.0-2') : '-' }}
+        </div>
+      </div>
+    }
+  </div>
+}

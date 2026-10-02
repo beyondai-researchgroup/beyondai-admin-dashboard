@@ -1,0 +1,37 @@
+// Extra breathing room above AND below the Intro toggle — it sits between the Owner/Repo/PR
+// Number row and the Token field, and previously read as crammed against both.
+.is-intro-field {
+  margin-top: 4px;
+  margin-bottom: 24px;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .field-label {
+    margin: 0;
+  }
+}
+
+.label-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.label-edit-input {
+  width: 140px;
+}
+
+.label-display {
+  font-weight: 600;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.row-action--danger {
+  color: var(--color-error);
+}
+

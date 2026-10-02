@@ -1,0 +1,196 @@
+<div class="page-header">
+  <h2>{{ 'PROFILE.TITLE' | translate }}</h2>
+</div>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else {
+  @if (profile(); as p) {
+
+  <section class="config-section">
+    <h3 class="raw-heading">{{ 'PROFILE.AVATAR_HEADING' | translate }}</h3>
+    <div class="card avatar-card">
+      <div class="avatar-preview">
+        @if (avatarObjectUrl(); as url) {
+          <img [src]="url" alt="" class="avatar-preview__img" />
+        } @else {
+          <span class="avatar-preview__initials">{{ p.firstName[0] }}{{ p.lastName[0] }}</span>
+        }
+      </div>
+      <div class="avatar-upload-col">
+        <p class="field-hint avatar-instructions">{{ 'PROFILE.AVATAR_HINT' | translate }}</p>
+        <label class="btn-primary avatar-upload-btn">
+          @if (uploadingAvatar()) {
+            {{ 'PROFILE.AVATAR_UPLOADING' | translate }}
+          } @else {
+            {{ 'PROFILE.AVATAR_UPLOAD' | translate }}
+          }
+          <input #avatarInput type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden [disabled]="uploadingAvatar()" (change)="onAvatarSelected($event)" />
+        </label>
+        <span class="field-hint">{{ 'PROFILE.AVATAR_FORMAT_HINT' | translate }}</span>
+      </div>
+      @if (avatarError()) {
+        <span class="field-error">{{ 'PROFILE.AVATAR_ERROR' | translate }}</span>
+      }
+    </div>
+  </section>
+
+  <section class="config-section">
+    <h3 class="raw-heading">{{ 'PROFILE.INFO_HEADING' | translate }}</h3>
+    <div class="card">
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <div class="field-group">
+          <label class="field-label">{{ 'RESEARCHERS.EMAIL_LABEL' | translate }}</label>
+          <input type="text" class="text-input" [value]="p.email" disabled />
+          <span class="field-hint">{{ 'PROFILE.EMAIL_LOCKED_HINT' | translate }}</span>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label" for="firstName">{{ 'RESEARCHERS.FIRST_NAME_LABEL' | translate }}</label>
+            <input id="firstName" type="text" class="text-input" formControlName="firstName" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="lastName">{{ 'RESEARCHERS.LAST_NAME_LABEL' | translate }}</label>
+            <input id="lastName" type="text" class="text-input" formControlName="lastName" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label" for="dateOfBirth">{{ 'RESEARCHERS.DOB_LABEL' | translate }}</label>
+            <input id="dateOfBirth" type="date" class="text-input" formControlName="dateOfBirth" />
+          </div>
+          <div class="field-group">
+            <label class="field-label">{{ 'RESEARCHERS.ACADEMIC_STATUS_LABEL' | translate }}</label>
+            <app-select
+              [options]="academicStatusOptions()"
+              [value]="form.controls.academicStatus.value"
+              (valueChange)="onAcademicStatusChange($event)"
+            ></app-select>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">{{ 'RESEARCHERS.COUNTRY_LABEL' | translate }}</label>
+            <app-select
+              [options]="countryOptions"
+              [value]="form.controls.country.value"
+              (valueChange)="onCountryChange($event)"
+            ></app-select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">{{ 'LOGIN.LANG_LABEL' | translate }}</label>
+            <app-select
+              [options]="languageOptions()"
+              [value]="form.controls.language.value"
+              (valueChange)="onLanguageChange($event)"
+            ></app-select>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary form-submit" [disabled]="form.invalid || saving()">
+            @if (saving()) {
+              {{ 'RESEARCHERS.SUBMIT_SAVING' | translate }}
+            } @else {
+              {{ 'PROFILE.SAVE_INFO' | translate }}
+            }
+          </button>
+        </div>
+        @if (saved()) {
+          <span class="field-success">{{ 'RESEARCHERS.SAVED' | translate }}</span>
+        }
+        @if (saveError()) {
+          <span class="field-error">{{ 'RESEARCHERS.ERROR' | translate }}</span>
+        }
+      </form>
+    </div>
+  </section>
+
+  <section class="config-section">
+    <h3 class="raw-heading">{{ 'PROFILE.PASSWORD_HEADING' | translate }}</h3>
+    <div class="card">
+      <form [formGroup]="passwordForm" (ngSubmit)="submitPassword()">
+        <div class="field-group">
+          <label class="field-label" for="currentPassword">{{ 'PROFILE.CURRENT_PASSWORD_LABEL' | translate }}</label>
+          <input id="currentPassword" type="password" class="text-input" formControlName="currentPassword" autocomplete="current-password" />
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label" for="newPassword">{{ 'PROFILE.NEW_PASSWORD_LABEL' | translate }}</label>
+            <input id="newPassword" type="password" class="text-input" formControlName="newPassword" autocomplete="new-password" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="confirmPassword">{{ 'PROFILE.CONFIRM_PASSWORD_LABEL' | translate }}</label>
+            <input id="confirmPassword" type="password" class="text-input" formControlName="confirmPassword" autocomplete="new-password" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary form-submit" [disabled]="passwordForm.invalid || changingPassword()">
+            @if (changingPassword()) {
+              {{ 'RESEARCHERS.SUBMIT_SAVING' | translate }}
+            } @else {
+              {{ 'PROFILE.CHANGE_PASSWORD' | translate }}
+            }
+          </button>
+        </div>
+        @if (passwordSaved()) {
+          <span class="field-success">{{ 'PROFILE.PASSWORD_SAVED' | translate }}</span>
+        }
+        @if (passwordError() === 'CURRENT_PASSWORD_INCORRECT') {
+          <span class="field-error">{{ 'PROFILE.CURRENT_PASSWORD_WRONG' | translate }}</span>
+        }
+        @if (passwordError() === 'MISMATCH') {
+          <span class="field-error">{{ 'PROFILE.PASSWORD_MISMATCH' | translate }}</span>
+        }
+        @if (passwordError() === 'SERVER_ERROR') {
+          <span class="field-error">{{ 'RESEARCHERS.ERROR' | translate }}</span>
+        }
+      </form>
+    </div>
+  </section>
+
+  <section class="config-section">
+    <h3 class="raw-heading">{{ 'PROFILE.RESEARCHES_HEADING' | translate }}</h3>
+    @if (leaveError()) {
+      <span class="field-error">{{ leaveError()! | translate }}</span>
+    }
+    @if (!p.researches.length) {
+      <div class="empty-state">{{ 'PROFILE.NO_RESEARCHES' | translate }}</div>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>{{ 'RESEARCHES.NAME_LABEL' | translate }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of p.researches; track r.id) {
+              <tr>
+                <td>{{ r.name }}</td>
+                <td>
+                  <button
+                    type="button"
+                    class="btn-ghost row-action delete-researcher-btn"
+                    [disabled]="leavingResearchId() === r.id"
+                    (click)="leaveResearch(r.id)"
+                  >
+                    {{ 'PROFILE.LEAVE_RESEARCH' | translate }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+  }
+}

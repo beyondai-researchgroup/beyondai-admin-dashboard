@@ -1,0 +1,6 @@
+// Spacing between the Task Type picker card and whichever layout renders below it (PR Review /
+// Google Forms / Generic) — those are separate child components, so the margin lives here on
+// the picker's own card rather than relying on each child to add its own top margin.
+.card {
+  margin-bottom: 24px;
+}

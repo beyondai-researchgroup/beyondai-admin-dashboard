@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci",
+  "buildCommand": "npx ng build --configuration production",
+  "outputDirectory": "dist/admin-dashboard-andrejkatin/browser",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://beyondai-admin-api.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

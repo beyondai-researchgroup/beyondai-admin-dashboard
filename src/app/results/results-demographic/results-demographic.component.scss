@@ -1,0 +1,70 @@
+// Mirrors the page-header-with-trailing-action pattern duplicated per-component throughout this
+// app (e.g. experimental-session-detail.component.scss's own copy).
+.page-header--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+
+  h2 { margin-bottom: 0; }
+}
+
+.segmented-control {
+  margin-bottom: 20px;
+}
+
+.aggregate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aggregate-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .form-heading {
+    margin: 0;
+  }
+}
+
+.option-count-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: var(--color-bg);
+    border-radius: var(--radius-input);
+    font-size: 13.5px;
+  }
+}
+
+.option-count-label {
+  color: var(--color-text-secondary);
+}
+
+.option-count-value {
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.text-answer-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+}

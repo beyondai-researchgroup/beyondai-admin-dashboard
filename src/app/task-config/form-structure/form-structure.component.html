@@ -1,0 +1,91 @@
+<h3 class="raw-heading heading-with-help">
+  {{ 'TASK_CONFIG.FORM_STRUCTURE.HEADING' | translate }}
+  <app-help-icon [title]="'TASK_CONFIG.FORM_STRUCTURE.HEADING' | translate" [steps]="helpSteps()">
+    <p>{{ 'TASK_CONFIG.FORM_STRUCTURE.HINT' | translate }}</p>
+  </app-help-icon>
+</h3>
+
+<div class="card">
+  @if (!connectedLoading()) {
+    @if (connected()) {
+      <div class="form-actions read-row">
+        <button type="button" class="btn-primary form-submit" [disabled]="reading()" (click)="readFromGoogle()">
+          @if (reading()) {
+            {{ 'TASK_CONFIG.FORM_STRUCTURE.READING' | translate }}
+          } @else {
+            {{ 'TASK_CONFIG.FORM_STRUCTURE.READ_BUTTON' | translate }}
+          }
+        </button>
+      </div>
+      @if (readError()) {
+        <span class="field-error">{{ 'TASK_CONFIG.FORM_STRUCTURE.READ_ERROR_' + readError() | translate }}</span>
+      }
+    } @else {
+      <p class="field-hint">{{ 'TASK_CONFIG.FORM_STRUCTURE.NOT_CONNECTED_HINT' | translate }}</p>
+    }
+  }
+
+  @if (loading()) {
+    <app-loading-spinner></app-loading-spinner>
+  } @else if (loadError()) {
+    <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+  } @else {
+    @if (!questions().length) {
+      <p class="field-hint">{{ 'TASK_CONFIG.FORM_STRUCTURE.EMPTY' | translate }}</p>
+    } @else {
+      <p class="field-hint id-column-hint">{{ 'TASK_CONFIG.FORM_STRUCTURE.ID_COLUMN_HINT' | translate }}</p>
+      <div class="question-list">
+        @for (q of questions(); track $index) {
+          <div class="question-row">
+            <input
+              type="text"
+              class="text-input question-text-input"
+              [ngModel]="q.label"
+              (ngModelChange)="updateText($index, $event)"
+              [placeholder]="'TASK_CONFIG.FORM_STRUCTURE.TEXT_PLACEHOLDER' | translate"
+            />
+            <app-select
+              [options]="typeOptions()"
+              [value]="q.questionType"
+              (valueChange)="updateRow($index, 'questionType', $any($event))"
+            ></app-select>
+            <span class="source-badge" [class.source-badge--google]="q.source === 'GOOGLE_FORMS'">
+              {{ (q.source === 'GOOGLE_FORMS' ? 'TASK_CONFIG.FORM_STRUCTURE.SOURCE_GOOGLE' : 'TASK_CONFIG.FORM_STRUCTURE.SOURCE_MANUAL') | translate }}
+            </span>
+            <label class="id-column-radio" [title]="'TASK_CONFIG.FORM_STRUCTURE.ID_COLUMN_LABEL' | translate">
+              <input type="radio" name="idColumn" [checked]="!!q.isParticipantIdColumn" (change)="setIdColumn($index)" />
+              {{ 'TASK_CONFIG.FORM_STRUCTURE.ID_COLUMN_LABEL' | translate }}
+            </label>
+            <button type="button" class="btn-ghost remove-row-btn" (click)="removeRow($index)">
+              {{ 'TASK_CONFIG.FORM_STRUCTURE.REMOVE_ROW' | translate }}
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="form-actions">
+      <button type="button" class="btn-ghost add-row-btn" (click)="addRow()">
+        {{ 'TASK_CONFIG.FORM_STRUCTURE.ADD_ROW' | translate }}
+      </button>
+      @if (hasIdColumn()) {
+        <button type="button" class="btn-ghost add-row-btn" (click)="clearIdColumn()">
+          {{ 'TASK_CONFIG.FORM_STRUCTURE.ID_COLUMN_CLEAR' | translate }}
+        </button>
+      }
+      <button type="button" class="btn-primary form-submit" [disabled]="saving()" (click)="save()">
+        @if (saving()) {
+          {{ 'TASK_CONFIG.SUBMIT_SAVING' | translate }}
+        } @else {
+          {{ 'TASK_CONFIG.SUBMIT' | translate }}
+        }
+      </button>
+      @if (saved()) {
+        <span class="field-success">{{ 'TASK_CONFIG.SAVED' | translate }}</span>
+      }
+      @if (saveError()) {
+        <span class="field-error">{{ 'TASK_CONFIG.DETAILS_ERROR' | translate }}</span>
+      }
+    </div>
+  }
+</div>

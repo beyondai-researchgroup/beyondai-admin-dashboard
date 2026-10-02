@@ -1,0 +1,119 @@
+<div class="page-header">
+  <h2>{{ 'DEMOGRAPHIC_QUESTIONS.TITLE' | translate }}</h2>
+  <p>{{ 'DEMOGRAPHIC_QUESTIONS.HINT' | translate }}</p>
+</div>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <div class="empty-state">{{ 'COMMON.LOAD_ERROR' | translate }}</div>
+} @else {
+  <div class="card">
+    <div cdkDropList class="question-list" (cdkDropListDropped)="drop($event)">
+      @for (question of questions(); track $index) {
+        <div class="question-card" cdkDrag>
+          <div class="question-drag-handle" cdkDragHandle title="{{ 'DEMOGRAPHIC_QUESTIONS.DRAG_HANDLE' | translate }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>
+          </div>
+
+          <div class="question-fields">
+            <div class="field-group">
+              <label class="field-label">{{ 'DEMOGRAPHIC_QUESTIONS.TYPE_LABEL' | translate }}</label>
+              <app-select
+                [options]="questionTypeOptions"
+                [value]="question.type"
+                (valueChange)="onQuestionTypeChange($index, $any($event))"
+              ></app-select>
+            </div>
+
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">{{ 'DEMOGRAPHIC_QUESTIONS.PROMPT_SR_LABEL' | translate }}</label>
+                <input
+                  type="text"
+                  class="text-input"
+                  [ngModel]="question.promptSr"
+                  (ngModelChange)="updateQuestion($index, 'promptSr', $event)"
+                />
+              </div>
+              <div class="field-group">
+                <label class="field-label">{{ 'DEMOGRAPHIC_QUESTIONS.PROMPT_EN_LABEL' | translate }}</label>
+                <input
+                  type="text"
+                  class="text-input"
+                  [ngModel]="question.promptEn"
+                  (ngModelChange)="updateQuestion($index, 'promptEn', $event)"
+                />
+              </div>
+            </div>
+
+            @if (question.type === 'SINGLE_CHOICE') {
+              <div cdkDropList class="option-list" (cdkDropListDropped)="dropOption($index, $event)">
+                @for (option of question.options; track $index2; let $index2 = $index) {
+                  <div class="option-row" cdkDrag>
+                    <div class="option-drag-handle" cdkDragHandle>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="8" cy="6" r="1.3"/><circle cx="8" cy="12" r="1.3"/><circle cx="8" cy="18" r="1.3"/><circle cx="16" cy="6" r="1.3"/><circle cx="16" cy="12" r="1.3"/><circle cx="16" cy="18" r="1.3"/></svg>
+                    </div>
+                    <input
+                      type="text"
+                      class="text-input option-input"
+                      [placeholder]="'DEMOGRAPHIC_QUESTIONS.OPTION_SR_PLACEHOLDER' | translate"
+                      [ngModel]="option.labelSr"
+                      (ngModelChange)="updateOption($index, $index2, 'labelSr', $event)"
+                    />
+                    <input
+                      type="text"
+                      class="text-input option-input"
+                      [placeholder]="'DEMOGRAPHIC_QUESTIONS.OPTION_EN_PLACEHOLDER' | translate"
+                      [ngModel]="option.labelEn"
+                      (ngModelChange)="updateOption($index, $index2, 'labelEn', $event)"
+                    />
+                    <label class="toggle-switch option-other-toggle">
+                      <input
+                        type="checkbox"
+                        [ngModel]="option.isOtherSpecify"
+                        (ngModelChange)="updateOption($index, $index2, 'isOtherSpecify', $event)"
+                      />
+                      <span class="toggle-track"></span>
+                      <span class="toggle-label">{{ 'DEMOGRAPHIC_QUESTIONS.OTHER_SPECIFY_LABEL' | translate }}</span>
+                    </label>
+                    <button type="button" class="btn-ghost remove-option-btn" (click)="removeOption($index, $index2)">
+                      {{ 'DEMOGRAPHIC_QUESTIONS.REMOVE_OPTION' | translate }}
+                    </button>
+                  </div>
+                }
+              </div>
+              <button type="button" class="btn-ghost add-option-btn" (click)="addOption($index)">
+                {{ 'DEMOGRAPHIC_QUESTIONS.ADD_OPTION' | translate }}
+              </button>
+            }
+          </div>
+
+          <button type="button" class="btn-ghost remove-question-btn" (click)="removeQuestion($index)">
+            {{ 'DEMOGRAPHIC_QUESTIONS.REMOVE_QUESTION' | translate }}
+          </button>
+        </div>
+      }
+    </div>
+
+    <button type="button" class="btn-ghost add-question-btn" (click)="addQuestion()">
+      {{ 'DEMOGRAPHIC_QUESTIONS.ADD_QUESTION' | translate }}
+    </button>
+
+    <div class="form-actions">
+      <button type="button" class="btn-primary form-submit" [disabled]="saving() || !questions().length" (click)="submit()">
+        @if (saving()) {
+          {{ 'STUDY_CONFIG.SUBMIT_SAVING' | translate }}
+        } @else {
+          {{ 'STUDY_CONFIG.SUBMIT' | translate }}
+        }
+      </button>
+      @if (saved()) {
+        <span class="field-success">{{ 'STUDY_CONFIG.SAVED' | translate }}</span>
+      }
+      @if (saveError()) {
+        <span class="field-error">{{ 'STUDY_CONFIG.ERROR' | translate }}</span>
+      }
+    </div>
+  </div>
+}

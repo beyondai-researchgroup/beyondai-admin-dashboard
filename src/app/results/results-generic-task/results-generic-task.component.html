@@ -1,0 +1,60 @@
+<div class="results-header">
+  <h2>{{ 'NAV.RESULTS_GENERIC_TASK' | translate }}</h2>
+  @if (submissions().length) {
+    <button class="btn-ghost" type="button" [disabled]="exportingZip()" (click)="downloadAllZip()">
+      {{ exportingZip() ? ('GENERIC_TASK_RESULTS.EXPORT_ZIP_RUNNING' | translate) : ('GENERIC_TASK_RESULTS.EXPORT_ZIP' | translate) }}
+    </button>
+  }
+</div>
+@if (exportZipError()) {
+  <p class="field-error">{{ 'GENERIC_TASK_RESULTS.EXPORT_ZIP_ERROR' | translate }}</p>
+}
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else if (!submissions().length) {
+  <div class="empty-state">{{ 'GENERIC_TASK_RESULTS.EMPTY' | translate }}</div>
+} @else {
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ 'PARTICIPANTS.COL_ID' | translate }}</th>
+          <th>{{ 'GENERIC_TASK_RESULTS.TASK_LABEL' | translate }}</th>
+          <th>{{ 'GENERIC_TASK_RESULTS.SUBMITTED_AT_LABEL' | translate }}</th>
+          <th>{{ 'GENERIC_TASK_RESULTS.TIMED_OUT_LABEL' | translate }}</th>
+          <th>{{ 'GENERIC_TASK_RESULTS.FILES_LABEL' | translate }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of submissions(); track s.submissionId) {
+          <tr>
+            <td>{{ s.participantId }}</td>
+            <td>{{ s.taskTitle }}</td>
+            <td>{{ s.submittedAt | date: 'dd.MM.yyyy. HH:mm' }}</td>
+            <td>
+              @if (s.isTimedOut) {
+                <span class="status-dot status-dot--error"></span>
+                {{ 'GENERIC_TASK_RESULTS.TIMED_OUT_YES' | translate }}
+              } @else {
+                {{ 'GENERIC_TASK_RESULTS.TIMED_OUT_NO' | translate }}
+              }
+            </td>
+            <td class="note-actions">
+              @if (!s.files.length) {
+                <span class="field-hint">{{ 'GENERIC_TASK_RESULTS.NO_FILES' | translate }}</span>
+              }
+              @for (f of s.files; track f.id) {
+                <button type="button" class="btn-ghost row-action" (click)="downloadFile(s.submissionId, f.id, f.filename)">
+                  {{ f.filename }}
+                </button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

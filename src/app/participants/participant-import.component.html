@@ -1,0 +1,113 @@
+<div class="page-header">
+  <h2>{{ 'IMPORT.TITLE' | translate }}</h2>
+  <p>{{ 'IMPORT.HINT' | translate }}</p>
+</div>
+
+<div class="import-toolbar">
+  <button class="btn-ghost" type="button" (click)="downloadTemplate()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    {{ 'IMPORT.DOWNLOAD_TEMPLATE' | translate }}
+  </button>
+</div>
+
+<div class="card">
+  <div
+    class="dropzone"
+    [class.dropzone--active]="isDragOver()"
+    [class.dropzone--has-file]="selectedFile()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+    (click)="fileInput.click()"
+  >
+    <input #fileInput type="file" accept=".xlsx,.xls" hidden (change)="onFileSelected($event)" />
+
+    @if (!selectedFile()) {
+      <svg class="dropzone__icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <p class="dropzone__title">{{ 'IMPORT.DROPZONE_TITLE' | translate }}</p>
+      <p class="dropzone__subtitle">{{ 'IMPORT.DROPZONE_SUBTITLE' | translate }}</p>
+    } @else {
+      <svg class="dropzone__icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <p class="dropzone__filename">{{ selectedFile()!.name }}</p>
+      <button class="btn-ghost" type="button" (click)="clearFile($event)">{{ 'IMPORT.REMOVE_FILE' | translate }}</button>
+    }
+  </div>
+
+  @if (parsing()) {
+    <p class="parse-status">{{ 'IMPORT.PARSING' | translate }}</p>
+  }
+
+  @if (parseResult(); as pr) {
+    @if (pr.issues.length) {
+      <div class="parse-issues">
+        <p class="field-error parse-issues__title">{{ 'IMPORT.PARSE_ERRORS_TITLE' | translate: { count: pr.issues.length } }}</p>
+        <ul>
+          @for (issue of pr.issues; track $index) {
+            <li class="field-error">
+              @if (issue.row) {
+                <span class="parse-issues__loc">{{ issue.sheet }} #{{ issue.row }}</span>
+              } @else {
+                <span class="parse-issues__loc">{{ issue.sheet }}</span>
+              }
+              {{ issue.message }}
+            </li>
+          }
+        </ul>
+      </div>
+    } @else {
+      <div class="parse-preview">
+        <div class="summary-cards">
+          <div class="summary-card">
+            <div class="summary-card__label">{{ 'IMPORT.PREVIEW_PARTICIPANTS' | translate }}</div>
+            <div class="summary-card__value">{{ pr.participants.length }}</div>
+          </div>
+          @if (isPrReview()) {
+            <div class="summary-card">
+              <div class="summary-card__label">{{ 'IMPORT.PREVIEW_TASKS' | translate }}</div>
+              <div class="summary-card__value">{{ pr.tasks.length }}</div>
+            </div>
+          }
+        </div>
+
+        <button class="btn-primary import-submit" type="button" [disabled]="importing()" (click)="submitImport()">
+          @if (importing()) {
+            {{ 'IMPORT.SUBMIT_RUNNING' | translate }}
+          } @else {
+            {{ 'IMPORT.SUBMIT' | translate }}
+          }
+        </button>
+      </div>
+    }
+  }
+
+  @if (importError()) {
+    <span class="field-error">{{ 'IMPORT.ERROR' | translate }}</span>
+  }
+</div>
+
+@if (importResult(); as r) {
+  <div class="card result-card">
+    <h3>{{ 'IMPORT.RESULTS_TITLE' | translate }}</h3>
+    <p>{{ 'IMPORT.IMPORTED_COUNT' | translate: { count: r.participants.imported.length } }}</p>
+    @if (r.participants.skippedExisting.length) {
+      <p>{{ 'IMPORT.SKIPPED_COUNT' | translate: { count: r.participants.skippedExisting.length } }}</p>
+    }
+    @if (r.tasks.introAdded.length) {
+      <p>{{ 'IMPORT.INTRO_ADDED_COUNT' | translate: { count: r.tasks.introAdded.length } }}</p>
+    }
+    @if (isPrReview()) {
+      <p>{{ 'IMPORT.TASKS_ASSIGNED_COUNT' | translate: { count: r.tasks.assigned.length } }}</p>
+    }
+
+    @if (r.tasks.errors.length) {
+      <div class="parse-issues">
+        <p class="field-error parse-issues__title">{{ 'IMPORT.TASK_ERRORS_TITLE' | translate: { count: r.tasks.errors.length } }}</p>
+        <ul>
+          @for (e of r.tasks.errors; track $index) {
+            <li class="field-error"><span class="parse-issues__loc">{{ e.participantId }}</span>{{ 'IMPORT.TASK_ERROR.' + e.reasonCode | translate }}</li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+}

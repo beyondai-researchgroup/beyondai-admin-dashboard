@@ -1,0 +1,151 @@
+@if (!hideHeader()) {
+  <div class="page-header">
+    <h2>{{ 'CONSENT_FORM.TITLE' | translate }}</h2>
+    <p>{{ 'CONSENT_FORM.HINT' | translate }}</p>
+  </div>
+}
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <div class="empty-state">{{ 'CONSENT_FORM.LOAD_ERROR' | translate }}</div>
+} @else if (mode() === 'preview') {
+  <div class="card preview-card">
+    @if (consentLanguageSr() && consentLanguageEn()) {
+      <div class="preview-lang-tabs">
+        <button type="button" class="preview-lang-tab" [class.preview-lang-tab--active]="previewLang() === 'sr'" (click)="setPreviewLang('sr')">SR</button>
+        <button type="button" class="preview-lang-tab" [class.preview-lang-tab--active]="previewLang() === 'en'" (click)="setPreviewLang('en')">EN</button>
+      </div>
+    }
+
+    <div class="consent-preview">
+      @for (section of previewSections(); track $index) {
+        <section class="consent-preview__section">
+          @if (section.title) {
+            <h2>{{ section.title }}</h2>
+          }
+          <p>{{ section.body }}</p>
+        </section>
+      }
+      <div class="consent-preview__checkbox">
+        <span class="toggle-switch" aria-hidden="true">
+          <input type="checkbox" disabled />
+          <span class="toggle-track"></span>
+          <span class="toggle-label">{{ previewCheckboxText() }}</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn-primary form-submit" (click)="edit()">{{ 'CONSENT_FORM.EDIT' | translate }}</button>
+    </div>
+  </div>
+} @else {
+  <div class="card">
+    <div class="form-actions edit-mode-actions">
+      <button type="button" class="btn-ghost" (click)="backToPreview()">{{ 'CONSENT_FORM.BACK_TO_PREVIEW' | translate }}</button>
+    </div>
+    <div cdkDropList class="section-list" (cdkDropListDropped)="drop($event)">
+      @for (section of sections(); track $index) {
+        <div class="section-card" cdkDrag>
+          <div class="section-drag-handle" cdkDragHandle title="{{ 'CONSENT_FORM.DRAG_HANDLE' | translate }}">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>
+          </div>
+
+          <div class="section-fields">
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">{{ 'CONSENT_FORM.TITLE_SR_LABEL' | translate }}</label>
+                <input
+                  type="text"
+                  class="text-input"
+                  [ngModel]="section.titleSr"
+                  (ngModelChange)="updateSection($index, 'titleSr', $event)"
+                  placeholder="{{ 'CONSENT_FORM.TITLE_PLACEHOLDER' | translate }}"
+                />
+              </div>
+              <div class="field-group">
+                <label class="field-label">{{ 'CONSENT_FORM.TITLE_EN_LABEL' | translate }}</label>
+                <input
+                  type="text"
+                  class="text-input"
+                  [ngModel]="section.titleEn"
+                  (ngModelChange)="updateSection($index, 'titleEn', $event)"
+                  placeholder="{{ 'CONSENT_FORM.TITLE_PLACEHOLDER' | translate }}"
+                />
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">{{ 'CONSENT_FORM.BODY_SR_LABEL' | translate }}</label>
+                <textarea
+                  class="text-input textarea"
+                  rows="3"
+                  [ngModel]="section.bodySr"
+                  (ngModelChange)="updateSection($index, 'bodySr', $event)"
+                ></textarea>
+              </div>
+              <div class="field-group">
+                <label class="field-label">{{ 'CONSENT_FORM.BODY_EN_LABEL' | translate }}</label>
+                <textarea
+                  class="text-input textarea"
+                  rows="3"
+                  [ngModel]="section.bodyEn"
+                  (ngModelChange)="updateSection($index, 'bodyEn', $event)"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="btn-ghost remove-section-btn" (click)="removeSection($index)">
+            {{ 'CONSENT_FORM.REMOVE_SECTION' | translate }}
+          </button>
+        </div>
+      }
+    </div>
+
+    <button type="button" class="btn-ghost add-section-btn" (click)="addSection()">
+      {{ 'CONSENT_FORM.ADD_SECTION' | translate }}
+    </button>
+
+    <div class="checkbox-text-block">
+      <h3 class="form-heading heading-with-help">
+        {{ 'CONSENT_FORM.CHECKBOX_HEADING' | translate }}
+        <app-help-icon [title]="'CONSENT_FORM.CHECKBOX_HEADING' | translate">
+          <p>{{ 'CONSENT_FORM.CHECKBOX_HINT' | translate }}</p>
+        </app-help-icon>
+      </h3>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">{{ 'CONSENT_FORM.CHECKBOX_SR_LABEL' | translate }}</label>
+          <textarea class="text-input textarea" rows="2" [ngModel]="checkboxTextSr()" (ngModelChange)="checkboxTextSr.set($event)"></textarea>
+        </div>
+        <div class="field-group">
+          <label class="field-label">{{ 'CONSENT_FORM.CHECKBOX_EN_LABEL' | translate }}</label>
+          <textarea class="text-input textarea" rows="2" [ngModel]="checkboxTextEn()" (ngModelChange)="checkboxTextEn.set($event)"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" class="btn-primary form-submit" [disabled]="saving() || !sections().length" (click)="submit()">
+        @if (saving()) {
+          {{ 'CONSENT_FORM.SUBMIT_SAVING' | translate }}
+        } @else {
+          {{ 'CONSENT_FORM.SUBMIT' | translate }}
+        }
+      </button>
+      @if (saved()) {
+        <span class="field-success">{{ 'CONSENT_FORM.SAVED' | translate }}</span>
+      }
+      @if (saveError()) {
+        <span class="field-error">{{ 'CONSENT_FORM.ERROR' | translate }}</span>
+      }
+    </div>
+  </div>
+}
+
+@if (!loading() && !loadError() && scope.selectedResearchId(); as researchId) {
+  <app-consent-delivery [researchId]="researchId"></app-consent-delivery>
+}

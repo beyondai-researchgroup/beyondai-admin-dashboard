@@ -1,0 +1,37 @@
+<div class="page-header">
+  <h2>{{ 'TASK_CONFIG.TITLE' | translate }}</h2>
+  <p>{{ 'TASK_CONFIG.HINT' | translate }}</p>
+</div>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else {
+  <div class="card">
+    <div class="field-group">
+      <label class="field-label">{{ 'TASK_CONFIG.TASK_TYPE_LABEL' | translate }}</label>
+      <app-select
+        [options]="taskTypeOptions()"
+        [value]="taskType()"
+        [disabled]="saving()"
+        (valueChange)="onTaskTypeChange($event)"
+      ></app-select>
+      @if (saveError()) {
+        <span class="field-error">{{ 'TASK_CONFIG.ERROR' | translate }}</span>
+      }
+    </div>
+  </div>
+
+  @switch (taskType()) {
+    @case ('PR_REVIEW') {
+      <app-pr-review-task></app-pr-review-task>
+    }
+    @case ('GOOGLE_FORMS') {
+      <app-google-forms-task></app-google-forms-task>
+    }
+    @case ('GENERIC') {
+      <app-generic-task></app-generic-task>
+    }
+  }
+}

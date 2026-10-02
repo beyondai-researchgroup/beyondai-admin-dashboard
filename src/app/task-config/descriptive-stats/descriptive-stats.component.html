@@ -1,0 +1,62 @@
+<h3 class="raw-heading heading-with-help">
+  {{ 'TASK_CONFIG.DESCRIPTIVE_STATS.HEADING' | translate }}
+  <app-help-icon [title]="'TASK_CONFIG.DESCRIPTIVE_STATS.HEADING' | translate">
+    <p>{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.HINT' | translate }}</p>
+  </app-help-icon>
+</h3>
+
+<div class="card">
+  @if (loading()) {
+    <app-loading-spinner></app-loading-spinner>
+  } @else if (error() === 'NO_CSV_FILE') {
+    <p class="field-hint">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.NO_CSV' | translate }}</p>
+  } @else if (error()) {
+    <p class="field-error">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.ERROR' | translate }}</p>
+  } @else {
+    @if (stats(); as s) {
+      <p class="field-hint stats-source">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.SOURCE' | translate: { filename: s.sourceFilename, rows: s.rowCount } }}</p>
+
+      @if (s.participantMatch; as pm) {
+        <p class="field-hint participant-match-summary">
+          {{ 'TASK_CONFIG.DESCRIPTIVE_STATS.PARTICIPANT_MATCH' | translate: { matched: pm.matchedCount, total: pm.totalParticipants } }}
+        </p>
+      }
+
+      @if (!s.columns.length) {
+        <p class="field-hint">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.NO_CSV' | translate }}</p>
+      } @else {
+        <div class="table-wrap">
+          <table class="data-table question-stats-table">
+            <thead>
+              <tr>
+                <th>{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.COL_QUESTION' | translate }}</th>
+                <th>{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.COL_TYPE' | translate }}</th>
+                <th>{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.COL_COUNT' | translate }}</th>
+                <th>{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.COL_SUMMARY' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (col of s.columns; track col.columnKey) {
+                <tr class="question-row" (click)="openDetail(col)">
+                  <td>
+                    {{ col.label }}
+                    @if (!col.mapped) {
+                      <span class="unmapped-badge">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.UNMAPPED' | translate }}</span>
+                    }
+                  </td>
+                  <td><span class="type-badge">{{ 'TASK_CONFIG.DESCRIPTIVE_STATS.TYPE_' + col.questionType | translate }}</span></td>
+                  <td>{{ col.count }}</td>
+                  <td>{{ quickSummary(col) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+  }
+</div>
+
+@if (selected(); as col) {
+  <app-question-detail-modal [column]="col" (close)="closeDetail()"></app-question-detail-modal>
+}

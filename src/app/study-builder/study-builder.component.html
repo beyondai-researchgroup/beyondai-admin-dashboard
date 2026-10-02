@@ -1,0 +1,150 @@
+<div class="page-header">
+  <h2>{{ 'STUDY_BUILDER.TITLE' | translate }}</h2>
+  <p>{{ 'STUDY_BUILDER.HINT' | translate }}</p>
+</div>
+
+<div class="wizard-steps">
+  @for (s of [1, 2, 3]; track s) {
+    <button
+      type="button"
+      class="wizard-step"
+      [class.wizard-step--active]="step() === s"
+      [class.wizard-step--done]="step() > s"
+      [disabled]="(s > 1 && createdResearchName() === null) || (s === 2 && !form.controls.usesConsentForm.value)"
+      (click)="goTo($any(s))"
+    >
+      <span class="wizard-step__num">{{ s }}</span>
+      <span class="wizard-step__label">{{ 'STUDY_BUILDER.STEP_' + s | translate }}</span>
+    </button>
+  }
+</div>
+
+@if (step() === 1) {
+  <section class="config-section">
+    <div class="card">
+      <form [formGroup]="form" (ngSubmit)="createResearch()">
+        <h3 class="form-heading">{{ 'STUDY_BUILDER.BASICS_HEADING' | translate }}</h3>
+        <div class="field-group">
+          <label class="field-label" for="sb-name">{{ 'RESEARCHES.NAME_LABEL' | translate }}</label>
+          <input id="sb-name" type="text" class="text-input" formControlName="name" />
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label" for="sb-university">{{ 'RESEARCHES.UNIVERSITY_LABEL' | translate }}</label>
+            <input id="sb-university" type="text" class="text-input" formControlName="university" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="sb-city">{{ 'RESEARCHES.CITY_LABEL' | translate }}</label>
+            <input id="sb-city" type="text" class="text-input" formControlName="city" />
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="sb-country">{{ 'RESEARCHES.COUNTRY_LABEL' | translate }}</label>
+          <input id="sb-country" type="text" class="text-input" formControlName="country" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="sb-description">{{ 'RESEARCHES.DESCRIPTION_LABEL' | translate }}</label>
+          <textarea id="sb-description" class="text-input textarea" rows="3" formControlName="description"></textarea>
+        </div>
+
+        <h3 class="form-heading">{{ 'STUDY_BUILDER.INSTRUMENTS_HEADING' | translate }}</h3>
+        <div class="field-group">
+          <label class="toggle-switch">
+            <input type="checkbox" formControlName="usesTlx" />
+            <span class="toggle-track"></span>
+            <span class="toggle-label">{{ 'STUDY_CONFIG.USES_TLX_LABEL' | translate }}</span>
+          </label>
+        </div>
+        <div class="field-group">
+          <label class="toggle-switch">
+            <input type="checkbox" formControlName="usesPsychTests" />
+            <span class="toggle-track"></span>
+            <span class="toggle-label">{{ 'STUDY_CONFIG.USES_PSYCH_TESTS_LABEL' | translate }}</span>
+          </label>
+        </div>
+        <div class="field-group">
+          <label class="field-label">{{ 'TASK_CONFIG.TASK_TYPE_LABEL' | translate }}</label>
+          <app-select
+            [options]="taskTypeOptions()"
+            [value]="form.controls.taskType.value"
+            (valueChange)="onTaskTypeChange($event)"
+          ></app-select>
+        </div>
+        <div class="field-group">
+          <label class="toggle-switch">
+            <input type="checkbox" formControlName="usesConsentForm" />
+            <span class="toggle-track"></span>
+            <span class="toggle-label">{{ 'STUDY_CONFIG.USES_CONSENT_FORM_LABEL' | translate }}</span>
+          </label>
+        </div>
+        @if (form.controls.usesConsentForm.value) {
+          <div class="field-group">
+            <label class="field-label">{{ 'STUDY_CONFIG.CONSENT_LANGUAGE_LABEL' | translate }}</label>
+            <div class="checkbox-row">
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  [checked]="form.controls.consentLanguageSr.value"
+                  (change)="onConsentLanguageChange('sr', $any($event.target).checked)"
+                />
+                <span class="toggle-track"></span>
+                <span class="toggle-label">{{ 'STUDY_CONFIG.CONSENT_LANGUAGE_SR' | translate }}</span>
+              </label>
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  [checked]="form.controls.consentLanguageEn.value"
+                  (change)="onConsentLanguageChange('en', $any($event.target).checked)"
+                />
+                <span class="toggle-track"></span>
+                <span class="toggle-label">{{ 'STUDY_CONFIG.CONSENT_LANGUAGE_EN' | translate }}</span>
+              </label>
+            </div>
+          </div>
+        }
+        @if (form.controls.taskType.value !== 'PR_REVIEW') {
+          <div class="field-group">
+            <label class="toggle-switch">
+              <input type="checkbox" formControlName="tracksParticipants" />
+              <span class="toggle-track"></span>
+              <span class="toggle-label">{{ 'STUDY_CONFIG.TRACKS_PARTICIPANTS_LABEL' | translate }}</span>
+            </label>
+          </div>
+        }
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary form-submit" [disabled]="form.invalid || creating()">
+            @if (creating()) {
+              {{ 'STUDY_BUILDER.CREATING' | translate }}
+            } @else {
+              {{ 'STUDY_BUILDER.CREATE_AND_CONTINUE' | translate }}
+            }
+          </button>
+        </div>
+        @if (createError()) {
+          <span class="field-error">{{ 'RESEARCHES.ERROR' | translate }}</span>
+        }
+      </form>
+    </div>
+  </section>
+}
+
+@if (step() === 2) {
+  <p class="field-hint wizard-step-hint">{{ 'STUDY_BUILDER.CONSENT_HINT' | translate }}</p>
+  <app-consent-form [hideHeader]="true"></app-consent-form>
+  <div class="wizard-nav">
+    <button type="button" class="btn-primary form-submit wizard-next-btn" (click)="next()">
+      {{ 'STUDY_BUILDER.FINISH' | translate }}
+    </button>
+  </div>
+}
+
+@if (step() === 3) {
+  <section class="config-section">
+    <div class="card wizard-done-card">
+      <h3 class="form-heading">{{ 'STUDY_BUILDER.DONE_HEADING' | translate }}</h3>
+      <p>{{ 'STUDY_BUILDER.DONE_TEXT' | translate: { name: createdResearchName() } }}</p>
+      <a class="btn-ghost wizard-done-link" routerLink="/researches">{{ 'STUDY_BUILDER.DONE_GO_RESEARCHES' | translate }}</a>
+    </div>
+  </section>
+}

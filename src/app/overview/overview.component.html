@@ -1,0 +1,131 @@
+<div class="page-header">
+  <h2>{{ 'OVERVIEW.TITLE' | translate }}</h2>
+  <p>{{ 'OVERVIEW.SUBTITLE' | translate }}</p>
+</div>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (error()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else {
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-card__icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div class="stat-card__label">{{ 'OVERVIEW.STAT_PARTICIPANTS' | translate }}</div>
+      <div class="stat-card__value">{{ participantsCount() }}</div>
+      <div class="stat-card__sub">{{ 'OVERVIEW.STAT_PARTICIPANTS_SUB' | translate }}</div>
+    </div>
+
+    @if (showSessionsStat()) {
+      <div class="stat-card">
+        <div class="stat-card__icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div class="stat-card__label">{{ 'OVERVIEW.STAT_SESSIONS_DONE' | translate }}</div>
+        <div class="stat-card__value">{{ sessionsDone() }}</div>
+        <div class="stat-card__sub">{{ 'OVERVIEW.STAT_SESSIONS_DONE_SUB' | translate: { total: sessionsTotal() } }}</div>
+      </div>
+    }
+
+    @if (showResultsStat()) {
+      <div class="stat-card">
+        <div class="stat-card__icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        </div>
+        <div class="stat-card__label">{{ 'OVERVIEW.STAT_RESULTS_TOTAL' | translate }}</div>
+        <div class="stat-card__value">{{ resultsTotal() }}</div>
+        <div class="stat-card__sub">{{ 'OVERVIEW.STAT_RESULTS_TOTAL_SUB' | translate }}</div>
+      </div>
+    }
+
+    @if (showSurveyCard()) {
+      <div class="stat-card">
+        <div class="stat-card__icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div class="stat-card__label">{{ 'OVERVIEW.STAT_SURVEY_RESPONSES' | translate }}</div>
+        <div class="stat-card__value">{{ surveyResponsesCount() }}</div>
+        <div class="stat-card__sub">{{ surveyResponsesSubLabel() }}</div>
+        @if (surveyParticipantMatchLabel(); as matchLabel) {
+          <div class="stat-card__sub">{{ matchLabel }}</div>
+        }
+      </div>
+    }
+  </div>
+
+  @if (showSessionChartGrid()) {
+    <div class="chart-grid">
+      <div
+        class="chart-card chart-card--expandable chart-card--large"
+        tabindex="0"
+        role="button"
+        [attr.aria-label]="'OVERVIEW.EXPAND_HINT' | translate"
+        (click)="openChart('sessions')"
+        (keydown.enter)="openChart('sessions')"
+      >
+        <div class="chart-card__title">{{ sessionChartTitle() }}</div>
+        <p class="chart-card__subtitle">{{ sessionChartSubtitle() }}</p>
+        <div class="chart-card__canvas-wrap">
+          <app-bar-chart [labels]="activeSessionChartLabels()" [datasets]="activeSessionChartDatasets()"></app-bar-chart>
+        </div>
+        <span class="chart-card__expand-hint">{{ 'OVERVIEW.EXPAND_HINT' | translate }}</span>
+      </div>
+
+      <div
+        class="chart-card chart-card--expandable chart-card--large"
+        tabindex="0"
+        role="button"
+        [attr.aria-label]="'OVERVIEW.EXPAND_HINT' | translate"
+        (click)="openChart('completion')"
+        (keydown.enter)="openChart('completion')"
+      >
+        <div class="chart-card__title">{{ completionChartTitle() }}</div>
+        <p class="chart-card__subtitle">{{ completionChartSubtitle() }}</p>
+        <div class="chart-card__canvas-wrap">
+          <app-bar-chart [labels]="completionChartLabels()" [datasets]="activeCompletionChartDatasets()"></app-bar-chart>
+        </div>
+        <span class="chart-card__expand-hint">{{ 'OVERVIEW.EXPAND_HINT' | translate }}</span>
+      </div>
+    </div>
+  }
+
+  @if (showSurveyCard() && featuredSurveyColumns().length > 0) {
+    <div class="section-header">
+      <h3>{{ 'OVERVIEW.SURVEY_SECTION_TITLE' | translate }}</h3>
+      @if (hasMoreSurveyColumns()) {
+        <a routerLink="/task-config" class="section-header__link">{{ 'OVERVIEW.SURVEY_VIEW_ALL' | translate }}</a>
+      }
+    </div>
+    <div class="chart-grid">
+      @for (col of featuredSurveyColumns(); track col.columnKey) {
+        <div
+          class="chart-card chart-card--expandable"
+          tabindex="0"
+          role="button"
+          [attr.aria-label]="'OVERVIEW.EXPAND_HINT' | translate"
+          (click)="openChart(surveyChartKey(col))"
+          (keydown.enter)="openChart(surveyChartKey(col))"
+        >
+          <div class="chart-card__title">{{ surveyChartTitle(col) }}</div>
+          <p class="chart-card__subtitle">{{ 'OVERVIEW.CHART_SURVEY_SUBTITLE' | translate }}</p>
+          <div class="chart-card__canvas-wrap">
+            <app-bar-chart [labels]="surveyChartLabels(col)" [datasets]="surveyChartDatasets(col)"></app-bar-chart>
+          </div>
+          <span class="chart-card__expand-hint">{{ 'OVERVIEW.EXPAND_HINT' | translate }}</span>
+        </div>
+      }
+    </div>
+  }
+}
+
+@if (expandedChart(); as chart) {
+  <app-chart-modal
+    [title]="chart.title"
+    [subtitle]="chart.subtitle"
+    [labels]="chart.labels"
+    [datasets]="chart.datasets"
+    (closed)="closeChart()"
+  ></app-chart-modal>
+}

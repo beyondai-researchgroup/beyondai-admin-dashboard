@@ -1,0 +1,63 @@
+<div class="page-header">
+  <h2>{{ 'PARTICIPANTS.TITLE' | translate }}</h2>
+</div>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (error()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else if (!participants().length) {
+  <div class="empty-state">{{ 'PARTICIPANTS.EMPTY' | translate }}</div>
+} @else {
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{{ 'PARTICIPANTS.COL_ID' | translate }}</th>
+          <th>{{ 'PARTICIPANTS.COL_PHASE' | translate }}</th>
+          <th>Intro</th>
+          <th>AI</th>
+          <th>Report</th>
+          @if (notRespondedIds(); as notResponded) {
+            <th>{{ 'PARTICIPANTS.COL_SURVEY' | translate }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of participants(); track p.participantId) {
+          <tr class="data-table__row--clickable" tabindex="0" role="button" (click)="openParticipant(p.participantId)" (keydown.enter)="openParticipant(p.participantId)">
+            <td>
+              {{ p.participantId }}
+              @if (p.isTestParticipant) {
+                <span class="status-badge status-badge--test">{{ 'PARTICIPANTS.TEST_BADGE' | translate }}</span>
+              }
+            </td>
+            <td>{{ currentPhase(p) ?? ('PARTICIPANTS.PHASE_ALL_DONE' | translate) }}</td>
+            @for (sessionId of [1, 2, 3]; track sessionId) {
+              <td>
+                @if (sessionByType(p, sessionId); as s) {
+                  <span class="status-dot" [class.status-dot--done]="s.isFinished"></span>
+                  {{ s.isFinished ? '✓' : '-' }} <span class="seq">#{{ s.sequenceOrder }}</span>
+                  @if (s.isFinished && !s.experimentalSessionId) {
+                    <span class="warning-badge" [title]="'PARTICIPANTS.NOT_SCHEDULED_WARNING' | translate">⚠</span>
+                  }
+                } @else {
+                  <span class="status-dot"></span> —
+                }
+              </td>
+            }
+            @if (notRespondedIds(); as notResponded) {
+              <td>
+                @if (notResponded.has(p.participantId)) {
+                  <span class="status-dot"></span> - {{ 'PARTICIPANTS.SURVEY_NOT_RESPONDED' | translate }}
+                } @else {
+                  <span class="status-dot status-dot--done"></span> ✓ {{ 'PARTICIPANTS.SURVEY_RESPONDED' | translate }}
+                }
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

@@ -1,0 +1,95 @@
+<div class="page-header page-header--row">
+  <h2>{{ 'RESULTS_DEMOGRAPHIC.TITLE' | translate }}</h2>
+  <button type="button" class="btn-ghost" [disabled]="exporting()" (click)="exportCsv()">
+    @if (exporting()) {
+      {{ 'RESULTS_DEMOGRAPHIC.EXPORT_SAVING' | translate }}
+    } @else {
+      {{ 'RESULTS_DEMOGRAPHIC.EXPORT_CSV' | translate }}
+    }
+  </button>
+</div>
+@if (exportError()) {
+  <p class="field-error">{{ 'RESULTS_DEMOGRAPHIC.EXPORT_ERROR' | translate }}</p>
+}
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <div class="empty-state">{{ 'COMMON.LOAD_ERROR' | translate }}</div>
+} @else {
+  <div class="segmented-control">
+    <input type="radio" id="demo-mode-raw" name="demo-mode" [checked]="mode() === 'raw'" (change)="setMode('raw')" />
+    <label for="demo-mode-raw">{{ 'RESULTS_DEMOGRAPHIC.TAB_RAW' | translate }}</label>
+    <input type="radio" id="demo-mode-aggregate" name="demo-mode" [checked]="mode() === 'aggregate'" (change)="setMode('aggregate')" />
+    <label for="demo-mode-aggregate">{{ 'RESULTS_DEMOGRAPHIC.TAB_AGGREGATE' | translate }}</label>
+  </div>
+
+  @if (mode() === 'raw') {
+    @if (!raw()?.responses?.length) {
+      <div class="empty-state">{{ 'RESULTS_DEMOGRAPHIC.NO_RESPONSES' | translate }}</div>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>{{ 'PARTICIPANTS.COL_ID' | translate }}</th>
+              <th>{{ 'RESULTS_DEMOGRAPHIC.COL_LANGUAGE' | translate }}</th>
+              <th>{{ 'RESULTS_DEMOGRAPHIC.COL_COMPLETED_AT' | translate }}</th>
+              @for (q of questions(); track q.id) {
+                <th>{{ q.promptSr }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of raw()!.responses; track row.participantId) {
+              <tr>
+                <td>{{ row.participantId }}</td>
+                <td>{{ row.language }}</td>
+                <td>{{ row.completedAt | date: 'dd.MM.yyyy. HH:mm' }}</td>
+                @for (q of questions(); track q.id) {
+                  <td>{{ displayAnswer(q, row.answers) }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  } @else {
+    @if (!aggregate()) {
+      <div class="empty-state">{{ 'RESULTS_DEMOGRAPHIC.NO_RESPONSES' | translate }}</div>
+    } @else {
+      <p class="field-hint">{{ 'RESULTS_DEMOGRAPHIC.TOTAL_RESPONSES' | translate: { count: aggregate()!.totalResponses } }}</p>
+      <div class="aggregate-list">
+        @for (q of aggregate()!.questions; track q.questionId) {
+          <div class="card aggregate-card">
+            <h3 class="form-heading">{{ q.promptSr }}</h3>
+            @if (q.type === 'TEXT') {
+              @if (!q.textAnswers?.length) {
+                <p class="field-hint">{{ 'RESULTS_DEMOGRAPHIC.NO_ANSWERS' | translate }}</p>
+              } @else {
+                <ul class="text-answer-list">
+                  @for (t of q.textAnswers; track $index) {
+                    <li>{{ t }}</li>
+                  }
+                </ul>
+              }
+            } @else {
+              <ul class="option-count-list">
+                @for (oc of q.optionCounts; track oc.optionId) {
+                  <li>
+                    <span class="option-count-label">{{ oc.labelSr }}</span>
+                    <span class="option-count-value">{{ oc.count }}</span>
+                  </li>
+                }
+              </ul>
+              @if (q.otherTexts?.length) {
+                <p class="field-hint">{{ 'RESULTS_DEMOGRAPHIC.OTHER_TEXTS_LABEL' | translate }}: {{ q.otherTexts!.join('; ') }}</p>
+              }
+            }
+          </div>
+        }
+      </div>
+    }
+  }
+}
