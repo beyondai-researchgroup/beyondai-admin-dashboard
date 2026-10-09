@@ -6,7 +6,8 @@
 // type client in Google Cloud Console) is used by every researcher — that's normal, it's the
 // resulting refresh token per researcher that's the actually-personal part, stored encrypted on
 // their own Researcher row (server/calendar/tokenCrypto.mjs).
-import { google } from 'googleapis';
+import { oauth2 as googleOauth2 } from '@googleapis/oauth2';
+import { OAuth2Client } from 'google-auth-library';
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/userinfo.email'];
 
@@ -19,7 +20,7 @@ function newClient() {
       'GOOGLE_CALENDAR_CLIENT_ID / GOOGLE_CALENDAR_CLIENT_SECRET / GOOGLE_CALENDAR_REDIRECT_URI are not set.'
     );
   }
-  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  return new OAuth2Client(clientId, clientSecret, redirectUri);
 }
 
 export function buildAuthUrl(state) {
@@ -44,7 +45,7 @@ export async function exchangeCode(code) {
   }
   client.setCredentials(tokens);
 
-  const oauth2 = google.oauth2({ version: 'v2', auth: client });
+  const oauth2 = googleOauth2({ version: 'v2', auth: client });
   const { data } = await oauth2.userinfo.get();
 
   return { refreshToken: tokens.refresh_token, email: data.email ?? null };

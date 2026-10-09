@@ -3,7 +3,8 @@
 // SEPARATE OAuth client registration/env vars from Calendar's (a researcher might read a form
 // owned under a different Google account than their calendar one), but the same "one shared
 // client, per-researcher refresh token" shape.
-import { google } from 'googleapis';
+import { oauth2 as googleOauth2 } from '@googleapis/oauth2';
+import { OAuth2Client } from 'google-auth-library';
 
 const SCOPES = ['https://www.googleapis.com/auth/forms.body.readonly', 'https://www.googleapis.com/auth/userinfo.email'];
 
@@ -16,7 +17,7 @@ function newClient() {
       'GOOGLE_FORMS_CLIENT_ID / GOOGLE_FORMS_CLIENT_SECRET / GOOGLE_FORMS_REDIRECT_URI are not set.'
     );
   }
-  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  return new OAuth2Client(clientId, clientSecret, redirectUri);
 }
 
 export function buildAuthUrl(state) {
@@ -41,7 +42,7 @@ export async function exchangeCode(code) {
   }
   client.setCredentials(tokens);
 
-  const oauth2 = google.oauth2({ version: 'v2', auth: client });
+  const oauth2 = googleOauth2({ version: 'v2', auth: client });
   const { data } = await oauth2.userinfo.get();
 
   return { refreshToken: tokens.refresh_token, email: data.email ?? null };

@@ -8,7 +8,8 @@
 // null/false rather than throwing — a Calendar API hiccup (rate limit, revoked token, network)
 // must never block the DB write that already succeeded in the calling route. The DB is always
 // the source of truth; the Calendar event is a best-effort projection of it.
-import { google } from 'googleapis';
+import { calendar } from '@googleapis/calendar';
+import { OAuth2Client } from 'google-auth-library';
 
 const TIMEZONE = 'Europe/Belgrade';
 
@@ -16,9 +17,9 @@ function clientFor(refreshToken) {
   const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CALENDAR_CLIENT_SECRET;
   const redirectUri = process.env.GOOGLE_CALENDAR_REDIRECT_URI;
-  const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  const oAuth2Client = new OAuth2Client(clientId, clientSecret, redirectUri);
   oAuth2Client.setCredentials({ refresh_token: refreshToken });
-  return google.calendar({ version: 'v3', auth: oAuth2Client });
+  return calendar({ version: 'v3', auth: oAuth2Client });
 }
 
 function toDateTime(date, time) {

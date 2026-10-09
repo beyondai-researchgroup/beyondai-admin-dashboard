@@ -31,7 +31,7 @@ import researcherInviteRoutes from './researcher-invite/routes.mjs';
 import teamInviteRoutes from './team-invite/routes.mjs';
 import researcherProfileRoutes from './researcher-profile/routes.mjs';
 import notificationsRoutes from './notifications/routes.mjs';
-import { startSessionReminderJob } from './notifications/reminderJob.mjs';
+import { startSessionReminderJob, runSessionReminderCheck } from './notifications/reminderJob.mjs';
 
 const PORT = process.env.PORT || 4312;
 
@@ -74,8 +74,27 @@ app.use('/api/admin/notifications', notificationsRoutes);
 app.use('/api/researcher-invite', researcherInviteRoutes);
 app.use('/api/team-invite', teamInviteRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Admin Dashboard API server listening on http://localhost:${PORT}`);
+// On Vercel the hourly in-process reminder timer can't run (functions don't stay alive), so Vercel
+// Cron (vercel.json "crons") calls this once a day instead. Vercel sends
+// "Authorization: Bearer <CRON_SECRET>"; anything else is refused. The check itself is idempotent
+// (at most one SESSION_REMINDER per research per day), same as with the timer.
+app.get('/api/cron/session-reminders', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.get('authorization') !== `Bearer ${secret}`) {
+    res.status(401).json({ error: 'UNAUTHORIZED' });
+    return;
+  }
+  await runSessionReminderCheck();
+  res.json({ ok: true });
 });
 
-startSessionReminderJob();
+// On Vercel this app runs as a serverless function (api/index.mjs imports it) — only bind a port
+// and start the in-process reminder timer when started directly for local dev.
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Admin Dashboard API server listening on http://localhost:${PORT}`);
+  });
+  startSessionReminderJob();
+}
+
+export default app;

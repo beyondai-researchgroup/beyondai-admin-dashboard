@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { runInBackground } from '../background.mjs';
 import { Router } from 'express';
 import { getDb } from '../db.mjs';
 import { requireAuth } from '../auth/middleware.mjs';
@@ -948,7 +949,7 @@ router.post('/import', async (req, res) => {
     // a failed import (exact same post-response, own-try/catch pattern as Google Calendar sync
     // in experimental-sessions/routes.mjs). Only notify if this import actually added something.
     if (imported.length > 0 || introAdded.length > 0 || assigned.length > 0) {
-      (async () => {
+      runInBackground(async () => {
         try {
           const researchRows = await sql`SELECT "Name" FROM "Research" WHERE "Id" = ${researchId} LIMIT 1`;
           const researchName = researchRows[0]?.Name ?? '';
@@ -965,7 +966,7 @@ router.post('/import', async (req, res) => {
         } catch (notifyErr) {
           console.error('[participants] notification fan-out failed:', notifyErr);
         }
-      })();
+      });
     }
   } catch (err) {
     console.error('[participants] import error:', err);

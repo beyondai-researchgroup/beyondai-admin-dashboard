@@ -4,6 +4,7 @@
 // the ParticipantSession row it's assigned to (ExperimentalSessionId FK, nullable — unassigned
 // by default, forward-looking only, see Sql/009_experimental_sessions.sql).
 import { Router } from 'express';
+import { runInBackground } from '../background.mjs';
 import { getDb } from '../db.mjs';
 import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
@@ -174,7 +175,7 @@ router.post('/', async (req, res) => {
 
     // Fire-and-forget — same post-response, own-try/catch pattern as the Calendar sync calls
     // elsewhere in this file.
-    (async () => {
+    runInBackground(async () => {
       try {
         const researchRows = await sql`SELECT "Name" FROM "Research" WHERE "Id" = ${resolvedResearchId} LIMIT 1`;
         const researchName = researchRows[0]?.Name ?? '';
@@ -191,7 +192,7 @@ router.post('/', async (req, res) => {
       } catch (notifyErr) {
         console.error('[experimental-sessions] notification fan-out failed:', notifyErr);
       }
-    })();
+    });
   } catch (err) {
     console.error('[experimental-sessions] create error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -362,7 +363,7 @@ router.put('/:id', async (req, res) => {
     // Moving the whole experimental session's date must move every child's Calendar event too,
     // keeping each participant's own time-of-day — best-effort per row, one failure doesn't stop
     // the rest (googleCalendar.mjs's updateEvent already swallows its own errors).
-    if (dateChanged) {
+    if (dateChanged) runInBackground(async () => {
       try {
         const children = await sql`
           SELECT "GoogleCalendarEventId", "GoogleCalendarResearcherId",
@@ -390,7 +391,7 @@ router.put('/:id', async (req, res) => {
       } catch (calendarErr) {
         console.error('[experimental-sessions] calendar sync (reschedule) failed:', calendarErr);
       }
-    }
+    });
   } catch (err) {
     console.error('[experimental-sessions] update error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -454,6 +455,7 @@ router.post('/:id/assign', async (req, res) => {
     // to change the time) creates a fresh event each time rather than reusing the old one; this
     // is deliberately simple (an occasional stray duplicate on a time-only edit is a minor
     // cosmetic issue) rather than adding another round trip to look up + update an existing id.
+    runInBackground(async () => {
     try {
       const refreshToken = await getResearcherRefreshToken(sql, req.researcher.id);
       if (refreshToken) {
@@ -485,6 +487,7 @@ router.post('/:id/assign', async (req, res) => {
     } catch (calendarErr) {
       console.error('[experimental-sessions] calendar sync (assign) failed:', calendarErr);
     }
+    });
   } catch (err) {
     console.error('[experimental-sessions] assign error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -528,9 +531,11 @@ router.post('/:id/unassign', async (req, res) => {
     if (eventId) {
       // The event lives on whichever researcher originally assigned it, not necessarily whoever
       // is unassigning it now — only that researcher's own token can delete it from their calendar.
-      getResearcherRefreshToken(sql, current[0].GoogleCalendarResearcherId)
-        .then((refreshToken) => (refreshToken ? deleteEvent({ refreshToken, eventId }) : undefined))
-        .catch((err) => console.error('[experimental-sessions] calendar sync (unassign) failed:', err));
+      runInBackground(
+        getResearcherRefreshToken(sql, current[0].GoogleCalendarResearcherId)
+          .then((refreshToken) => (refreshToken ? deleteEvent({ refreshToken, eventId }) : undefined)),
+        'experimental-sessions calendar sync (unassign)'
+      );
     }
   } catch (err) {
     console.error('[experimental-sessions] unassign error:', err);
@@ -579,12 +584,15 @@ router.delete('/:id', async (req, res) => {
     res.json({ ok: true });
 
     if (children.length) {
-      Promise.all(
-        children.map(async (row) => {
-          const refreshToken = await getResearcherRefreshToken(sql, row.GoogleCalendarResearcherId);
-          if (refreshToken) await deleteEvent({ refreshToken, eventId: row.GoogleCalendarEventId });
-        })
-      ).catch((err) => console.error('[experimental-sessions] calendar sync (delete) failed:', err));
+      runInBackground(
+        Promise.all(
+          children.map(async (row) => {
+            const refreshToken = await getResearcherRefreshToken(sql, row.GoogleCalendarResearcherId);
+            if (refreshToken) await deleteEvent({ refreshToken, eventId: row.GoogleCalendarEventId });
+          })
+        ),
+        'experimental-sessions calendar sync (delete)'
+      );
     }
   } catch (err) {
     console.error('[experimental-sessions] delete error:', err);

@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { forms as googleForms } from '@googleapis/forms';
 import { clientForRefreshToken } from './oauth.mjs';
 
 /**
@@ -42,7 +42,7 @@ function mapQuestionType(question) {
  */
 export async function readFormStructure(refreshToken, formId) {
   const auth = clientForRefreshToken(refreshToken);
-  const forms = google.forms({ version: 'v1', auth });
+  const forms = googleForms({ version: 'v1', auth });
   const { data } = await forms.forms.get({ formId });
 
   const questions = [];
