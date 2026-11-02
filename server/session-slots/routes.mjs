@@ -312,7 +312,8 @@ router.post('/:experimentalSessionId', async (req, res) => {
 
     let attendees = await resolveAudience(sql, researchId, { audienceType, groupId, participantIds });
     if (attendees === null) return void res.status(400).json({ error: 'UNKNOWN_PARTICIPANT' });
-    if (!attendees.length) return void res.status(400).json({ error: 'NO_ATTENDEES' });
+    // A group / everyone slot may start with nobody in it yet (participants are imported later and added with "syncGroup").
+    if (!attendees.length && audienceType === 'PARTICIPANT') return void res.status(400).json({ error: 'NO_ATTENDEES' });
     if (attendees.length > MAX_ATTENDEES) return void res.status(400).json({ error: 'TOO_MANY_ATTENDEES' });
 
     const conflicts = await findConflicts(sql, protocolStepId, attendees.map((a) => a.guid));
@@ -322,7 +323,7 @@ router.post('/:experimentalSessionId', async (req, res) => {
       }
       const skip = new Set(conflicts.map((c) => c.guid));
       attendees = attendees.filter((a) => !skip.has(a.guid));
-      if (!attendees.length) return void res.status(400).json({ error: 'NO_ATTENDEES' });
+      if (!attendees.length && audienceType === 'PARTICIPANT') return void res.status(400).json({ error: 'NO_ATTENDEES' });
     }
 
     const inserted = await sql`
@@ -332,9 +333,11 @@ router.post('/:experimentalSessionId', async (req, res) => {
               ${audienceType}, ${groupId}, ${protocolStepId}, ${f.notes}, ${req.researcher.id})
       RETURNING "Id"`;
     const slotId = inserted[0].Id;
-    await sql`
-      INSERT INTO "SessionSlotAttendee" ("SlotId","ParticipantGuid")
-      SELECT ${slotId}, UNNEST(${attendees.map((a) => a.guid)}::uuid[])`;
+    if (attendees.length) {
+      await sql`
+        INSERT INTO "SessionSlotAttendee" ("SlotId","ParticipantGuid")
+        SELECT ${slotId}, UNNEST(${attendees.map((a) => a.guid)}::uuid[])`;
+    }
 
     const refreshToken = await getResearcherRefreshToken(sql, req.researcher.id);
     res.status(201).json({

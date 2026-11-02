@@ -1550,7 +1550,9 @@
     "ERR_ALREADY_SCHEDULED_SHORT": "Taj učesnik već ima termin za izabrani korak.",
     "ERR_ROLE": "Nemaš pravo da menjaš termine ovog istraživanja.",
     "ERR_GENERIC": "Čuvanje nije uspelo. Proveri unos i pokušaj ponovo.",
-    "MEETING_LINK_SHORT": "link"
+    "MEETING_LINK_SHORT": "link",
+    "PREVIEW_PICK": "Izaberi bar jednog učesnika da bi mogao da sačuvaš termin.",
+    "PREVIEW_NOBODY_YET": "Trenutno nema nikoga u ovoj grupi. Termin će se sačuvati bez pozvanih, a kasnije ih dodaješ dugmetom na kartici termina."
   },
   "RICH": {
     "TOOLBAR": "Oblikovanje teksta",

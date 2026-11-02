@@ -1550,7 +1550,9 @@
     "ERR_ALREADY_SCHEDULED_SHORT": "That participant already has an appointment for the chosen step.",
     "ERR_ROLE": "You are not allowed to change appointments of this research.",
     "ERR_GENERIC": "Saving failed. Check the input and try again.",
-    "MEETING_LINK_SHORT": "link"
+    "MEETING_LINK_SHORT": "link",
+    "PREVIEW_PICK": "Pick at least one participant to be able to save the appointment.",
+    "PREVIEW_NOBODY_YET": "Nobody is in this audience yet. The appointment is saved without invitees; add them later with the button on the appointment card."
   },
   "RICH": {
     "TOOLBAR": "Text formatting",

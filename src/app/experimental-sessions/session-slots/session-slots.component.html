@@ -205,7 +205,11 @@
         </div>
 
         <div class="invite-preview" [class.invite-preview--empty]="!previewAttendees().length">
-          {{ 'SESSION_SLOTS.PREVIEW' | translate: { n: previewAttendees().length, m: previewWithoutEmail() } }}
+          @if (!previewAttendees().length) {
+            {{ (audience() === 'PARTICIPANT' ? 'SESSION_SLOTS.PREVIEW_PICK' : 'SESSION_SLOTS.PREVIEW_NOBODY_YET') | translate }}
+          } @else {
+            {{ 'SESSION_SLOTS.PREVIEW' | translate: { n: previewAttendees().length, m: previewWithoutEmail() } }}
+          }
         </div>
       }
 

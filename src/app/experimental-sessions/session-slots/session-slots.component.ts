@@ -97,7 +97,8 @@ export class SessionSlotsComponent {
     if (this.kind() === 'IN_PERSON' && !this.location().trim()) return false;
     if (this.editingId() !== null) return true;
     if (this.audience() === 'GROUP' && this.groupId() === null) return false;
-    return this.previewAttendees().length > 0;
+    // Group / everyone can be scheduled before anyone has been imported (they are added later); a hand-picked slot needs someone.
+    return this.audience() !== 'PARTICIPANT' || this.previewAttendees().length > 0;
   });
 
   readonly tagOptions = computed<SelectOption[]>(() => {
