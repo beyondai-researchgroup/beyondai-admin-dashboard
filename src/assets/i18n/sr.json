@@ -1551,5 +1551,32 @@
     "ERR_ROLE": "Nemaš pravo da menjaš termine ovog istraživanja.",
     "ERR_GENERIC": "Čuvanje nije uspelo. Proveri unos i pokušaj ponovo.",
     "MEETING_LINK_SHORT": "link"
+  },
+  "RICH": {
+    "TOOLBAR": "Oblikovanje teksta",
+    "PARAGRAPH": "Običan tekst",
+    "HEADING": "Naslov",
+    "SUBHEADING": "Podnaslov",
+    "FONT_DEFAULT": "Font",
+    "SIZE_DEFAULT": "Veličina",
+    "BOLD": "Podebljano",
+    "ITALIC": "Kurziv",
+    "UNDERLINE": "Podvučeno",
+    "STRIKE": "Precrtano",
+    "COLOR": "Boja teksta",
+    "COLOR_RESET": "Podrazumevana boja",
+    "BULLETS": "Lista sa tačkama",
+    "NUMBERS": "Numerisana lista",
+    "QUOTE": "Citat",
+    "ALIGN_LEFT": "Levo",
+    "ALIGN_CENTER": "Sredina",
+    "ALIGN_RIGHT": "Desno",
+    "ALIGN_JUSTIFY": "Obostrano",
+    "LINK": "Link",
+    "LINK_APPLY": "Primeni",
+    "LINK_REMOVE": "Ukloni link",
+    "CLEAR": "Ukloni oblikovanje",
+    "UNDO": "Poništi",
+    "REDO": "Ponovi"
   }
 }

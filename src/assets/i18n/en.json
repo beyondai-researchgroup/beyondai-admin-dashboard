@@ -1551,5 +1551,32 @@
     "ERR_ROLE": "You are not allowed to change appointments of this research.",
     "ERR_GENERIC": "Saving failed. Check the input and try again.",
     "MEETING_LINK_SHORT": "link"
+  },
+  "RICH": {
+    "TOOLBAR": "Text formatting",
+    "PARAGRAPH": "Normal text",
+    "HEADING": "Heading",
+    "SUBHEADING": "Subheading",
+    "FONT_DEFAULT": "Font",
+    "SIZE_DEFAULT": "Size",
+    "BOLD": "Bold",
+    "ITALIC": "Italic",
+    "UNDERLINE": "Underline",
+    "STRIKE": "Strikethrough",
+    "COLOR": "Text colour",
+    "COLOR_RESET": "Default colour",
+    "BULLETS": "Bulleted list",
+    "NUMBERS": "Numbered list",
+    "QUOTE": "Quote",
+    "ALIGN_LEFT": "Left",
+    "ALIGN_CENTER": "Centre",
+    "ALIGN_RIGHT": "Right",
+    "ALIGN_JUSTIFY": "Justify",
+    "LINK": "Link",
+    "LINK_APPLY": "Apply",
+    "LINK_REMOVE": "Remove link",
+    "CLEAR": "Clear formatting",
+    "UNDO": "Undo",
+    "REDO": "Redo"
   }
 }

@@ -116,12 +116,17 @@
     margin: 0;
   }
 
-  p {
-    margin: 0;
+  .consent-body {
     color: var(--color-text-secondary);
     font-size: 14px;
     line-height: 1.6;
   }
+}
+
+// The body is injected HTML, so the component's emulated encapsulation does not reach into it.
+.consent-body ::ng-deep {
+  h2, h3 { color: var(--color-text); }
+  strong, b { color: var(--color-text); }
 }
 
 .consent-preview__checkbox {

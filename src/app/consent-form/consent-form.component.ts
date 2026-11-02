@@ -2,12 +2,15 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { toObservable } from '@angular/core/rxjs-interop';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AdminApiService, ConsentSection } from '../services/admin-api.service';
 import { ScopeService } from '../services/scope.service';
 import { HelpIconComponent } from '../shared/help-icon/help-icon.component';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner/loading-spinner.component';
 import { ConsentDeliveryComponent } from './delivery/delivery.component';
+import { RichTextEditorComponent } from '../shared/rich-text/rich-text-editor.component';
+import { toSafeHtml } from '../shared/rich-text/safe-html';
 
 /** Phase C of platform-ification (2026-08-18): lets a researcher define their own research's
  *  Consent Form instead of everyone sharing one fixed, hardcoded text — predefined sections
@@ -19,13 +22,14 @@ import { ConsentDeliveryComponent } from './delivery/delivery.component';
 @Component({
   selector: 'app-consent-form',
   standalone: true,
-  imports: [FormsModule, TranslateModule, DragDropModule, HelpIconComponent, LoadingSpinnerComponent, ConsentDeliveryComponent],
+  imports: [FormsModule, TranslateModule, DragDropModule, HelpIconComponent, LoadingSpinnerComponent, ConsentDeliveryComponent, RichTextEditorComponent],
   templateUrl: './consent-form.component.html',
   styleUrl: './consent-form.component.scss',
 })
 export class ConsentFormComponent {
   private api = inject(AdminApiService);
   readonly scope = inject(ScopeService);
+  private sanitizer = inject(DomSanitizer);
 
   readonly sections = signal<ConsentSection[]>([]);
   readonly checkboxTextSr = signal('');
@@ -52,7 +56,8 @@ export class ConsentFormComponent {
   readonly previewSections = computed(() =>
     this.sections().map((s) => ({
       title: (this.previewLang() === 'sr' ? s.titleSr : s.titleEn) || null,
-      body: this.previewLang() === 'sr' ? s.bodySr : s.bodyEn,
+      // Same rendering as the participant gets: sanitized formatted text (older plain texts become paragraphs).
+      body: this.sanitizer.bypassSecurityTrustHtml(toSafeHtml((this.previewLang() === 'sr' ? s.bodySr : s.bodyEn) ?? '')) as SafeHtml,
     }))
   );
   readonly previewCheckboxText = computed(() => (this.previewLang() === 'sr' ? this.checkboxTextSr() : this.checkboxTextEn()));

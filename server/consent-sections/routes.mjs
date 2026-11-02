@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../db.mjs';
 import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
+import { cleanRichText, MAX_RICH_TEXT } from '../rich-text.mjs';
 import { DEFAULT_CONSENT_SECTIONS, GENERIC_CONSENT_SECTIONS, DEFAULT_CHECKBOX_TEXT_SR, DEFAULT_CHECKBOX_TEXT_EN } from './defaults.mjs';
 
 // Phase C of platform-ification: per-research configurable Consent Form. Any authenticated
@@ -13,6 +14,8 @@ router.use(requireAuth);
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_BODY_LENGTH = 5000;
+// A section body is formatted text (HTML from the editor): the markup is much heavier than the visible text.
+const MAX_SECTION_HTML = MAX_RICH_TEXT;
 const MAX_SECTIONS = 40;
 
 function scopeGuard(req, res, id) {
@@ -30,6 +33,11 @@ function scopeGuard(req, res, id) {
 
 function isOptionalTitle(v) {
   return v === undefined || v === null || (typeof v === 'string' && v.length <= MAX_TITLE_LENGTH);
+}
+
+// Section bodies: plain text or HTML in; the visible text must not be empty and the stored HTML is sanitized.
+function isValidSectionBody(v) {
+  return typeof v === 'string' && v.length <= MAX_SECTION_HTML && cleanRichText(v) !== null;
 }
 
 function isValidBody(v) {
@@ -88,7 +96,7 @@ router.get('/:researchId', async (req, res) => {
 
     res.json({
       sections: sections.map((s) => ({
-        id: s.Id, titleSr: s.TitleSr, titleEn: s.TitleEn, bodySr: s.BodySr, bodyEn: s.BodyEn,
+        id: s.Id, titleSr: s.TitleSr, titleEn: s.TitleEn, bodySr: cleanRichText(s.BodySr) ?? '', bodyEn: cleanRichText(s.BodyEn) ?? '',
       })),
       checkboxTextSr: research[0].ConsentCheckboxTextSr ?? DEFAULT_CHECKBOX_TEXT_SR,
       checkboxTextEn: research[0].ConsentCheckboxTextEn ?? DEFAULT_CHECKBOX_TEXT_EN,
@@ -117,7 +125,7 @@ router.put('/:researchId', async (req, res) => {
     return;
   }
   for (const s of sections) {
-    if (!isOptionalTitle(s?.titleSr) || !isOptionalTitle(s?.titleEn) || !isValidBody(s?.bodySr) || !isValidBody(s?.bodyEn)) {
+    if (!isOptionalTitle(s?.titleSr) || !isOptionalTitle(s?.titleEn) || !isValidSectionBody(s?.bodySr) || !isValidSectionBody(s?.bodyEn)) {
       res.status(400).json({ error: 'Each section needs a non-empty bodySr/bodyEn (within length limits); titleSr/titleEn are optional' });
       return;
     }
@@ -134,7 +142,7 @@ router.put('/:researchId', async (req, res) => {
       const s = sections[i];
       await sql`
         INSERT INTO "ConsentSection" ("ResearchId", "SortOrder", "TitleSr", "TitleEn", "BodySr", "BodyEn")
-        VALUES (${id}, ${i}, ${s.titleSr || null}, ${s.titleEn || null}, ${s.bodySr.trim()}, ${s.bodyEn.trim()})
+        VALUES (${id}, ${i}, ${s.titleSr || null}, ${s.titleEn || null}, ${cleanRichText(s.bodySr)}, ${cleanRichText(s.bodyEn)})
       `;
     }
     const rows = await sql`

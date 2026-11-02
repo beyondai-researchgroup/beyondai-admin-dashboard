@@ -22,7 +22,7 @@
           @if (section.title) {
             <h2>{{ section.title }}</h2>
           }
-          <p>{{ section.body }}</p>
+          <div class="consent-body rich-content rich-content--read" [innerHTML]="section.body"></div>
         </section>
       }
       <div class="consent-preview__checkbox">
@@ -77,21 +77,11 @@
             <div class="field-row">
               <div class="field-group">
                 <label class="field-label">{{ 'CONSENT_FORM.BODY_SR_LABEL' | translate }}</label>
-                <textarea
-                  class="text-input textarea"
-                  rows="3"
-                  [ngModel]="section.bodySr"
-                  (ngModelChange)="updateSection($index, 'bodySr', $event)"
-                ></textarea>
+                <app-rich-text-editor [value]="section.bodySr" [minHeight]="110" (valueChange)="updateSection($index, 'bodySr', $event)"></app-rich-text-editor>
               </div>
               <div class="field-group">
                 <label class="field-label">{{ 'CONSENT_FORM.BODY_EN_LABEL' | translate }}</label>
-                <textarea
-                  class="text-input textarea"
-                  rows="3"
-                  [ngModel]="section.bodyEn"
-                  (ngModelChange)="updateSection($index, 'bodyEn', $event)"
-                ></textarea>
+                <app-rich-text-editor [value]="section.bodyEn" [minHeight]="110" (valueChange)="updateSection($index, 'bodyEn', $event)"></app-rich-text-editor>
               </div>
             </div>
           </div>
