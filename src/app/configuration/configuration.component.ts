@@ -90,6 +90,8 @@ export class ConfigurationComponent {
     // Demographic Questionnaire (2026-10-01) — default false matches the DB column default; a
     // brand-new feature nobody has authored questions for yet, unlike usesPsychTests/usesTlx.
     usesDemographics: [false],
+    // Excel-like tables (2026-10) — off by default, shown for both CLASSIC and PROTOCOL researches.
+    usesSheets: [false],
     // 2026-09-08 follow-up — whether Participants/Import/Experimental-Sessions are shown at all;
     // forced true (and un-editable, see the template's taskType gate) for PR_REVIEW research.
     tracksParticipants: [true],
@@ -239,6 +241,7 @@ export class ConfigurationComponent {
         emailSenderName: cfg.emailSenderName ?? '',
         usesConsentForm: cfg.usesConsentForm,
         usesDemographics: cfg.usesDemographics,
+        usesSheets: cfg.usesSheets,
         tracksParticipants: cfg.tracksParticipants,
         consentLanguageSr: cfg.consentLanguageSr,
         consentLanguageEn: cfg.consentLanguageEn,
@@ -304,7 +307,7 @@ export class ConfigurationComponent {
     // validation, and the /interpretation gate all match on this literal value).
     const eegDeviceType =
       v.eegDevicePreset === EEG_DEVICE_INSIGHT5 ? EEG_DEVICE_INSIGHT5 : v.eegDeviceOtherName?.trim() || EEG_DEVICE_OTHER;
-    const body: Omit<StudyConfig, 'rei40Variants' | 'rei40VariantLocked'> = {
+    const body: Omit<StudyConfig, 'rei40Variants' | 'rei40VariantLocked' | 'flowMode'> = {
       usesEeg: v.usesEeg ?? false,
       eegDeviceType,
       usesTlx: v.usesTlx ?? true,
@@ -316,6 +319,7 @@ export class ConfigurationComponent {
       emailSenderName: v.emailSenderName?.trim() || null,
       usesConsentForm: v.usesConsentForm ?? true,
       usesDemographics: v.usesDemographics ?? false,
+      usesSheets: v.usesSheets ?? false,
       tracksParticipants: this.studyConfigStore.taskType() === 'PR_REVIEW' ? true : (v.tracksParticipants ?? true),
       consentLanguageSr: v.consentLanguageSr ?? true,
       consentLanguageEn: v.consentLanguageEn ?? true,

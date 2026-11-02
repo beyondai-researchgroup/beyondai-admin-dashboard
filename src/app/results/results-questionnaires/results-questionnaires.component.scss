@@ -1,0 +1,161 @@
+// Same page-header-with-trailing-action and aggregate-card patterns as results-demographic (duplicated
+// per component, this app's established convention).
+.page-header--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+
+  h2 { margin-bottom: 0; }
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 240px;
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+}
+
+.segmented-control {
+  margin-bottom: 20px;
+}
+
+.aggregate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.aggregate-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .form-heading {
+    margin: 0;
+  }
+}
+
+.stat-list,
+.option-count-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 10px;
+    background: var(--color-bg);
+    border-radius: var(--radius-input);
+    font-size: 13.5px;
+  }
+}
+
+.stat-label,
+.option-count-label {
+  color: var(--color-text-secondary);
+
+  small {
+    color: var(--color-muted);
+  }
+}
+
+.stat-value,
+.option-count-value {
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-line {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-muted);
+}
+
+.distribution {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  li {
+    display: grid;
+    grid-template-columns: 24px 1fr 36px;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.dist-point {
+  color: var(--color-muted);
+  text-align: right;
+}
+
+.dist-bar {
+  height: 10px;
+  background: var(--color-bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.dist-fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--color-accent);
+  border-radius: 4px;
+}
+
+.dist-count {
+  color: var(--color-text-secondary);
+}
+
+.text-answer-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+}

@@ -1,0 +1,188 @@
+<div class="page-header page-header--row">
+  <h2>{{ 'RESULTS_QUESTIONNAIRES.TITLE' | translate }}</h2>
+  @if (list().length) {
+    <button type="button" class="btn-ghost" [disabled]="exporting()" (click)="exportCsv()">
+      @if (exporting()) {
+        {{ 'RESULTS_QUESTIONNAIRES.EXPORT_SAVING' | translate }}
+      } @else {
+        {{ 'RESULTS_QUESTIONNAIRES.EXPORT_CSV' | translate }}
+      }
+    </button>
+  }
+</div>
+@if (exportError()) {
+  <p class="field-error">{{ 'RESULTS_QUESTIONNAIRES.EXPORT_ERROR' | translate }}</p>
+}
+
+@if (loading() && !raw()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <div class="empty-state">{{ 'COMMON.LOAD_ERROR' | translate }}</div>
+} @else if (!list().length) {
+  <div class="empty-state">{{ 'RESULTS_QUESTIONNAIRES.NO_QUESTIONNAIRES' | translate }}</div>
+} @else {
+  <div class="filter-row">
+    <div class="filter-field">
+      <label>{{ 'RESULTS_QUESTIONNAIRES.QUESTIONNAIRE_LABEL' | translate }}</label>
+      <app-select [options]="questionnaireOptions()" [value]="questionnaireId()" (valueChange)="onQuestionnaireChange($event)"></app-select>
+    </div>
+    @if (showStepFilter()) {
+      <div class="filter-field">
+        <label>{{ 'RESULTS_QUESTIONNAIRES.STEP_LABEL' | translate }}</label>
+        <app-select [options]="stepOptions()" [value]="stepId() ?? 0" (valueChange)="onStepChange($event)"></app-select>
+      </div>
+    }
+  </div>
+
+  <div class="segmented-control">
+    <input type="radio" id="q-mode-raw" name="q-mode" [checked]="mode() === 'raw'" (change)="setMode('raw')" />
+    <label for="q-mode-raw">{{ 'RESULTS_QUESTIONNAIRES.TAB_RAW' | translate }}</label>
+    <input type="radio" id="q-mode-aggregate" name="q-mode" [checked]="mode() === 'aggregate'" (change)="setMode('aggregate')" />
+    <label for="q-mode-aggregate">{{ 'RESULTS_QUESTIONNAIRES.TAB_AGGREGATE' | translate }}</label>
+  </div>
+
+  @if (mode() === 'raw') {
+    @if (raw(); as r) {
+      @if (!r.responses.length) {
+        <div class="empty-state">{{ 'RESULTS_QUESTIONNAIRES.NO_RESPONSES' | translate }}</div>
+      } @else {
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ 'PARTICIPANTS.COL_ID' | translate }}</th>
+                @if (hasGroupColumn(r)) {
+                  <th>{{ 'PROTOCOL_PROGRESS.COL_GROUP' | translate }}</th>
+                }
+                @if (showStepFilter()) {
+                  <th>{{ 'RESULTS_QUESTIONNAIRES.COL_STEP' | translate }}</th>
+                }
+                <th>{{ 'RESULTS_QUESTIONNAIRES.COL_LANGUAGE' | translate }}</th>
+                <th>{{ 'RESULTS_QUESTIONNAIRES.COL_SUBMITTED_AT' | translate }}</th>
+                @for (item of r.items; track item.itemKey) {
+                  <th>{{ prompt(item) }}</th>
+                }
+                @for (name of r.subscales; track name) {
+                  <th>{{ 'RESULTS_QUESTIONNAIRES.SUBSCALE_COL' | translate: { name: name } }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.responses; track row.participantId + '-' + row.stepId) {
+                <tr>
+                  <td>{{ row.participantId }}</td>
+                  @if (hasGroupColumn(r)) {
+                    <td>{{ row.groupName ?? '-' }}</td>
+                  }
+                  @if (showStepFilter()) {
+                    <td>{{ stepTitle(row) }}</td>
+                  }
+                  <td>{{ row.language }}</td>
+                  <td>{{ row.submittedAt | date: 'dd.MM.yyyy. HH:mm' }}</td>
+                  @for (item of r.items; track item.itemKey) {
+                    <td>{{ displayAnswer(item, row.answers) }}</td>
+                  }
+                  @for (name of r.subscales; track name) {
+                    <td>{{ row.subscaleScores[name] ?? '-' }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+  } @else {
+    @if (aggregate(); as agg) {
+      @if (!agg.totalResponses) {
+        <div class="empty-state">{{ 'RESULTS_QUESTIONNAIRES.NO_RESPONSES' | translate }}</div>
+      } @else {
+        <p class="field-hint">{{ 'RESULTS_QUESTIONNAIRES.TOTAL_RESPONSES' | translate: { count: agg.totalResponses } }}</p>
+
+        @if (agg.subscales.length) {
+          <div class="card aggregate-card">
+            <h3 class="form-heading">{{ 'RESULTS_QUESTIONNAIRES.SUBSCALES_HEADING' | translate }}</h3>
+            <p class="field-hint">{{ 'RESULTS_QUESTIONNAIRES.SUBSCALES_HINT' | translate }}</p>
+            <ul class="stat-list">
+              @for (s of agg.subscales; track s.name) {
+                <li>
+                  <span class="stat-label">{{ s.name }} <small>({{ 'RESULTS_QUESTIONNAIRES.SUBSCALE_ITEMS' | translate: { count: s.itemCount } }})</small></span>
+                  <span class="stat-value">
+                    {{ 'RESULTS_QUESTIONNAIRES.MEAN' | translate }} = {{ s.mean ?? '-' }},
+                    {{ 'RESULTS_QUESTIONNAIRES.SD' | translate }} = {{ s.sd ?? '-' }},
+                    {{ 'RESULTS_QUESTIONNAIRES.N' | translate }} = {{ s.n }}
+                  </span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        <div class="aggregate-list">
+          @for (item of agg.items; track item.itemKey) {
+            <div class="card aggregate-card">
+              <h3 class="form-heading">{{ prompt(item) }}</h3>
+              @switch (item.type) {
+                @case ('TEXT') {
+                  @if (!item.textAnswers?.length) {
+                    <p class="field-hint">{{ 'RESULTS_QUESTIONNAIRES.NO_ANSWERS' | translate }}</p>
+                  } @else {
+                    <ul class="text-answer-list">
+                      @for (t of item.textAnswers; track $index) {
+                        <li>{{ t }}</li>
+                      }
+                    </ul>
+                  }
+                }
+                @case ('NUMBER') {
+                  <p class="stat-line">
+                    {{ 'RESULTS_QUESTIONNAIRES.N' | translate }} = {{ item.n }},
+                    {{ 'RESULTS_QUESTIONNAIRES.MEAN' | translate }} = {{ item.mean ?? '-' }},
+                    {{ 'RESULTS_QUESTIONNAIRES.SD' | translate }} = {{ item.sd ?? '-' }},
+                    {{ 'RESULTS_QUESTIONNAIRES.MIN' | translate }} = {{ item.min ?? '-' }},
+                    {{ 'RESULTS_QUESTIONNAIRES.MAX' | translate }} = {{ item.max ?? '-' }}
+                  </p>
+                }
+                @case ('LIKERT') {
+                  <p class="stat-line">
+                    {{ 'RESULTS_QUESTIONNAIRES.N' | translate }} = {{ item.n }},
+                    {{ 'RESULTS_QUESTIONNAIRES.RAW_MEAN' | translate }} = {{ item.rawMean ?? '-' }}
+                    @if (item.reverseScored) {
+                      , {{ 'RESULTS_QUESTIONNAIRES.SCORED_MEAN' | translate }} = {{ item.scoredMean ?? '-' }}
+                      <span class="tag">{{ 'RESULTS_QUESTIONNAIRES.REVERSED' | translate }}</span>
+                    }
+                    @if (item.subscale) {
+                      <span class="tag">{{ item.subscale }}</span>
+                    }
+                  </p>
+                  <ul class="distribution">
+                    @for (d of item.distribution; track d.point) {
+                      <li>
+                        <span class="dist-point">{{ d.point }}</span>
+                        <span class="dist-bar"><span class="dist-fill" [style.width.%]="share(item, d.count)"></span></span>
+                        <span class="dist-count">{{ d.count }}</span>
+                      </li>
+                    }
+                  </ul>
+                }
+                @default {
+                  <ul class="option-count-list">
+                    @for (oc of item.optionCounts; track oc.key) {
+                      <li>
+                        <span class="option-count-label">{{ label(oc) }}</span>
+                        <span class="option-count-value">{{ oc.count }}</span>
+                      </li>
+                    }
+                  </ul>
+                  @if (item.otherTexts?.length) {
+                    <p class="field-hint">{{ 'RESULTS_QUESTIONNAIRES.OTHER_TEXTS_LABEL' | translate }}: {{ item.otherTexts!.join('; ') }}</p>
+                  }
+                }
+              }
+            </div>
+          }
+        </div>
+      }
+    }
+  }
+}

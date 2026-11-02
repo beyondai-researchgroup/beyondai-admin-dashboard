@@ -12,8 +12,8 @@ import { SelectComponent, SelectOption } from '../shared/select/select.component
  *  demographic question set — add/remove/reorder questions (drag-to-reorder via @angular/cdk,
  *  same pattern as the Consent Form page), each bilingual (SR/EN). A SINGLE_CHOICE question gets
  *  its own nested, independently reorderable options list, where one option can be flagged
- *  "Other, please specify" (reveals a free-text field for the participant). Whole-tree
- *  delete-then-reinsert on save, same as Consent Form's own PUT. */
+ *  "Other, please specify" (reveals a free-text field for the participant). Saved as an upsert by
+ *  id (not delete-then-reinsert): participants' stored answers reference question and option ids. */
 @Component({
   selector: 'app-demographic-questions',
   standalone: true,
@@ -32,6 +32,8 @@ export class DemographicQuestionsComponent {
   readonly loadError = signal(false);
   readonly saving = signal(false);
   readonly saveError = signal(false);
+  /** The server refuses to remove/retype a question or option that participants already answered. */
+  readonly answeredConflict = signal(false);
   readonly saved = signal(false);
 
   readonly questionTypeOptions: SelectOption[] = [
@@ -134,29 +136,35 @@ export class DemographicQuestionsComponent {
 
     this.saving.set(true);
     this.saveError.set(false);
+    this.answeredConflict.set(false);
     this.saved.set(false);
 
     const result = await this.api
       .updateDemographicQuestions(
         researchId,
         this.questions().map((q) => ({
+          // Ids of existing questions/options are sent back so the server updates them in place:
+          // stored answers reference these ids (a new id would orphan every given answer).
+          id: q.id,
           type: q.type,
           promptSr: q.promptSr.trim(),
           promptEn: q.promptEn.trim(),
           options: q.type === 'SINGLE_CHOICE'
-            ? q.options.map((o) => ({ labelSr: o.labelSr.trim(), labelEn: o.labelEn.trim(), isOtherSpecify: o.isOtherSpecify }))
+            ? q.options.map((o) => ({ id: o.id, labelSr: o.labelSr.trim(), labelEn: o.labelEn.trim(), isOtherSpecify: o.isOtherSpecify }))
             : [],
         }))
       )
       .then(
         () => ({ ok: true as const }),
-        () => ({ ok: false as const })
+        (err: { status?: number }) => ({ ok: false as const, conflict: err?.status === 409 })
       );
 
     this.saving.set(false);
     if (result.ok) {
       this.saved.set(true);
       await this.load(researchId);
+    } else if (result.conflict) {
+      this.answeredConflict.set(true);
     } else {
       this.saveError.set(true);
     }

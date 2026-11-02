@@ -1,0 +1,55 @@
+<p class="field-hint section-hint">{{ 'RESEARCH_DESIGN.GROUP_HINT' | translate }}</p>
+
+<div class="field-group">
+  <span class="field-label">{{ 'RESEARCH_DESIGN.ASSIGN_MODE' | translate }}</span>
+  <div class="segmented-control">
+    <input type="radio" [name]="'assign-' + uid" [id]="'assign-manual-' + uid" [checked]="store.design().assignmentMode === 'MANUAL'" (change)="setMode('MANUAL')" />
+    <label [for]="'assign-manual-' + uid">{{ 'RESEARCH_DESIGN.ASSIGN_MANUAL' | translate }}</label>
+    <input type="radio" [name]="'assign-' + uid" [id]="'assign-random-' + uid" [checked]="store.design().assignmentMode === 'RANDOM'" (change)="setMode('RANDOM')" />
+    <label [for]="'assign-random-' + uid">{{ 'RESEARCH_DESIGN.ASSIGN_RANDOM' | translate }}</label>
+  </div>
+  <span class="field-hint">{{ 'RESEARCH_DESIGN.ASSIGN_HINT_' + store.design().assignmentMode | translate }}</span>
+</div>
+
+@if (!store.groups().length) {
+  <div class="empty-state small-empty">{{ 'RESEARCH_DESIGN.GROUP_EMPTY' | translate }}</div>
+}
+
+<div class="item-list">
+  @for (g of store.groups(); track i; let i = $index) {
+    <div class="item-card">
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">{{ 'RESEARCH_DESIGN.GROUP_NAME' | translate }}</label>
+          <input type="text" class="text-input" maxlength="100" [ngModel]="g.name" (ngModelChange)="store.patchGroup(i, { name: $event })" />
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">{{ 'RESEARCH_DESIGN.GROUP_DESC' | translate }}</label>
+        <input type="text" class="text-input" maxlength="1000" [ngModel]="g.description" (ngModelChange)="store.patchGroup(i, { description: $event || null })" />
+      </div>
+      <div class="item-card__foot">
+        <label class="toggle-switch">
+          <input type="checkbox" [checked]="g.isControl" (change)="store.patchGroup(i, { isControl: $any($event.target).checked })" />
+          <span class="toggle-track"></span>
+          <span class="toggle-label">{{ 'RESEARCH_DESIGN.GROUP_CONTROL' | translate }}</span>
+        </label>
+        @if ((g.participantCount ?? 0) > 0) {
+          <span class="count-badge">{{ 'RESEARCH_DESIGN.GROUP_PARTICIPANTS' | translate: { count: g.participantCount } }}</span>
+        }
+        <button type="button" class="btn-ghost remove-btn" [disabled]="!canRemove(i)" [title]="canRemove(i) ? '' : ('RESEARCH_DESIGN.GROUP_REMOVE_BLOCKED' | translate)" (click)="store.removeGroup(i)">
+          {{ 'RESEARCH_DESIGN.GROUP_REMOVE' | translate }}
+        </button>
+      </div>
+    </div>
+  }
+</div>
+
+<div class="add-row">
+  <button type="button" class="btn-ghost add-btn" [disabled]="store.groups().length >= 12" (click)="store.addGroup()">{{ 'RESEARCH_DESIGN.GROUP_ADD' | translate }}</button>
+  @if (store.missingLevelGroups().length) {
+    <button type="button" class="btn-ghost add-btn" (click)="store.groupsFromLevels()">
+      {{ 'RESEARCH_DESIGN.GROUP_FROM_LEVELS' | translate: { levels: store.missingLevelGroups().join(', ') } }}
+    </button>
+  }
+</div>

@@ -8,6 +8,9 @@
 } @else if (loadError()) {
   <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
 } @else {
+  @if (studyConfigStore.isProtocol()) {
+    <p class="field-hint protocol-kind-hint">{{ 'TASK_CONFIG.FROM_PROTOCOL_HINT' | translate }}</p>
+  } @else {
   <div class="card">
     <div class="field-group">
       <label class="field-label">{{ 'TASK_CONFIG.TASK_TYPE_LABEL' | translate }}</label>
@@ -22,6 +25,7 @@
       }
     </div>
   </div>
+  }
 
   @switch (taskType()) {
     @case ('PR_REVIEW') {

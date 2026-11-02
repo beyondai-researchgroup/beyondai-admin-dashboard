@@ -46,7 +46,7 @@ router.get('/', requireSuperAdmin, async (req, res) => {
     const sql = getDb();
     const rows = await sql`
       SELECT r."Id", r."Name", r."Description", r."University", r."City", r."Country", r."CreatedAt",
-             r."UsesEeg", r."EegDeviceType", r."Slug",
+             r."UsesEeg", r."EegDeviceType", r."Slug", r."FlowMode", r."SetupComplete",
              EXISTS (
                SELECT 1 FROM "ResearchPrConfig" prc WHERE prc."ResearchId" = r."Id"
              ) AS "HasPrConfig"
@@ -66,6 +66,8 @@ router.get('/', requireSuperAdmin, async (req, res) => {
         usesEeg: r.UsesEeg,
         eegDeviceType: r.EegDeviceType,
         slug: r.Slug,
+        flowMode: r.FlowMode,
+        setupComplete: r.SetupComplete !== false,
       }))
     );
   } catch (err) {
@@ -92,7 +94,7 @@ router.post('/', requireSuperAdmin, async (req, res) => {
   const {
     name, description, university, city, country,
     usesTlx, tlxCalculateScores, tlxIncludeWeightings, usesPsychTests, taskType, usesConsentForm,
-    tracksParticipants, consentLanguageSr, consentLanguageEn,
+    tracksParticipants, consentLanguageSr, consentLanguageEn, flowMode, setupComplete,
   } = req.body ?? {};
 
   if (typeof name !== 'string' || !name.trim() || name.length > MAX_NAME_LENGTH) {
@@ -148,12 +150,40 @@ router.post('/', requireSuperAdmin, async (req, res) => {
     res.status(400).json({ error: 'At least one of consentLanguageSr/consentLanguageEn must be true' });
     return;
   }
+  // 'PROTOCOL' is the only value a client may ask for explicitly (the researcher-defined step list);
+  // omitted means 'CLASSIC' (the column default, the original BeyondAI flow every existing research
+  // uses). Same structural-safeguard shape the removed sessionFlowMode had: no client can ever
+  // request CLASSIC explicitly, so the two creation paths stay independent.
+  if (flowMode !== undefined && flowMode !== 'PROTOCOL') {
+    res.status(400).json({ error: "flowMode must be 'PROTOCOL', or omitted" });
+    return;
+  }
+  const isProtocol = flowMode === 'PROTOCOL';
+  // The study wizard creates the research first and finishes its setup afterwards, so it asks for
+  // setupComplete:false (only valid for a PROTOCOL research); everything else is created complete.
+  if (setupComplete !== undefined && (setupComplete !== false || !isProtocol)) {
+    res.status(400).json({ error: 'setupComplete may only be false, and only for a PROTOCOL research' });
+    return;
+  }
+  const effSetupComplete = setupComplete !== false;
 
   // PR-review structurally requires participants — never actually settable to false for that
   // task type, regardless of what the create form sends (mirrors study-config's own PUT-time
   // enforcement of the same rule).
-  const effectiveTaskType = taskType ?? 'PR_REVIEW';
-  const effectiveTracksParticipants = effectiveTaskType === 'PR_REVIEW' ? true : (tracksParticipants ?? true);
+  // A PROTOCOL research is driven only by its own step list: every legacy module switch is forced
+  // off and the task type is GENERIC (never PR_REVIEW), so none of the classic flows — Code Review
+  // login, the standalone NASA-TLX/psych-test links, the Intro-email chain, the consent portal —
+  // can ever pick such a research up.
+  const effectiveTaskType = isProtocol ? 'GENERIC' : (taskType ?? 'PR_REVIEW');
+  const effectiveTracksParticipants = isProtocol ? true : (effectiveTaskType === 'PR_REVIEW' ? true : (tracksParticipants ?? true));
+  const effUsesTlx = isProtocol ? false : (usesTlx ?? true);
+  const effUsesPsychTests = isProtocol ? false : (usesPsychTests ?? true);
+  const effUsesConsentForm = isProtocol ? false : (usesConsentForm ?? true);
+  const effFlowMode = isProtocol ? 'PROTOCOL' : 'CLASSIC';
+  // The module apps (REI-40, Big Five, demographics, NASA-TLX standalone) refuse every link of a research
+  // whose ConsentPortalActive is false (the column default, switched on per research for the classic
+  // consent portal). A PROTOCOL research sends its links itself, only when the researcher starts a
+  // participant, so it is created active; CLASSIC researches keep the default (false) untouched.
 
   try {
     const sql = getDb();
@@ -161,18 +191,19 @@ router.post('/', requireSuperAdmin, async (req, res) => {
     const rows = await sql`
       INSERT INTO "Research" ("Name", "Description", "University", "City", "Country",
                                "UsesTlx", "TlxCalculateScores", "TlxIncludeWeightings", "UsesPsychTests", "TaskType",
-                               "UsesConsentForm", "TracksParticipants", "ConsentLanguageSr", "ConsentLanguageEn", "Slug")
+                               "UsesConsentForm", "TracksParticipants", "ConsentLanguageSr", "ConsentLanguageEn", "Slug", "FlowMode", "ConsentPortalActive", "SetupComplete")
       VALUES (${name.trim()}, ${description ?? null}, ${university ?? null}, ${city ?? null}, ${country ?? null},
-              ${usesTlx ?? true}, ${tlxCalculateScores ?? true}, ${tlxIncludeWeightings ?? true},
-              ${usesPsychTests ?? true}, ${effectiveTaskType}, ${usesConsentForm ?? true},
-              ${effectiveTracksParticipants}, ${consentLanguageSr ?? true}, ${consentLanguageEn ?? true}, ${slug})
-      RETURNING "Id", "Name", "Description", "University", "City", "Country", "CreatedAt", "UsesEeg", "EegDeviceType", "Slug"
+              ${effUsesTlx}, ${tlxCalculateScores ?? true}, ${tlxIncludeWeightings ?? true},
+              ${effUsesPsychTests}, ${effectiveTaskType}, ${effUsesConsentForm},
+              ${effectiveTracksParticipants}, ${consentLanguageSr ?? true}, ${consentLanguageEn ?? true}, ${slug}, ${effFlowMode}, ${isProtocol}, ${effSetupComplete})
+      RETURNING "Id", "Name", "Description", "University", "City", "Country", "CreatedAt", "UsesEeg", "EegDeviceType", "Slug", "FlowMode", "SetupComplete"
     `;
     const r = rows[0];
     res.status(201).json({
       id: r.Id, name: r.Name, description: r.Description, university: r.University,
       city: r.City, country: r.Country, createdAt: r.CreatedAt, hasPrConfig: false,
       usesEeg: r.UsesEeg, eegDeviceType: r.EegDeviceType, slug: r.Slug,
+      flowMode: r.FlowMode, setupComplete: r.SetupComplete !== false,
     });
   } catch (err) {
     console.error('[researches] create error:', err);

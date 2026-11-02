@@ -1,0 +1,286 @@
+<div class="page-header">
+  <h2>{{ 'PROTOCOL_PROGRESS.TITLE' | translate }}</h2>
+  <p>{{ 'PROTOCOL_PROGRESS.HINT' | translate }}</p>
+</div>
+
+@if (loading() && !matrix()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (error()) {
+  <p class="field-error">{{ 'PROTOCOL_PROGRESS.LOAD_ERROR' | translate }}</p>
+} @else {
+  @if (matrix(); as m) {
+  @if (!m.steps.length) {
+    <div class="empty-state">{{ 'PROTOCOL_PROGRESS.NO_STEPS' | translate }}</div>
+  } @else if (!m.participants.length) {
+    <div class="empty-state">{{ 'PROTOCOL_PROGRESS.NO_PARTICIPANTS' | translate }}</div>
+  } @else {
+    <div class="card summary-card">
+      <div class="summary-stats">
+        <span><strong>{{ stats().total }}</strong> {{ 'PROTOCOL_PROGRESS.STAT_TOTAL' | translate }}</span>
+        <span><strong>{{ stats().started }}</strong> {{ 'PROTOCOL_PROGRESS.STAT_STARTED' | translate }}</span>
+        <span><strong>{{ stats().finished }}</strong> {{ 'PROTOCOL_PROGRESS.STAT_FINISHED' | translate }}</span>
+        @if (stats().noEmail) {
+          <span class="stat-warning"><strong>{{ stats().noEmail }}</strong> {{ 'PROTOCOL_PROGRESS.STAT_NO_EMAIL' | translate }}</span>
+        }
+      </div>
+      <div class="summary-actions">
+        @if (startable().length && !assignmentTable()) {
+          <button type="button" class="btn-primary form-submit" [disabled]="busy()" (click)="startAll()">
+            {{ 'PROTOCOL_PROGRESS.START_ALL' | translate: { count: startable().length } }}
+          </button>
+        }
+        @for (s of sendableSteps(); track s.step.id) {
+          <button type="button" class="btn-primary form-submit" [disabled]="busy()" (click)="sendStepToAll(s.step)">
+            {{ 'PROTOCOL_PROGRESS.SEND_STEP_ALL' | translate: { step: titleOf(s.step), count: s.count } }}
+          </button>
+        }
+        @if (canRandomize()) {
+          <button type="button" class="btn-ghost" [disabled]="busy()" (click)="previewRandom()">
+            {{ 'PROTOCOL_PROGRESS.RANDOMIZE' | translate: { count: withoutGroup().length + withoutTask().length } }}
+          </button>
+        }
+        @if (message(); as msg) {
+          <span [class.field-success]="msg.tone === 'ok'" [class.field-error]="msg.tone === 'error'">{{ msg.key | translate }} {{ msg.detail }}</span>
+        }
+      </div>
+    </div>
+
+    @if (outbox(); as ob) {
+      @if (ob.pending > 0 || ob.failed > 0) {
+        <div class="card outbox-card">
+          <div>
+            <strong>{{ 'PROTOCOL_PROGRESS.OUTBOX_TITLE' | translate }}</strong>
+            <p class="field-hint">
+              {{ 'PROTOCOL_PROGRESS.OUTBOX_STATE' | translate: { pending: ob.pending, used: ob.sentLast24h, limit: ob.dailyLimit } }}
+              @if (ob.pending > 0 && ob.sentLast24h >= ob.dailyLimit) { {{ 'PROTOCOL_PROGRESS.OUTBOX_LIMIT' | translate }} }
+            </p>
+            @if (ob.failed > 0) {
+              <p class="field-error">{{ 'PROTOCOL_PROGRESS.OUTBOX_FAILED' | translate: { count: ob.failed } }}</p>
+            }
+          </div>
+          <div class="summary-actions">
+            @if (ob.pending > 0) {
+              <button type="button" class="btn-ghost" [disabled]="outboxBusy()" (click)="drainNow()">{{ 'PROTOCOL_PROGRESS.OUTBOX_SEND_NOW' | translate }}</button>
+            }
+            @if (ob.failed > 0) {
+              <button type="button" class="btn-ghost" [disabled]="outboxBusy()" (click)="retryFailed()">{{ 'PROTOCOL_PROGRESS.OUTBOX_RETRY' | translate }}</button>
+            }
+          </div>
+        </div>
+      }
+    }
+
+    @if (assignmentTable(); as at) {
+      <div class="card assignment-card">
+        <h3 class="form-heading">{{ 'PROTOCOL_PROGRESS.SUMMARY_TITLE' | translate }}</h3>
+        <div class="table-wrap">
+          <table class="data-table assignment-table">
+            <thead>
+              <tr>
+                <th>{{ (hasGroups() ? 'PROTOCOL_PROGRESS.COL_GROUP' : 'PROTOCOL_PROGRESS.SUMMARY_ALL') | translate }}</th>
+                @for (t of at.tasks; track t.id) { <th class="num">{{ t.name }}</th> }
+                @if (hasTasks() && at.anyNoTask) { <th class="num">{{ 'PROTOCOL_PROGRESS.TASK_NONE' | translate }}</th> }
+                <th class="num">{{ 'PROTOCOL_PROGRESS.SUMMARY_TOTAL' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of at.rows; track r.groupId) {
+                <tr>
+                  <td>{{ hasGroups() ? r.name : ('PROTOCOL_PROGRESS.SUMMARY_ALL' | translate) }}</td>
+                  @for (n of r.cells; track $index) { <td class="num">{{ n }}</td> }
+                  @if (hasTasks() && at.anyNoTask) { <td class="num">{{ r.noTask }}</td> }
+                  <td class="num"><strong>{{ r.total }}</strong></td>
+                </tr>
+              }
+              @if (at.noGroup) {
+                <tr class="row-warn">
+                  <td>{{ 'PROTOCOL_PROGRESS.GROUP_NONE' | translate }}</td>
+                  <td class="num" [attr.colspan]="at.tasks.length + 1">{{ at.noGroup }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (startable().length) {
+          <p class="field-hint">{{ 'PROTOCOL_PROGRESS.CONFIRM_NOTE' | translate }}</p>
+          <div class="summary-actions">
+            <button type="button" class="btn-primary form-submit" [disabled]="busy()" (click)="startAll()">
+              {{ 'PROTOCOL_PROGRESS.CONFIRM_START' | translate: { count: startable().length } }}
+            </button>
+            @if (canRedraw()) {
+              <button type="button" class="btn-ghost" [disabled]="busy()" (click)="previewRandom(true)">
+                {{ 'PROTOCOL_PROGRESS.REDRAW' | translate: { count: redrawable().length } }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @if (hasGroups() && withoutGroup().length) {
+      <p class="field-hint group-note">{{ 'PROTOCOL_PROGRESS.GROUP_REQUIRED_NOTE' | translate: { count: withoutGroup().length } }}</p>
+    }
+
+    @if (hasTasks() && withoutTask().length) {
+      <p class="field-hint group-note">{{ 'PROTOCOL_PROGRESS.TASK_REQUIRED_NOTE' | translate: { count: withoutTask().length } }}</p>
+    }
+
+    @if (withoutPr().length) {
+      <p class="field-hint group-note">{{ 'PROTOCOL_PROGRESS.PR_REQUIRED_NOTE' | translate: { count: withoutPr().length } }}</p>
+    }
+
+    @if (randomPreview(); as rp) {
+      <div class="card random-card">
+        <h3 class="form-heading">{{ 'PROTOCOL_PROGRESS.RANDOM_TITLE' | translate }}</h3>
+        <p class="field-hint">{{ 'PROTOCOL_PROGRESS.RANDOM_HINT' | translate }}</p>
+        <table class="data-table random-table">
+          <thead>
+            <tr>
+              <th>{{ 'PROTOCOL_PROGRESS.COL_GROUP' | translate }}</th>
+              <th>{{ 'PROTOCOL_PROGRESS.RANDOM_ADDED' | translate }}</th>
+              <th>{{ 'PROTOCOL_PROGRESS.RANDOM_TOTAL' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of rp.summary; track s.groupId) {
+              <tr><td>{{ s.name }}</td><td>+{{ s.added }}</td><td>{{ s.total }}</td></tr>
+            }
+          </tbody>
+        </table>
+        @if (rp.cells.length) {
+          <table class="data-table random-table">
+            <thead>
+              <tr>
+                @if (hasGroups()) { <th>{{ 'PROTOCOL_PROGRESS.COL_GROUP' | translate }}</th> }
+                <th>{{ 'PROTOCOL_PROGRESS.COL_TASK' | translate }}</th>
+                <th>{{ 'PROTOCOL_PROGRESS.RANDOM_ADDED' | translate }}</th>
+                <th>{{ 'PROTOCOL_PROGRESS.RANDOM_TOTAL' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of rp.cells; track $index) {
+                <tr>
+                  @if (hasGroups()) { <td>{{ c.groupName }}</td> }
+                  <td>{{ c.taskName }}</td><td>+{{ c.added }}</td><td>{{ c.total }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+        <p class="field-hint">{{ 'PROTOCOL_PROGRESS.RANDOM_SEED' | translate }}: <code>{{ rp.seed }}</code></p>
+        <div class="summary-actions">
+          <button type="button" class="btn-primary form-submit" [disabled]="busy()" (click)="confirmRandom()">{{ 'PROTOCOL_PROGRESS.RANDOM_CONFIRM' | translate }}</button>
+          <button type="button" class="btn-ghost" [disabled]="busy()" (click)="previewRandom()">{{ 'PROTOCOL_PROGRESS.RANDOM_AGAIN' | translate }}</button>
+          <button type="button" class="btn-ghost" [disabled]="busy()" (click)="cancelRandom()">{{ 'PROTOCOL_PROGRESS.RANDOM_CANCEL' | translate }}</button>
+        </div>
+      </div>
+    }
+
+    @if (hasGroups() || hasTasks()) {
+      <div class="filter-row">
+        @if (hasGroups()) {
+          <span class="field-label">{{ 'PROTOCOL_PROGRESS.FILTER_LABEL' | translate }}</span>
+          <app-select class="filter-select" [options]="filterOptions()" [value]="groupFilter()" (valueChange)="groupFilter.set('' + $event)"></app-select>
+        }
+        @if (hasTasks()) {
+          <span class="field-label">{{ 'PROTOCOL_PROGRESS.FILTER_TASK_LABEL' | translate }}</span>
+          <app-select class="filter-select" [options]="taskFilterOptions()" [value]="taskFilter()" (valueChange)="taskFilter.set('' + $event)"></app-select>
+        }
+      </div>
+    }
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>{{ 'PROTOCOL_PROGRESS.COL_PARTICIPANT' | translate }}</th>
+            @if (hasGroups()) {
+              <th>{{ 'PROTOCOL_PROGRESS.COL_GROUP' | translate }}</th>
+            }
+            @if (hasTasks()) {
+              <th>{{ 'PROTOCOL_PROGRESS.COL_TASK' | translate }}</th>
+            }
+            @if (isCodeReview()) {
+              <th>{{ 'PROTOCOL_PROGRESS.COL_PR' | translate }}</th>
+            }
+            @for (s of m.steps; track s.id) {
+              <th class="step-col" [attr.title]="'PROTOCOL.TYPE_' + s.stepType | translate">{{ titleOf(s) }}</th>
+            }
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of visibleParticipants(); track p.participantId) {
+            <tr class="data-table__row--clickable" tabindex="0" role="button" (click)="open(p)" (keydown.enter)="open(p)">
+              <td>
+                {{ p.participantId }}
+                @if (!p.hasEmail) {
+                  <span class="warning-badge" [attr.title]="'PROTOCOL_PROGRESS.NO_EMAIL_HINT' | translate">✉⚠</span>
+                }
+                @if (p.finished) {
+                  <span class="done-pill">{{ 'PROTOCOL_PROGRESS.FINISHED' | translate }}</span>
+                }
+                @if (p.nextSlot) {
+                  <span class="mail-pill slot-pill" [attr.title]="'PROTOCOL_PROGRESS.NEXT_SLOT_HINT' | translate">{{ 'PROTOCOL_PROGRESS.NEXT_SLOT' | translate }} {{ p.nextSlot }}</span>
+                }
+                @if ((p.mailPending ?? 0) > 0) {
+                  <span class="mail-pill" [attr.title]="'PROTOCOL_PROGRESS.MAIL_PENDING_HINT' | translate">{{ 'PROTOCOL_PROGRESS.MAIL_PENDING' | translate }}</span>
+                }
+                @if ((p.mailFailed ?? 0) > 0) {
+                  <span class="mail-pill mail-pill--failed" [attr.title]="'PROTOCOL_PROGRESS.MAIL_FAILED_HINT' | translate">{{ 'PROTOCOL_PROGRESS.MAIL_FAILED' | translate }}</span>
+                }
+              </td>
+              @if (hasGroups()) {
+                <td class="group-col" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+                  <app-select
+                    [options]="groupOptions()"
+                    [value]="p.groupId ?? ''"
+                    [disabled]="p.started || busy()"
+                    (valueChange)="setGroup(p, $event)"
+                  ></app-select>
+                </td>
+              }
+              @if (hasTasks()) {
+                <td class="group-col" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+                  <app-select
+                    [options]="taskOptions()"
+                    [value]="p.taskId ?? ''"
+                    [disabled]="p.started || busy()"
+                    (valueChange)="setTask(p, $event)"
+                  ></app-select>
+                </td>
+              }
+              @if (isCodeReview()) {
+                <td class="group-col" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+                  <app-select
+                    [options]="prOptions()"
+                    [value]="p.prConfigId ?? ''"
+                    [disabled]="p.started || busy()"
+                    (valueChange)="setPrTask(p, $event)"
+                  ></app-select>
+                </td>
+              }
+              @for (s of m.steps; track s.id) {
+                <td class="cell-col">
+                  <span class="cell" [class]="'cell cell--' + statusOf(p, s.id)" [attr.title]="cellTitle(p, s.id)">{{ statusIcon(statusOf(p, s.id)) }}</span>
+                </td>
+              }
+              <td class="action-col">
+                @if (!p.started) {
+                  <button type="button" class="btn-ghost btn-ghost--small" [disabled]="busy() || (hasGroups() && p.groupId == null) || (hasTasks() && p.taskId == null) || needsPr(p)" [attr.title]="hasGroups() && p.groupId == null ? ('PROTOCOL_PROGRESS.GROUP_REQUIRED_TITLE' | translate) : ''" (click)="start(p, $event)">{{ 'PROTOCOL_PROGRESS.START' | translate }}</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="legend">
+      @for (st of ['COMPLETED', 'SENT', 'SCHEDULED', 'PENDING', 'SKIPPED', 'NOT_REACHED']; track st) {
+        <span class="legend-item"><span [class]="'cell cell--' + st">{{ statusIcon($any(st)) }}</span> {{ 'PROTOCOL_PROGRESS.STATUS_' + st | translate }}</span>
+      }
+    </div>
+  }
+}
+}

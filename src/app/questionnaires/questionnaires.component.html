@@ -1,0 +1,186 @@
+<div class="page-header">
+  <h2>{{ 'QUESTIONNAIRES.TITLE' | translate }}</h2>
+  <p>{{ 'QUESTIONNAIRES.HINT' | translate }}</p>
+</div>
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <div class="empty-state">{{ 'QUESTIONNAIRES.LOAD_ERROR' | translate }}</div>
+} @else if (editingId() === null) {
+  <div class="card">
+    <div class="list-actions">
+      <button type="button" class="btn-primary form-submit" (click)="newQuestionnaire()">{{ 'QUESTIONNAIRES.NEW' | translate }}</button>
+      @if (listErrorKey(); as key) {
+        <span class="field-error">{{ key | translate }}</span>
+      }
+    </div>
+
+    @if (!list().length) {
+      <div class="empty-state">{{ 'QUESTIONNAIRES.EMPTY' | translate }}</div>
+    } @else {
+      <div class="q-list">
+        @for (q of list(); track q.id) {
+          <div class="q-row">
+            <div class="q-main">
+              <span class="q-title">{{ titleOf(q) }}</span>
+              <span class="q-meta">
+                {{ 'QUESTIONNAIRES.META_ITEMS' | translate: { count: q.itemCount } }}
+                · {{ 'QUESTIONNAIRES.META_RESPONSES' | translate: { count: q.responseCount } }}
+                @if (q.usedInSteps) {
+                  · {{ 'QUESTIONNAIRES.META_IN_PROTOCOL' | translate }}
+                }
+              </span>
+            </div>
+            <div class="q-actions">
+              <button type="button" class="btn-ghost btn-ghost--small" (click)="edit(q.id)">{{ 'QUESTIONNAIRES.EDIT' | translate }}</button>
+              <button type="button" class="btn-ghost btn-ghost--small" (click)="duplicate(q.id)">{{ 'QUESTIONNAIRES.DUPLICATE' | translate }}</button>
+              <button type="button" class="btn-ghost btn-ghost--small danger" (click)="remove(q)">{{ 'QUESTIONNAIRES.DELETE' | translate }}</button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+} @else if (editorLoading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else {
+  <div class="card">
+    <div class="list-actions">
+      <button type="button" class="btn-ghost" (click)="backToList()">{{ 'QUESTIONNAIRES.BACK' | translate }}</button>
+    </div>
+
+    @if (locked()) {
+      <p class="lock-banner">{{ 'QUESTIONNAIRES.LOCKED_BANNER' | translate: { count: responseCount() } }}</p>
+    }
+
+    <div class="field-row">
+      <div class="field-group">
+        <label class="field-label">{{ 'QUESTIONNAIRES.TITLE_SR_LABEL' | translate }}</label>
+        <input type="text" class="text-input" maxlength="200" [ngModel]="titleSr()" (ngModelChange)="titleSr.set($event); saved.set(false)" />
+      </div>
+      <div class="field-group">
+        <label class="field-label">{{ 'QUESTIONNAIRES.TITLE_EN_LABEL' | translate }}</label>
+        <input type="text" class="text-input" maxlength="200" [ngModel]="titleEn()" (ngModelChange)="titleEn.set($event); saved.set(false)" />
+      </div>
+    </div>
+
+    <div cdkDropList class="item-list" (cdkDropListDropped)="drop($event)">
+      @for (item of items(); track item.localKey; let i = $index) {
+        <div class="item-card" cdkDrag>
+          <div class="item-drag-handle" cdkDragHandle [attr.title]="'QUESTIONNAIRES.DRAG_HANDLE' | translate">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>
+          </div>
+
+          <div class="item-fields">
+            <div class="item-top">
+              <div class="field-group item-type">
+                <label class="field-label">{{ 'QUESTIONNAIRES.TYPE_LABEL' | translate }}</label>
+                <app-select
+                  [options]="typeOptions()"
+                  [value]="item.itemType"
+                  [disabled]="isStructureLocked(item)"
+                  (valueChange)="onTypeChange(i, $event)"
+                ></app-select>
+              </div>
+              <label class="toggle-switch item-required">
+                <input type="checkbox" [ngModel]="item.required" (ngModelChange)="patch(i, { required: $event })" />
+                <span class="toggle-track"></span>
+                <span class="toggle-label">{{ 'QUESTIONNAIRES.REQUIRED' | translate }}</span>
+              </label>
+            </div>
+
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">{{ 'QUESTIONNAIRES.PROMPT_SR_LABEL' | translate }}</label>
+                <textarea class="text-input textarea" rows="2" maxlength="500" [ngModel]="item.promptSr" (ngModelChange)="patch(i, { promptSr: $event })"></textarea>
+              </div>
+              <div class="field-group">
+                <label class="field-label">{{ 'QUESTIONNAIRES.PROMPT_EN_LABEL' | translate }}</label>
+                <textarea class="text-input textarea" rows="2" maxlength="500" [ngModel]="item.promptEn" (ngModelChange)="patch(i, { promptEn: $event })"></textarea>
+              </div>
+            </div>
+
+            @if (item.itemType === 'LIKERT') {
+              <div class="field-row">
+                <div class="field-group points-group">
+                  <label class="field-label">{{ 'QUESTIONNAIRES.SCALE_POINTS' | translate }}</label>
+                  <input type="number" class="text-input" min="2" max="10" [disabled]="isStructureLocked(item)" [ngModel]="item.scalePoints" (ngModelChange)="patch(i, { scalePoints: $event === null || $event === '' ? null : +$event })" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">{{ 'QUESTIONNAIRES.SUBSCALE' | translate }}</label>
+                  <input type="text" class="text-input" maxlength="100" [ngModel]="item.subscale" (ngModelChange)="patch(i, { subscale: $event })" />
+                </div>
+                <label class="toggle-switch reverse-toggle">
+                  <input type="checkbox" [ngModel]="item.reverseScored" (ngModelChange)="patch(i, { reverseScored: $event })" />
+                  <span class="toggle-track"></span>
+                  <span class="toggle-label">{{ 'QUESTIONNAIRES.REVERSE' | translate }}</span>
+                </label>
+              </div>
+              <div class="field-row">
+                <div class="field-group">
+                  <label class="field-label">{{ 'QUESTIONNAIRES.MIN_LABEL_SR' | translate }}</label>
+                  <input type="text" class="text-input" maxlength="100" [ngModel]="item.scaleLabels?.minSr" (ngModelChange)="patchLabel(i, 'minSr', $event)" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">{{ 'QUESTIONNAIRES.MAX_LABEL_SR' | translate }}</label>
+                  <input type="text" class="text-input" maxlength="100" [ngModel]="item.scaleLabels?.maxSr" (ngModelChange)="patchLabel(i, 'maxSr', $event)" />
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field-group">
+                  <label class="field-label">{{ 'QUESTIONNAIRES.MIN_LABEL_EN' | translate }}</label>
+                  <input type="text" class="text-input" maxlength="100" [ngModel]="item.scaleLabels?.minEn" (ngModelChange)="patchLabel(i, 'minEn', $event)" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">{{ 'QUESTIONNAIRES.MAX_LABEL_EN' | translate }}</label>
+                  <input type="text" class="text-input" maxlength="100" [ngModel]="item.scaleLabels?.maxEn" (ngModelChange)="patchLabel(i, 'maxEn', $event)" />
+                </div>
+              </div>
+            }
+
+            @if (isChoice(item)) {
+              <div class="option-list">
+                @for (opt of item.options; track oi; let oi = $index) {
+                  <div class="option-row">
+                    <input type="text" class="text-input" maxlength="200" [placeholder]="'QUESTIONNAIRES.OPTION_SR' | translate" [ngModel]="opt.labelSr" (ngModelChange)="patchOption(i, oi, { labelSr: $event })" />
+                    <input type="text" class="text-input" maxlength="200" [placeholder]="'QUESTIONNAIRES.OPTION_EN' | translate" [ngModel]="opt.labelEn" (ngModelChange)="patchOption(i, oi, { labelEn: $event })" />
+                    <label class="toggle-switch option-other" [attr.title]="'QUESTIONNAIRES.OPTION_OTHER_HINT' | translate">
+                      <input type="checkbox" [ngModel]="opt.isOther" (ngModelChange)="patchOption(i, oi, { isOther: $event })" />
+                      <span class="toggle-track"></span>
+                      <span class="toggle-label">{{ 'QUESTIONNAIRES.OPTION_OTHER' | translate }}</span>
+                    </label>
+                    <button type="button" class="btn-ghost remove-option-btn" [disabled]="!canRemoveOption(item, oi)" (click)="removeOption(i, oi)">✕</button>
+                  </div>
+                }
+                <button type="button" class="btn-ghost btn-ghost--small add-option-btn" (click)="addOption(i)">{{ 'QUESTIONNAIRES.ADD_OPTION' | translate }}</button>
+              </div>
+            }
+          </div>
+
+          <button type="button" class="btn-ghost remove-item-btn" [disabled]="!canRemoveItem(item)" (click)="removeItem(i)">
+            {{ 'QUESTIONNAIRES.REMOVE_ITEM' | translate }}
+          </button>
+        </div>
+      }
+    </div>
+
+    <button type="button" class="btn-ghost add-item-btn" (click)="addItem()">{{ 'QUESTIONNAIRES.ADD_ITEM' | translate }}</button>
+
+    <div class="form-actions">
+      <button type="button" class="btn-primary form-submit" [disabled]="saving()" (click)="submit()">
+        @if (saving()) {
+          {{ 'QUESTIONNAIRES.SAVING' | translate }}
+        } @else {
+          {{ 'QUESTIONNAIRES.SAVE' | translate }}
+        }
+      </button>
+      @if (saved()) {
+        <span class="field-success">{{ 'QUESTIONNAIRES.SAVED' | translate }}</span>
+      }
+      @if (errorKey(); as key) {
+        <span class="field-error">{{ key | translate }}</span>
+      }
+    </div>
+  </div>
+}

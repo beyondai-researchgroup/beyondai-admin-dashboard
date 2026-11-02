@@ -73,3 +73,30 @@ export const DEFAULT_CHECKBOX_TEXT_SR =
   'Pročitao/la sam i razumeo/la sam gore navedene informacije i dobrovoljno pristajem da učestvujem u ovom istraživanju.';
 export const DEFAULT_CHECKBOX_TEXT_EN =
   'I have read and understood the information provided above, and I voluntarily agree to participate in this research.';
+
+// Neutral starting template for a research the platform's user builds themselves (FlowMode 'PROTOCOL'):
+// no study-specific wording and no contact address, so another researcher never starts from — or
+// accidentally sends — the BeyondAI study's own consent text. They are expected to edit it on the
+// Consent form page; it is complete enough to be valid if they do not.
+export const GENERIC_CONSENT_SECTIONS = [
+  {
+    titleSr: 'Cilj istraživanja', titleEn: 'Purpose of the research',
+    bodySr: 'Pozvani ste da učestvujete u istraživanju. Cilj istraživanja i procedura biće objašnjeni u nastavku.',
+    bodyEn: 'You are invited to take part in a research study. The purpose of the research and the procedure are explained below.',
+  },
+  {
+    titleSr: 'Dobrovoljnost učešća', titleEn: 'Voluntary participation',
+    bodySr: 'Vaše učešće je potpuno dobrovoljno. Možete odustati u bilo kom trenutku, bez obrazloženja i bez ikakvih posledica po Vas.',
+    bodyEn: 'Your participation is entirely voluntary. You may withdraw at any time, without giving a reason and without any consequences for you.',
+  },
+  {
+    titleSr: 'Poverljivost podataka', titleEn: 'Confidentiality of data',
+    bodySr: 'Prikupljeni podaci biće tretirani kao poverljivi i korišćeni isključivo u istraživačke svrhe. Vaši lični podaci biće odvojeni od odgovora koje dajete.',
+    bodyEn: 'The data collected will be treated as confidential and used for research purposes only. Your personal details will be kept separate from the answers you give.',
+  },
+  {
+    titleSr: 'Kontakt', titleEn: 'Contact',
+    bodySr: 'Za sva pitanja u vezi sa istraživanjem obratite se istraživačkom timu koji Vas je pozvao da učestvujete.',
+    bodyEn: 'For any questions about the research, please contact the research team that invited you to take part.',
+  },
+];

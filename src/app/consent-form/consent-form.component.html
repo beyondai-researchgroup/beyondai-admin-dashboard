@@ -1,9 +1,7 @@
-@if (!hideHeader()) {
-  <div class="page-header">
-    <h2>{{ 'CONSENT_FORM.TITLE' | translate }}</h2>
-    <p>{{ 'CONSENT_FORM.HINT' | translate }}</p>
-  </div>
-}
+<div class="page-header">
+  <h2>{{ 'CONSENT_FORM.TITLE' | translate }}</h2>
+  <p>{{ 'CONSENT_FORM.HINT' | translate }}</p>
+</div>
 
 @if (loading()) {
   <app-loading-spinner></app-loading-spinner>

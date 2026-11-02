@@ -3,6 +3,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { AdminApiService, TaskType } from '../services/admin-api.service';
 import { ScopeService } from '../services/scope.service';
+import { StudyConfigStoreService } from '../services/study-config-store.service';
 import { SelectComponent, SelectOption } from '../shared/select/select.component';
 import { PrReviewTaskComponent } from './pr-review-task/pr-review-task.component';
 import { GoogleFormsTaskComponent } from './google-forms-task/google-forms-task.component';
@@ -28,6 +29,7 @@ export class TaskConfigComponent {
   private api = inject(AdminApiService);
   private scope = inject(ScopeService);
   private translate = inject(TranslateService);
+  readonly studyConfigStore = inject(StudyConfigStoreService);
   private readonly lang = signal(this.translate.currentLang || 'sr');
 
   readonly loading = signal(false);

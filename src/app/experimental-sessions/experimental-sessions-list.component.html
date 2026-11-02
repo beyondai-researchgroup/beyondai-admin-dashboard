@@ -34,7 +34,7 @@
           <tr class="data-table__row--clickable" tabindex="0" role="button" (click)="openSession(s.id)" (keydown.enter)="openSession(s.id)">
             <td>{{ s.sessionDate | date: dateFormat }}</td>
             <td>{{ s.label ?? '-' }}</td>
-            <td>{{ s.participantSessionCount }}</td>
+            <td>{{ s.participantSessionCount + s.slotCount }}</td>
             <td class="notes-preview">{{ s.notes ?? '-' }}</td>
           </tr>
         }

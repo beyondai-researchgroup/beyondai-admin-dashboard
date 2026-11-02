@@ -1,0 +1,232 @@
+<div class="page-header">
+  <h2>{{ 'STUDY_WIZARD.TITLE' | translate }}</h2>
+  <p>{{ 'STUDY_WIZARD.HINT' | translate }}</p>
+</div>
+
+@if (finished()) {
+  <div class="card done-card">
+    <h3 class="form-heading">{{ 'STUDY_WIZARD.DONE_TITLE' | translate }}</h3>
+    <p class="done-text">{{ 'STUDY_WIZARD.DONE_TEXT' | translate: { name: form.value.name } }}</p>
+    <div class="done-actions">
+      <button type="button" class="btn-primary done-btn" (click)="open('/import')">{{ 'STUDY_WIZARD.DONE_IMPORT' | translate }}</button>
+      <button type="button" class="btn-ghost done-btn" (click)="open('/protocol')">{{ 'STUDY_WIZARD.DONE_PROTOCOL' | translate }}</button>
+      <button type="button" class="btn-ghost done-btn" (click)="open('/design')">{{ 'STUDY_WIZARD.DONE_DESIGN' | translate }}</button>
+      <button type="button" class="btn-ghost done-btn" (click)="open('/researches')">{{ 'STUDY_WIZARD.DONE_LIST' | translate }}</button>
+    </div>
+  </div>
+} @else {
+  <ol class="stepper">
+    @for (s of steps; track s) {
+      <li class="stepper__item" [class.stepper__item--active]="step() === s" [class.stepper__item--done]="step() > s">
+        <button type="button" class="stepper__btn" [disabled]="researchId() == null && s !== 1" (click)="goTo(s)">
+          <span class="stepper__num">{{ s }}</span>
+          <span class="stepper__label">{{ 'STUDY_WIZARD.' + stepKey(s) | translate }}</span>
+        </button>
+      </li>
+    }
+  </ol>
+
+  @switch (step()) {
+    @case (1) {
+      <div class="card">
+        <h3 class="form-heading">{{ 'STUDY_WIZARD.STEP_BASICS' | translate }}</h3>
+        <p class="field-hint step-hint">{{ 'STUDY_WIZARD.BASICS_HINT' | translate }}</p>
+        <form [formGroup]="form" (ngSubmit)="confirmBasics()">
+          <div class="field-group">
+            <label class="field-label" for="w-name">{{ 'RESEARCHES.NAME_LABEL' | translate }}</label>
+            <input id="w-name" type="text" class="text-input" formControlName="name" />
+            @if (form.controls.name.invalid && form.controls.name.touched) {
+              <span class="field-error">{{ 'RESEARCHES.NAME_ERROR' | translate }}</span>
+            }
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="w-university">{{ 'RESEARCHES.UNIVERSITY_LABEL' | translate }}</label>
+              <input id="w-university" type="text" class="text-input" formControlName="university" />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="w-city">{{ 'RESEARCHES.CITY_LABEL' | translate }}</label>
+              <input id="w-city" type="text" class="text-input" formControlName="city" />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="w-country">{{ 'RESEARCHES.COUNTRY_LABEL' | translate }}</label>
+              <input id="w-country" type="text" class="text-input" formControlName="country" />
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="w-description">{{ 'RESEARCHES.DESCRIPTION_LABEL' | translate }}</label>
+            <textarea id="w-description" class="text-input textarea" rows="3" formControlName="description"></textarea>
+          </div>
+          <div class="wizard-actions">
+            <button type="submit" class="btn-primary" [disabled]="form.invalid || busy()">
+              {{ (busy() ? 'STUDY_WIZARD.WORKING' : 'STUDY_WIZARD.NEXT') | translate }}
+            </button>
+          </div>
+        </form>
+      </div>
+    }
+
+    @case (2) {
+      <div class="card">
+        <h3 class="form-heading">{{ 'STUDY_WIZARD.STEP_DESIGN' | translate }}</h3>
+        <p class="field-hint step-hint">{{ 'STUDY_WIZARD.DESIGN_HINT' | translate }}</p>
+        <app-design-type-section></app-design-type-section>
+        <app-design-warnings></app-design-warnings>
+        <div class="wizard-actions">
+          <button type="button" class="btn-ghost" (click)="back()">{{ 'STUDY_WIZARD.BACK' | translate }}</button>
+          <button type="button" class="btn-primary" [disabled]="busy()" (click)="saveAndNext()">
+            {{ (busy() ? 'STUDY_WIZARD.WORKING' : 'STUDY_WIZARD.NEXT') | translate }}
+          </button>
+        </div>
+      </div>
+    }
+
+    @case (3) {
+      <div class="card">
+        <h3 class="form-heading">{{ 'STUDY_WIZARD.STEP_VARIABLES' | translate }}</h3>
+        <p class="field-hint step-hint">{{ 'RESEARCH_DESIGN.VAR_HINT' | translate }}</p>
+        <app-variables-section></app-variables-section>
+        <div class="wizard-actions">
+          <button type="button" class="btn-ghost" (click)="back()">{{ 'STUDY_WIZARD.BACK' | translate }}</button>
+          <button type="button" class="btn-ghost" (click)="skipVariables()">{{ 'STUDY_WIZARD.SKIP' | translate }}</button>
+          <button type="button" class="btn-primary" [disabled]="busy()" (click)="saveAndNext()">
+            {{ (busy() ? 'STUDY_WIZARD.WORKING' : 'STUDY_WIZARD.NEXT') | translate }}
+          </button>
+        </div>
+      </div>
+    }
+
+    @case (4) {
+      <div class="card">
+        <h3 class="form-heading">{{ 'STUDY_WIZARD.STEP_GROUPS' | translate }}</h3>
+        @if (!groupsExpected()) {
+          <p class="field-hint step-hint">{{ 'STUDY_WIZARD.GROUPS_OPTIONAL_HINT' | translate }}</p>
+        }
+        <app-groups-section></app-groups-section>
+        <h3 class="form-heading sub-heading">{{ 'RESEARCH_DESIGN.SECTION_TASKS' | translate }}</h3>
+        <app-tasks-section></app-tasks-section>
+        <app-design-warnings></app-design-warnings>
+        <div class="wizard-actions">
+          <button type="button" class="btn-ghost" (click)="back()">{{ 'STUDY_WIZARD.BACK' | translate }}</button>
+          <button type="button" class="btn-primary" [disabled]="busy()" (click)="saveAndNext()">
+            {{ (busy() ? 'STUDY_WIZARD.WORKING' : 'STUDY_WIZARD.NEXT') | translate }}
+          </button>
+        </div>
+      </div>
+    }
+
+    @case (5) {
+      <div class="card">
+        <h3 class="form-heading">{{ 'STUDY_WIZARD.STEP_PROTOCOL' | translate }}</h3>
+        <p class="field-hint step-hint">{{ 'STUDY_WIZARD.PROTOCOL_HINT' | translate }}
+          <a routerLink="/questionnaires" target="_blank">{{ 'STUDY_WIZARD.PROTOCOL_QUESTIONNAIRES_LINK' | translate }}</a>
+        </p>
+        <app-protocol [hideHeader]="true"></app-protocol>
+        <div class="wizard-actions">
+          <button type="button" class="btn-ghost" (click)="back()">{{ 'STUDY_WIZARD.BACK' | translate }}</button>
+          <button type="button" class="btn-primary" (click)="toReview()">{{ 'STUDY_WIZARD.NEXT' | translate }}</button>
+        </div>
+      </div>
+    }
+
+    @case (6) {
+      <div class="card">
+        <h3 class="form-heading">{{ 'STUDY_WIZARD.STEP_DONE' | translate }}</h3>
+        <p class="field-hint step-hint">{{ 'STUDY_WIZARD.REVIEW_HINT' | translate }}</p>
+        <div class="review-grid">
+          <section class="review-block review-block--wide">
+            <h4 class="review-block__title">{{ 'STUDY_WIZARD.STEP_BASICS' | translate }}</h4>
+            <p class="review-name">{{ form.value.name }}</p>
+            @if (place()) { <p class="review-meta">{{ place() }}</p> }
+            @if (form.value.description) { <p class="review-text">{{ form.value.description }}</p> }
+          </section>
+
+          <section class="review-block">
+            <h4 class="review-block__title">{{ 'RESEARCH_DESIGN.SECTION_DESIGN' | translate }}</h4>
+            <ul class="review-facts">
+              @for (row of designRows(); track row.label) {
+                <li>
+                  <span class="review-facts__label">{{ 'RESEARCH_DESIGN.' + row.label | translate }}</span>
+                  @if (row.value; as v) {
+                    <span class="review-facts__value">{{ 'RESEARCH_DESIGN.' + v | translate }}</span>
+                  } @else {
+                    <span class="review-facts__value review-facts__value--muted">{{ 'RESEARCH_DESIGN.NOT_SPECIFIED' | translate }}</span>
+                  }
+                </li>
+              }
+            </ul>
+            @if (design.design().hypotheses) {
+              <p class="review-quote"><strong>{{ 'RESEARCH_DESIGN.FIELD_HYPOTHESES' | translate }}:</strong> {{ design.design().hypotheses }}</p>
+            }
+          </section>
+
+          <div class="review-stack">
+          <section class="review-block">
+            <h4 class="review-block__title">{{ 'RESEARCH_DESIGN.SECTION_VARIABLES' | translate }} <span class="review-count">{{ design.variables().length }}</span></h4>
+            @if (design.variables().length) {
+              <ul class="review-list">
+                @for (v of design.variables(); track $index) {
+                  <li>
+                    <span class="review-role" [class.review-role--accent]="v.role === 'INDEPENDENT' || v.role === 'CONTROL'">{{ 'RESEARCH_DESIGN.VAR_ROLE.' + v.role | translate }}</span>
+                    <span class="review-list__name">{{ v.name }}</span>
+                    @if (v.levels.length) {
+                      <span class="review-chips">
+                        @for (l of v.levels; track $index) { <span class="review-chip">{{ l }}</span> }
+                      </span>
+                    }
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="review-muted">{{ 'STUDY_WIZARD.NONE' | translate }}</p>
+            }
+          </section>
+
+          <section class="review-block">
+            <h4 class="review-block__title">{{ 'RESEARCH_DESIGN.SECTION_GROUPS' | translate }} <span class="review-count">{{ design.groups().length }}</span></h4>
+            @if (design.groups().length) {
+              <ul class="review-list">
+                @for (g of design.groups(); track $index) {
+                  <li>
+                    <span class="review-list__name">{{ g.name }}</span>
+                    @if (g.isControl) { <span class="review-role review-role--accent">{{ 'RESEARCH_DESIGN.GROUP_CONTROL' | translate }}</span> }
+                    @if (g.description) { <span class="review-muted review-list__desc">{{ g.description }}</span> }
+                  </li>
+                }
+              </ul>
+              <p class="review-meta">
+                {{ 'RESEARCH_DESIGN.ASSIGN_' + design.design().assignmentMode | translate }}
+              </p>
+            } @else {
+              <p class="review-muted">{{ 'STUDY_WIZARD.NONE' | translate }}</p>
+            }
+          </section>
+
+          </div>
+
+          <section class="review-block review-block--wide">
+            <h4 class="review-block__title">{{ 'STUDY_WIZARD.FLOW_TITLE' | translate }} <span class="review-count">{{ protocolSteps().length }}</span></h4>
+            <p class="review-muted flow-hint">{{ 'STUDY_WIZARD.FLOW_HINT' | translate }}</p>
+            <app-protocol-flow [steps]="protocolSteps()" [groups]="design.groups()"></app-protocol-flow>
+          </section>
+        </div>
+        <app-design-warnings></app-design-warnings>
+        @if (studyConfig.protocolStepTypes().length === 0) {
+          <p class="field-error no-steps">{{ 'STUDY_WIZARD.NO_STEPS' | translate }}</p>
+        }
+        <div class="wizard-actions">
+          <button type="button" class="btn-ghost" (click)="back()">{{ 'STUDY_WIZARD.BACK' | translate }}</button>
+          <button type="button" class="btn-primary" [disabled]="busy()" (click)="finish()">
+            {{ (busy() ? 'STUDY_WIZARD.WORKING' : 'STUDY_WIZARD.FINISH') | translate }}
+          </button>
+        </div>
+      </div>
+    }
+  }
+
+  @if (errorKey() === 'ERR_DESIGN' && design.errorKey()) {
+    <p class="field-error wizard-error">{{ 'RESEARCH_DESIGN.ERR_' + design.errorKey() | translate }}</p>
+  } @else if (errorKey()) {
+    <p class="field-error wizard-error">{{ 'STUDY_WIZARD.' + errorKey() | translate }}</p>
+  }
+}

@@ -11,6 +11,7 @@ import {
   ParticipantRow,
 } from '../services/admin-api.service';
 import { SelectComponent, SelectOption } from '../shared/select/select.component';
+import { SessionSlotsComponent } from './session-slots/session-slots.component';
 import { MAX_TAGS, PREDEFINED_TAGS, PredefinedTag, predefinedTagLabel, predefinedTagTone } from './session-tags';
 
 /**
@@ -22,7 +23,7 @@ import { MAX_TAGS, PREDEFINED_TAGS, PredefinedTag, predefinedTagLabel, predefine
 @Component({
   selector: 'app-experimental-session-detail',
   standalone: true,
-  imports: [TranslateModule, ReactiveFormsModule, RouterLink, DatePipe, SelectComponent, LoadingSpinnerComponent],
+  imports: [TranslateModule, ReactiveFormsModule, RouterLink, DatePipe, SelectComponent, LoadingSpinnerComponent, SessionSlotsComponent],
   templateUrl: './experimental-session-detail.component.html',
   styleUrl: './experimental-session-detail.component.scss',
 })
@@ -124,7 +125,7 @@ export class ExperimentalSessionDetailComponent {
         label: detail.label ?? '',
         notes: detail.notes ?? '',
       });
-      this.participants.set(await this.api.getParticipants(detail.researchId));
+      if (detail.flowMode !== 'PROTOCOL') this.participants.set(await this.api.getParticipants(detail.researchId));
     } catch {
       this.notFound.set(true);
     } finally {

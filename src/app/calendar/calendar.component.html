@@ -45,7 +45,7 @@
             @for (entry of entriesFor(day); track entry.id) {
               <div class="cal-chip" cdkDrag [cdkDragData]="entry" (click)="openSession(entry, $event)">
                 <span class="cal-chip__label">{{ entry.label ?? ('CALENDAR.UNTITLED' | translate) }}</span>
-                <span class="cal-chip__count">{{ entry.participantSessionCount }}</span>
+                <span class="cal-chip__count">{{ entry.participantSessionCount + entry.slotCount }}</span>
               </div>
             }
           </div>

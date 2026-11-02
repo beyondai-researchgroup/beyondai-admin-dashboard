@@ -4,6 +4,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { AdminApiService, ImportResult, TaskType } from '../services/admin-api.service';
 import { ExcelImportService, ParsedImportFile } from '../services/excel-import.service';
 import { ScopeService } from '../services/scope.service';
+import { StudyConfigStoreService } from '../services/study-config-store.service';
 
 @Component({
   selector: 'app-participant-import',
@@ -17,6 +18,7 @@ export class ParticipantImportComponent {
   private scope = inject(ScopeService);
   private excel = inject(ExcelImportService);
   private translate = inject(TranslateService);
+  readonly studyConfigStore = inject(StudyConfigStoreService);
 
   readonly isDragOver = signal(false);
   readonly selectedFile = signal<File | null>(null);
@@ -45,13 +47,63 @@ export class ParticipantImportComponent {
     });
   }
 
-  readonly isGeneric = computed(() => this.taskType() === 'GENERIC');
+  /** The automatic group + task draw done right after the import (null when none ran or it failed). */
+  readonly autoDraw = computed(() => {
+    const a = this.importResult()?.autoAssignment;
+    return a && 'seed' in a ? a : null;
+  });
+  readonly autoDrawFailed = computed(() => {
+    const a = this.importResult()?.autoAssignment;
+    return !!a && 'error' in a;
+  });
+
+  readonly isGeneric = computed(() => this.studyConfigStore.isProtocol()
+    ? this.studyConfigStore.protocolTaskKind() === 'GENERIC_TASK'
+    : this.taskType() === 'GENERIC');
 
   async downloadTemplate(): Promise<void> {
     const lang = this.translate.currentLang === 'en' ? 'en' : 'sr';
     const taskLabels = this.isPrReview() ? await this.getResearchTaskLabels() : [];
     const genericTaskTitles = this.isGeneric() ? await this.getResearchGenericTaskTitles() : [];
-    await this.excel.downloadTemplate(lang, this.taskType(), taskLabels, genericTaskTitles);
+    // A protocol research is participants-only (its steps come from the protocol), so it gets the same
+    // template as a Google-Forms research: no Tasks sheet, no per-participant generic task column.
+    const templateType: TaskType = this.studyConfigStore.isProtocol() ? (this.isGeneric() ? 'GENERIC' : 'GOOGLE_FORMS') : this.taskType();
+    const groupNames = await this.getResearchGroupNames();
+    const prTaskLabels = await this.getProtocolPrTaskLabels();
+    const researchTaskNames = await this.getResearchTaskNames();
+    await this.excel.downloadTemplate(lang, templateType, taskLabels, genericTaskTitles, groupNames, prTaskLabels, researchTaskNames);
+  }
+
+  // A protocol research whose experiment step is Code Review names each participant's PR in the Participants sheet.
+  private async getProtocolPrTaskLabels(): Promise<string[]> {
+    const researchId = this.scope.selectedResearchId();
+    if (researchId == null || !this.studyConfigStore.isProtocol() || this.studyConfigStore.protocolTaskKind() !== 'CODE_REVIEW') return [];
+    return this.getResearchTaskLabels();
+  }
+
+  // The Participants sheet's Group column (dropdown + cross-check) lists this research's groups,
+  // fetched fresh each time like the task lists above. Only a PROTOCOL research can have groups.
+  private async getResearchGroupNames(): Promise<string[]> {
+    const researchId = this.scope.selectedResearchId();
+    if (researchId == null || !this.studyConfigStore.isProtocol()) return [];
+    try {
+      const doc = await this.api.getResearchDesign(researchId);
+      return doc.groups.map((g) => g.name);
+    } catch {
+      return [];
+    }
+  }
+
+  // The study tasks (A / B ...) of the design, for the ResearchTask column. Two or more only: one task splits nobody.
+  private async getResearchTaskNames(): Promise<string[]> {
+    const researchId = this.scope.selectedResearchId();
+    if (researchId == null || !this.studyConfigStore.isProtocol()) return [];
+    try {
+      const doc = await this.api.getResearchDesign(researchId);
+      return doc.tasks.length >= 2 ? doc.tasks.map((t) => t.name) : [];
+    } catch {
+      return [];
+    }
   }
 
   // Same "fetched fresh each time, not cached" reasoning as getResearchPrNumbers below — a task
@@ -123,6 +175,9 @@ export class ParticipantImportComponent {
     try {
       const taskLabels = await this.getResearchTaskLabels();
       const genericTaskTitles = await this.getResearchGenericTaskTitles();
+      const groupNames = await this.getResearchGroupNames();
+      const prTaskLabels = await this.getProtocolPrTaskLabels();
+      const researchTaskNames = await this.getResearchTaskNames();
       // Empty means "couldn't resolve this research's task list" (no research selected, or
       // it genuinely has none yet) — pass undefined rather than an empty Set so parseFile skips
       // the cross-check instead of rejecting every single label as invalid. Same reasoning for
@@ -131,7 +186,10 @@ export class ParticipantImportComponent {
         await this.excel.parseFile(
           file,
           taskLabels.length ? new Set(taskLabels) : undefined,
-          genericTaskTitles.length ? new Set(genericTaskTitles) : undefined
+          genericTaskTitles.length ? new Set(genericTaskTitles) : undefined,
+          groupNames.length ? new Set(groupNames.map((n) => n.toLowerCase())) : undefined,
+          prTaskLabels.length ? new Set(prTaskLabels) : undefined,
+          researchTaskNames.length ? new Set(researchTaskNames.map((n) => n.toLowerCase())) : undefined
         )
       );
     } catch {

@@ -69,7 +69,8 @@ router.get('/:id', async (req, res) => {
     const rows = await sql`
       SELECT "UsesEeg", "EegDeviceType", "TlxCalculateScores", "TlxIncludeWeightings", "Rei40Variant",
              "UsesPsychTests", "StudyDisplayName", "Name", "UsesTlx", "EmailSenderName", "UsesConsentForm",
-             "UsesDemographics", "TracksParticipants", "ConsentLanguageSr", "ConsentLanguageEn",
+             "UsesDemographics", "UsesSheets", "TracksParticipants", "ConsentLanguageSr", "ConsentLanguageEn", "FlowMode",
+             "SetupComplete", (SELECT COUNT(*)::int FROM "ResearchGroup" g WHERE g."ResearchId" = "Research"."Id") AS "GroupCount",
              "TimerCodeReviewEnabled", "TimerCodeReviewMinutes", "TimerRei40Enabled", "TimerRei40Minutes",
              "TimerBigFiveEnabled", "TimerBigFiveMinutes", "TimerNasaTlxEnabled", "TimerNasaTlxMinutes"
       FROM "Research" WHERE "Id" = ${id} LIMIT 1
@@ -106,6 +107,17 @@ router.get('/:id', async (req, res) => {
       // ever issued (consent-andrejkatin/admin-dashboard's regenerate-links) and whether the
       // "Demografski upitnik"/"Demographic questions" nav entry + Results-menu item appear.
       usesDemographics: r.UsesDemographics,
+      // Excel-like tables (sheets-andrejkatin, 2026-10): when true the "Tabele" nav entry/page appears and
+      // participants can be given a personal link to fill the researcher's table. Default false.
+      usesSheets: r.UsesSheets,
+      // 'CLASSIC' (the original BeyondAI flow, every research that existed before the protocol
+      // feature) or 'PROTOCOL' (researcher-defined step list). Read-only here: only research
+      // creation ever sets it, so nothing on this page can switch a running study between modes.
+      flowMode: r.FlowMode,
+      // Study wizard (2026-10): false until the wizard that created a PROTOCOL research is finished.
+      setupComplete: r.SetupComplete !== false,
+      // Number of participant groups defined for the research (0 = no groups, one shared protocol).
+      groupCount: r.GroupCount ?? 0,
       // 2026-09-08 follow-up — whether this research's Participants/Import/Experimental-Sessions
       // surface is even shown at all (forced true and un-editable for TaskType='PR_REVIEW', which
       // structurally requires participants; see task-config's own taskType for that check).
@@ -144,7 +156,7 @@ router.put('/:id', async (req, res) => {
 
   const {
     usesEeg, eegDeviceType, usesTlx, tlxCalculateScores, tlxIncludeWeightings, rei40Variant,
-    usesPsychTests, studyDisplayName, emailSenderName, usesConsentForm, usesDemographics,
+    usesPsychTests, studyDisplayName, emailSenderName, usesConsentForm, usesDemographics, usesSheets,
     tracksParticipants, consentLanguageSr, consentLanguageEn,
     timerCodeReviewEnabled, timerCodeReviewMinutes, timerRei40Enabled, timerRei40Minutes,
     timerBigFiveEnabled, timerBigFiveMinutes, timerNasaTlxEnabled, timerNasaTlxMinutes,
@@ -197,6 +209,10 @@ router.put('/:id', async (req, res) => {
   }
   if (typeof usesDemographics !== 'boolean') {
     res.status(400).json({ error: 'usesDemographics must be a boolean' });
+    return;
+  }
+  if (typeof usesSheets !== 'boolean') {
+    res.status(400).json({ error: 'usesSheets must be a boolean' });
     return;
   }
   if (typeof tracksParticipants !== 'boolean') {
@@ -255,6 +271,7 @@ router.put('/:id', async (req, res) => {
           "EmailSenderName" = ${emailSenderName?.trim() || null},
           "UsesConsentForm" = ${usesConsentForm},
           "UsesDemographics" = ${usesDemographics},
+          "UsesSheets" = ${usesSheets},
           "TracksParticipants" = ${effectiveTracksParticipants},
           "ConsentLanguageSr" = ${consentLanguageSr}, "ConsentLanguageEn" = ${consentLanguageEn},
           "TimerCodeReviewEnabled" = ${timerCodeReviewEnabled}, "TimerCodeReviewMinutes" = ${timerCodeReviewEnabled ? timerCodeReviewMinutes : null},

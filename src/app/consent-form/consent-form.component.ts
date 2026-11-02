@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { toObservable } from '@angular/core/rxjs-interop';
@@ -26,10 +26,6 @@ import { ConsentDeliveryComponent } from './delivery/delivery.component';
 export class ConsentFormComponent {
   private api = inject(AdminApiService);
   readonly scope = inject(ScopeService);
-
-  /** Set by StudyBuilderComponent when embedding this page as a wizard step — the wizard owns
-   *  its own step heading, so this page's own .page-header would otherwise duplicate it. */
-  readonly hideHeader = input(false);
 
   readonly sections = signal<ConsentSection[]>([]);
   readonly checkboxTextSr = signal('');

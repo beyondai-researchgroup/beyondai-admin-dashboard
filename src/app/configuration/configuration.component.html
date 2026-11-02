@@ -18,6 +18,9 @@
     <div class="card">
       <form [formGroup]="form" (ngSubmit)="submit()">
 
+        <!-- A PROTOCOL research's modules are the steps of its protocol (Protocol page), so the
+             legacy per-module switches below are not offered for it: they would silently do nothing. -->
+        @if (!studyConfigStore.isProtocol()) {
         <!-- Part F of the platform re-architecture (2026-09-07): EEG only makes sense for a
              PR-review research (a participant wearing the headset while reviewing code via
              code-review-ai) - not a generic platform primitive, hidden for any other task type. -->
@@ -99,6 +102,9 @@
           }
         </div>
 
+        }
+
+        @if (!studyConfigStore.isProtocol()) {
         <h3 class="form-heading">{{ 'STUDY_CONFIG.PSYCH_TESTS_HEADING' | translate }}</h3>
         <div class="field-group">
           <label class="toggle-switch">
@@ -112,6 +118,9 @@
             <span class="field-hint">{{ 'STUDY_CONFIG.USES_PSYCH_TESTS_OFF_HINT' | translate }}</span>
           }
         </div>
+        } @else {
+        <h3 class="form-heading">{{ 'STUDY_CONFIG.EMAIL_IDENTITY_HEADING' | translate }}</h3>
+        }
         <div class="field-group">
           <label class="field-label" for="studyDisplayName">{{ 'STUDY_CONFIG.STUDY_DISPLAY_NAME_LABEL' | translate }}</label>
           <input id="studyDisplayName" type="text" class="text-input" formControlName="studyDisplayName" />
@@ -135,6 +144,17 @@
           }
         </div>
 
+        <h3 class="form-heading">{{ 'STUDY_CONFIG.SHEETS_HEADING' | translate }}</h3>
+        <div class="field-group">
+          <label class="toggle-switch">
+            <input type="checkbox" formControlName="usesSheets" />
+            <span class="toggle-track"></span>
+            <span class="toggle-label">{{ 'STUDY_CONFIG.USES_SHEETS_LABEL' | translate }}</span>
+          </label>
+          <span class="field-hint">{{ 'STUDY_CONFIG.USES_SHEETS_HINT' | translate }}</span>
+        </div>
+
+        @if (!studyConfigStore.isProtocol()) {
         <h3 class="form-heading">{{ 'STUDY_CONFIG.DEMOGRAPHICS_HEADING' | translate }}</h3>
         <div class="field-group">
           <label class="toggle-switch">
@@ -158,7 +178,10 @@
             <span class="field-hint">{{ 'STUDY_CONFIG.USES_CONSENT_FORM_OFF_HINT' | translate }}</span>
           }
         </div>
-        @if (form.controls.usesConsentForm.value) {
+        } @else {
+        <h3 class="form-heading">{{ 'STUDY_CONFIG.LANGUAGES_HEADING' | translate }}</h3>
+        }
+        @if (form.controls.usesConsentForm.value || studyConfigStore.isProtocol()) {
           <div class="field-group">
             <label class="field-label">{{ 'STUDY_CONFIG.CONSENT_LANGUAGE_LABEL' | translate }}</label>
             <div class="checkbox-row">
@@ -188,6 +211,7 @@
         <!-- 2026-09-08 follow-up: mirrors EEG's own taskType-gated section above, inverted - a
              PR-review research structurally requires participants (code-review-ai's whole flow
              depends on them), so the toggle is never even offered there. -->
+        @if (!studyConfigStore.isProtocol()) {
         <h3 class="form-heading">{{ 'STUDY_CONFIG.TRACKS_PARTICIPANTS_HEADING' | translate }}</h3>
         @if (studyConfigStore.taskType() === 'PR_REVIEW') {
           <p class="field-hint">{{ 'STUDY_CONFIG.TRACKS_PARTICIPANTS_FORCED_HINT' | translate }}</p>
@@ -208,6 +232,9 @@
 
         <!-- Per-app participant timer (2026-09-11) - only offered for an app this research
              actually uses; each app's duration is independently configurable. -->
+        }
+
+        @if (!studyConfigStore.isProtocol()) {
         <h3 class="form-heading">{{ 'STUDY_CONFIG.TIMER_HEADING' | translate }}</h3>
         @if (studyConfigStore.taskType() === 'PR_REVIEW' || studyConfigStore.usesPsychTests() || studyConfigStore.usesTlx()) {
           <p class="field-hint">{{ 'STUDY_CONFIG.TIMER_HINT' | translate }}</p>
@@ -266,6 +293,7 @@
           }
         } @else {
           <p class="field-hint">{{ 'STUDY_CONFIG.TIMER_NOT_APPLICABLE_HINT' | translate }}</p>
+        }
         }
 
         <div class="form-actions">

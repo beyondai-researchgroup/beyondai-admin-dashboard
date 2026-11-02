@@ -3,92 +3,68 @@
   <p>{{ 'RESEARCHES.HINT' | translate }}</p>
 </div>
 
-<div class="card">
-  <h3 class="form-heading">
-    {{ editingId() ? ('RESEARCHES.EDIT_HEADING' | translate) : ('RESEARCHES.ADD_HEADING' | translate) }}
-  </h3>
-
-  <form [formGroup]="form" (ngSubmit)="submit()">
-    <div class="field-group">
-      <label class="field-label" for="name">{{ 'RESEARCHES.NAME_LABEL' | translate }}</label>
-      <input id="name" type="text" class="text-input" formControlName="name" placeholder="npr. University of Belgrade" />
-      @if (form.controls.name.invalid && form.controls.name.touched) {
-        <span class="field-error">{{ 'RESEARCHES.NAME_ERROR' | translate }}</span>
-      }
+@if (editingId() == null) {
+  <div class="card new-card">
+    <div class="new-card__text">
+      <h3 class="form-heading">{{ 'RESEARCHES.ADD_HEADING' | translate }}</h3>
+      <p class="field-hint">{{ 'RESEARCHES.NEW_WIZARD_HINT' | translate }}</p>
     </div>
+    <button type="button" class="btn-primary new-card__btn" (click)="startWizard()">{{ 'RESEARCHES.NEW_WIZARD' | translate }}</button>
+  </div>
+} @else {
+  <div class="card">
+    <h3 class="form-heading">{{ 'RESEARCHES.EDIT_HEADING' | translate }}</h3>
 
-    <div class="field-row">
+    <form [formGroup]="form" (ngSubmit)="submit()">
       <div class="field-group">
-        <label class="field-label" for="university">{{ 'RESEARCHES.UNIVERSITY_LABEL' | translate }}</label>
-        <input id="university" type="text" class="text-input" formControlName="university" />
-      </div>
-      <div class="field-group">
-        <label class="field-label" for="city">{{ 'RESEARCHES.CITY_LABEL' | translate }}</label>
-        <input id="city" type="text" class="text-input" formControlName="city" />
-      </div>
-      <div class="field-group">
-        <label class="field-label" for="country">{{ 'RESEARCHES.COUNTRY_LABEL' | translate }}</label>
-        <input id="country" type="text" class="text-input" formControlName="country" />
-      </div>
-    </div>
-
-    <div class="field-group">
-      <label class="field-label" for="description">{{ 'RESEARCHES.DESCRIPTION_LABEL' | translate }}</label>
-      <textarea id="description" class="text-input textarea" rows="3" formControlName="description"></textarea>
-    </div>
-
-    @if (!editingId()) {
-      <h3 class="form-heading">{{ 'RESEARCHES.INSTRUMENTS_HEADING' | translate }}</h3>
-      <div class="field-group">
-        <label class="toggle-switch">
-          <input type="checkbox" formControlName="usesTlx" />
-          <span class="toggle-track"></span>
-          <span class="toggle-label">{{ 'STUDY_CONFIG.USES_TLX_LABEL' | translate }}</span>
-        </label>
-      </div>
-      <div class="field-group">
-        <label class="toggle-switch">
-          <input type="checkbox" formControlName="usesPsychTests" />
-          <span class="toggle-track"></span>
-          <span class="toggle-label">{{ 'STUDY_CONFIG.USES_PSYCH_TESTS_LABEL' | translate }}</span>
-        </label>
-      </div>
-      <div class="field-group">
-        <label class="field-label">{{ 'TASK_CONFIG.TASK_TYPE_LABEL' | translate }}</label>
-        <app-select
-          [options]="taskTypeOptions()"
-          [value]="form.controls.taskType.value"
-          (valueChange)="onTaskTypeChange($event)"
-        ></app-select>
-      </div>
-      <p class="field-hint">{{ 'RESEARCHES.INSTRUMENTS_HINT' | translate }}</p>
-    }
-
-    <p class="field-hint">{{ 'RESEARCHES.EEG_MOVED_HINT' | translate }}</p>
-
-    <div class="form-actions">
-      <button type="submit" class="btn-primary form-submit" [disabled]="form.invalid || saving()">
-        @if (saving()) {
-          {{ 'RESEARCHES.SUBMIT_SAVING' | translate }}
-        } @else if (editingId()) {
-          {{ 'RESEARCHES.SUBMIT_EDIT' | translate }}
-        } @else {
-          {{ 'RESEARCHES.SUBMIT_ADD' | translate }}
+        <label class="field-label" for="name">{{ 'RESEARCHES.NAME_LABEL' | translate }}</label>
+        <input id="name" type="text" class="text-input" formControlName="name" placeholder="npr. University of Belgrade" />
+        @if (form.controls.name.invalid && form.controls.name.touched) {
+          <span class="field-error">{{ 'RESEARCHES.NAME_ERROR' | translate }}</span>
         }
-      </button>
-      @if (editingId()) {
-        <button type="button" class="btn-ghost" (click)="cancelEdit()">{{ 'RESEARCHES.CANCEL_EDIT' | translate }}</button>
-      }
-    </div>
+      </div>
 
-    @if (saved()) {
-      <span class="field-success">{{ 'RESEARCHES.SAVED' | translate }}</span>
-    }
-    @if (error()) {
-      <span class="field-error">{{ 'RESEARCHES.ERROR' | translate }}</span>
-    }
-  </form>
-</div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label" for="university">{{ 'RESEARCHES.UNIVERSITY_LABEL' | translate }}</label>
+          <input id="university" type="text" class="text-input" formControlName="university" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="city">{{ 'RESEARCHES.CITY_LABEL' | translate }}</label>
+          <input id="city" type="text" class="text-input" formControlName="city" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="country">{{ 'RESEARCHES.COUNTRY_LABEL' | translate }}</label>
+          <input id="country" type="text" class="text-input" formControlName="country" />
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="description">{{ 'RESEARCHES.DESCRIPTION_LABEL' | translate }}</label>
+        <textarea id="description" class="text-input textarea" rows="3" formControlName="description"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary form-submit" [disabled]="form.invalid || saving()">
+          @if (saving()) {
+            {{ 'RESEARCHES.SUBMIT_SAVING' | translate }}
+          } @else {
+            {{ 'RESEARCHES.SUBMIT_EDIT' | translate }}
+          }
+        </button>
+        <button type="button" class="btn-ghost" (click)="cancelEdit()">{{ 'RESEARCHES.CANCEL_EDIT' | translate }}</button>
+      </div>
+
+      @if (error()) {
+        <span class="field-error">{{ 'RESEARCHES.ERROR' | translate }}</span>
+      }
+    </form>
+  </div>
+}
+
+@if (saved()) {
+  <span class="field-success">{{ 'RESEARCHES.SAVED' | translate }}</span>
+}
 
 <h3 class="raw-heading">{{ 'RESEARCHES.LIST_HEADING' | translate }}</h3>
 
@@ -105,6 +81,8 @@
           <th>{{ 'RESEARCHES.UNIVERSITY_LABEL' | translate }}</th>
           <th>{{ 'RESEARCHES.CITY_LABEL' | translate }}</th>
           <th>{{ 'RESEARCHES.COUNTRY_LABEL' | translate }}</th>
+          <th>{{ 'RESEARCHES.TYPE_LABEL' | translate }}</th>
+          <th>{{ 'RESEARCHES.SETUP_LABEL' | translate }}</th>
           <th>{{ 'RESEARCHES.PR_STATUS_LABEL' | translate }}</th>
           <th>{{ 'RESEARCHES.EEG_BADGE' | translate }}</th>
           <th></th>
@@ -117,9 +95,21 @@
             <td>{{ r.university ?? '-' }}</td>
             <td>{{ r.city ?? '-' }}</td>
             <td>{{ r.country ?? '-' }}</td>
+            <td>{{ (r.flowMode === 'PROTOCOL' ? 'RESEARCHES.TYPE_PROTOCOL' : 'RESEARCHES.TYPE_CLASSIC') | translate }}</td>
             <td>
-              <span class="status-dot" [class.status-dot--done]="r.hasPrConfig"></span>
-              {{ r.hasPrConfig ? ('RESEARCHES.PR_CONFIGURED' | translate) : ('RESEARCHES.PR_NOT_CONFIGURED' | translate) }}
+              @if (r.flowMode === 'PROTOCOL' && r.setupComplete === false) {
+                <span class="status-dot"></span>{{ 'RESEARCHES.SETUP_INCOMPLETE' | translate }}
+              } @else {
+                -
+              }
+            </td>
+            <td>
+              @if (r.flowMode === 'PROTOCOL') {
+                -
+              } @else {
+                <span class="status-dot" [class.status-dot--done]="r.hasPrConfig"></span>
+                {{ r.hasPrConfig ? ('RESEARCHES.PR_CONFIGURED' | translate) : ('RESEARCHES.PR_NOT_CONFIGURED' | translate) }}
+              }
             </td>
             <td>
               @if (r.usesEeg) {
@@ -128,7 +118,12 @@
                 -
               }
             </td>
-            <td><button type="button" class="btn-ghost row-action" (click)="startEdit(r)">{{ 'RESEARCHES.EDIT' | translate }}</button></td>
+            <td class="row-actions">
+              @if (r.flowMode === 'PROTOCOL' && r.setupComplete === false) {
+                <button type="button" class="btn-primary row-action" (click)="continueSetup(r)">{{ 'RESEARCHES.CONTINUE_SETUP' | translate }}</button>
+              }
+              <button type="button" class="btn-ghost row-action" (click)="startEdit(r)">{{ 'RESEARCHES.EDIT' | translate }}</button>
+            </td>
           </tr>
         }
       </tbody>

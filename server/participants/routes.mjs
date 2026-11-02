@@ -10,6 +10,7 @@ import { buildConsentLinkEmail } from '../email/consentLinkEmail.mjs';
 import { notifyResearchMembers } from '../notifications/create.mjs';
 import { resolveParticipantByBareId, AMBIGUOUS_PARTICIPANT } from './resolve.mjs';
 import { dateOnly } from '../date-only.mjs';
+import { planAssignment, applyAssignment, summarize } from '../research-design/assign.mjs';
 
 const router = Router();
 router.use(requireAuth);
@@ -749,6 +750,18 @@ router.post('/import', async (req, res) => {
       res.status(400).json({ error: 'participants[].genericTask must be a string up to 100 chars, or null' });
       return;
     }
+    if (!isValidName(p.group)) {
+      res.status(400).json({ error: 'participants[].group must be a string up to 100 chars, or null' });
+      return;
+    }
+    if (!isValidName(p.prTask)) {
+      res.status(400).json({ error: 'participants[].prTask must be a string up to 100 chars, or null' });
+      return;
+    }
+    if (!isValidName(p.researchTask)) {
+      res.status(400).json({ error: 'participants[].researchTask must be a string up to 100 chars, or null' });
+      return;
+    }
   }
   for (const t of tasksIn) {
     if (typeof t?.participantId !== 'string' || !t.participantId.trim() || t.participantId.length > MAX_ID_LENGTH) {
@@ -789,9 +802,30 @@ router.post('/import', async (req, res) => {
   // refuse to guess once this id is ambiguous across researches — even though THIS import already
   // knows exactly which research's participant it means.
   const participantGuid = new Map();
+  // Participant groups (2026-10): a name that matches none of the research's groups is reported, not fatal.
+  const groupAssigned = [];
+  const groupUnknown = [];
+  // Code Review protocol (2026-10): the "Task" column of the Participants sheet names the PR a participant reviews.
+  const prAssigned = [];
+  const prUnknown = [];
+  // Study tasks (A / B, 2026-10-30): the "ResearchTask" column; same rules as the group column.
+  const researchTaskAssigned = [];
+  const researchTaskUnknown = [];
+  // The people this very import created, for the automatic group/task draw afterwards.
+  const newlyInserted = [];
 
   try {
     const sql = getDb();
+
+    // Group column of the Participants sheet — resolved by name (case-insensitive), applied only on
+    // INSERT for a brand-new participant (an existing one is skipped entirely, exactly like Email /
+    // Language; changing an existing participant's group goes through the group-assignment route).
+    const groupRows = await sql`SELECT "Id", "Name" FROM "ResearchGroup" WHERE "ResearchId" = ${researchId}`;
+    const groupIdByName = new Map(groupRows.map((g) => [g.Name.toLowerCase(), g.Id]));
+    const researchTaskRows = await sql`SELECT "Id", "Name" FROM "ResearchTask" WHERE "ResearchId" = ${researchId}`;
+    const researchTaskIdByName = new Map(researchTaskRows.map((t) => [t.Name.toLowerCase(), t.Id]));
+    const prRows = await sql`SELECT "Id", "Label" FROM "ResearchPrConfig" WHERE "ResearchId" = ${researchId} AND "IsIntro" = FALSE`;
+    const prIdByLabel = new Map(prRows.map((r) => [r.Label, r.Id]));
 
     // Generic Task assignment (2026-09-11) — resolved once up front by title, same "only applied
     // on INSERT for a brand-new participant" rule as Email/Language below. A title that doesn't
@@ -822,12 +856,29 @@ router.post('/import', async (req, res) => {
         participantGuid.set(id, existingRows[0].Guid);
       } else {
         const genericTaskId = p.genericTask ? (genericTaskIdByTitle.get(p.genericTask) ?? null) : null;
+        const groupName = typeof p.group === 'string' && p.group.trim() ? p.group.trim() : null;
+        const groupId = groupName ? (groupIdByName.get(groupName.toLowerCase()) ?? null) : null;
+        if (groupName && groupId == null) groupUnknown.push({ participantId: id, group: groupName });
+        const researchTaskName = typeof p.researchTask === 'string' && p.researchTask.trim() ? p.researchTask.trim() : null;
+        const researchTaskId = researchTaskName ? (researchTaskIdByName.get(researchTaskName.toLowerCase()) ?? null) : null;
+        if (researchTaskName && researchTaskId == null) researchTaskUnknown.push({ participantId: id, task: researchTaskName });
+        const prLabel = typeof p.prTask === 'string' && p.prTask.trim() ? p.prTask.trim() : null;
+        const prConfigId = prLabel ? (prIdByLabel.get(prLabel) ?? null) : null;
+        if (prLabel && prConfigId == null) prUnknown.push({ participantId: id, task: prLabel });
         const inserted = await sql`
-          INSERT INTO "Participant" ("ParticipantId", "ResearchId", "FirstName", "LastName", "Email", "Language", "GenericTaskId")
-          VALUES (${id}, ${researchId}, ${p.firstName ?? null}, ${p.lastName ?? null}, ${p.email ?? null}, ${p.language ?? null}, ${genericTaskId})
+          INSERT INTO "Participant" ("ParticipantId", "ResearchId", "FirstName", "LastName", "Email", "Language", "GenericTaskId",
+                                     "GroupId", "GroupAssignedBy", "GroupAssignedAt", "CodeReviewPrConfigId",
+                                     "ResearchTaskId", "TaskAssignedBy", "TaskAssignedAt")
+          VALUES (${id}, ${researchId}, ${p.firstName ?? null}, ${p.lastName ?? null}, ${p.email ?? null}, ${p.language ?? null}, ${genericTaskId},
+                  ${groupId}, ${groupId == null ? null : 'RESEARCHER'}, ${groupId == null ? null : new Date().toISOString()}, ${prConfigId},
+                  ${researchTaskId}, ${researchTaskId == null ? null : 'RESEARCHER'}, ${researchTaskId == null ? null : new Date().toISOString()})
           ON CONFLICT ("ResearchId", "ParticipantId") DO NOTHING
           RETURNING "Guid"
         `;
+        if (inserted.length && groupId != null) groupAssigned.push(id);
+        if (inserted.length && prConfigId != null) prAssigned.push(id);
+        if (inserted.length && researchTaskId != null) researchTaskAssigned.push(id);
+        if (inserted.length) newlyInserted.push(id);
         imported.push(id);
         participantResearchId.set(id, researchId);
         if (inserted.length) participantGuid.set(id, inserted[0].Guid);
@@ -940,9 +991,40 @@ router.post('/import', async (req, res) => {
       }
     }
 
+    // Automatic group + task draw for the people this import created (PROTOCOL researches whose design says
+    // "random assignment"). Values the Excel sheet gave are kept; the rest are drawn, balanced. Nothing is sent
+    // to the participants here: the researcher looks at the result and confirms it first.
+    let autoAssignment = null;
+    if (newlyInserted.length) {
+      const modeRows = await sql`
+        SELECT r."FlowMode", d."AssignmentMode" FROM "Research" r
+        LEFT JOIN "ResearchDesign" d ON d."ResearchId" = r."Id" WHERE r."Id" = ${researchId}
+      `;
+      if (modeRows[0]?.FlowMode === 'PROTOCOL' && modeRows[0]?.AssignmentMode === 'RANDOM') {
+        try {
+          const plan = await planAssignment(sql, researchId, { participantIds: newlyInserted });
+          if (!plan.error) {
+            const { runId } = await applyAssignment(sql, researchId, plan, { createdBy: req.researcher.id ?? null });
+            autoAssignment = { seed: plan.seed, runId, count: plan.assignments.length, ...summarize(plan) };
+          } else if (plan.error !== 'NEED_TWO_GROUPS' && plan.error !== 'NOTHING_TO_ASSIGN') {
+            autoAssignment = { error: plan.error };
+          }
+        } catch (assignErr) {
+          // The people are already imported; a failed draw must not turn the import into an error. The researcher
+          // can run the draw from the participant list.
+          console.error('[participants] automatic assignment failed:', assignErr);
+          autoAssignment = { error: 'ASSIGNMENT_FAILED' };
+        }
+      }
+    }
+
     res.json({
       participants: { imported, skippedExisting },
       tasks: { introAdded, assigned, errors },
+      groups: { assigned: groupAssigned, unknown: groupUnknown },
+      prTasks: { assigned: prAssigned, unknown: prUnknown },
+      researchTasks: { assigned: researchTaskAssigned, unknown: researchTaskUnknown },
+      autoAssignment,
     });
 
     // Fire-and-forget notification fan-out — must never surface to the importing researcher as

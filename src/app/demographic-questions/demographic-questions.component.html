@@ -68,7 +68,7 @@
                       [ngModel]="option.labelEn"
                       (ngModelChange)="updateOption($index, $index2, 'labelEn', $event)"
                     />
-                    <label class="toggle-switch option-other-toggle">
+                    <label class="toggle-switch option-other-toggle" [title]="'DEMOGRAPHIC_QUESTIONS.OTHER_SPECIFY_HINT' | translate">
                       <input
                         type="checkbox"
                         [ngModel]="option.isOtherSpecify"
@@ -111,7 +111,9 @@
       @if (saved()) {
         <span class="field-success">{{ 'STUDY_CONFIG.SAVED' | translate }}</span>
       }
-      @if (saveError()) {
+      @if (answeredConflict()) {
+        <span class="field-error">{{ 'DEMOGRAPHIC_QUESTIONS.ANSWERED_CONFLICT' | translate }}</span>
+      } @else if (saveError()) {
         <span class="field-error">{{ 'STUDY_CONFIG.ERROR' | translate }}</span>
       }
     </div>

@@ -1,0 +1,61 @@
+<p class="field-hint section-hint">{{ 'RESEARCH_DESIGN.TASK_HINT' | translate }}</p>
+
+@if (!store.tasks().length) {
+  <div class="empty-state small-empty">{{ 'RESEARCH_DESIGN.TASK_EMPTY' | translate }}</div>
+}
+
+<div class="item-list">
+  @for (t of store.tasks(); track i; let i = $index) {
+    <div class="item-card">
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">{{ 'RESEARCH_DESIGN.TASK_NAME' | translate }}</label>
+          <input type="text" class="text-input" maxlength="100" [ngModel]="t.name" (ngModelChange)="store.patchTask(i, { name: $event })" />
+        </div>
+      </div>
+      <div class="field-group pdf-block">
+        <label class="field-label">{{ 'RESEARCH_DESIGN.TASK_PDF' | translate }}</label>
+        @if (t.id == null) {
+          <p class="field-hint">{{ 'RESEARCH_DESIGN.TASK_PDF_SAVE_FIRST' | translate }}</p>
+        } @else {
+          <div class="pdf-row">
+            @if (t.hasPdf) {
+              <span class="pdf-chip" [title]="t.pdfName ?? ''">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 1.5h5l3 3v8H3v-11z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" /><path d="M8 1.5v3h3" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" /></svg>
+                <span class="pdf-name">{{ t.pdfName }}</span>
+                <span class="pdf-size">{{ sizeLabel(t.pdfSize) }}</span>
+              </span>
+              <button type="button" class="btn-ghost add-btn" (click)="viewPdf(i)">{{ 'RESEARCH_DESIGN.TASK_PDF_VIEW' | translate }}</button>
+              <label class="btn-ghost add-btn pdf-pick" [class.pdf-pick--busy]="pdfBusy() === i">
+                {{ (pdfBusy() === i ? 'RESEARCH_DESIGN.TASK_PDF_UPLOADING' : 'RESEARCH_DESIGN.TASK_PDF_REPLACE') | translate }}
+                <input type="file" accept="application/pdf,.pdf" hidden [disabled]="pdfBusy() !== null" (change)="onPdf(i, $event)" />
+              </label>
+              <button type="button" class="btn-ghost remove-btn" [disabled]="pdfBusy() !== null" (click)="removePdf(i)">{{ 'RESEARCH_DESIGN.TASK_PDF_REMOVE' | translate }}</button>
+            } @else {
+              <label class="btn-ghost add-btn pdf-pick" [class.pdf-pick--busy]="pdfBusy() === i">
+                {{ (pdfBusy() === i ? 'RESEARCH_DESIGN.TASK_PDF_UPLOADING' : 'RESEARCH_DESIGN.TASK_PDF_ADD') | translate }}
+                <input type="file" accept="application/pdf,.pdf" hidden [disabled]="pdfBusy() !== null" (change)="onPdf(i, $event)" />
+              </label>
+              <span class="field-hint pdf-hint">{{ 'RESEARCH_DESIGN.TASK_PDF_HINT' | translate }}</span>
+            }
+          </div>
+          @if (pdfError(); as pe) {
+            @if (pe.index === i) { <span class="field-error">{{ 'RESEARCH_DESIGN.ERR_' + pe.key | translate }}</span> }
+          }
+        }
+      </div>
+      <div class="item-card__foot">
+        @if ((t.participantCount ?? 0) > 0) {
+          <span class="count-badge">{{ 'RESEARCH_DESIGN.TASK_PARTICIPANTS' | translate: { count: t.participantCount } }}</span>
+        }
+        <button type="button" class="btn-ghost remove-btn" [disabled]="!canRemove(i)" [title]="canRemove(i) ? '' : ('RESEARCH_DESIGN.TASK_REMOVE_BLOCKED' | translate)" (click)="store.removeTask(i)">
+          {{ 'RESEARCH_DESIGN.TASK_REMOVE' | translate }}
+        </button>
+      </div>
+    </div>
+  }
+</div>
+
+<div class="add-row">
+  <button type="button" class="btn-ghost add-btn" [disabled]="store.tasks().length >= 8" (click)="store.addTask()">{{ 'RESEARCH_DESIGN.TASK_ADD' | translate }}</button>
+</div>

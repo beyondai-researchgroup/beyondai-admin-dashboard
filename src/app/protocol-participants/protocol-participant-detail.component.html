@@ -1,0 +1,107 @@
+<div class="page-header">
+  <a class="back-link" routerLink="/protocol-participants">← {{ 'PROTOCOL_PROGRESS.BACK' | translate }}</a>
+  <h2>{{ 'PROTOCOL_PROGRESS.DETAIL_TITLE' | translate: { id: participantId } }}</h2>
+</div>
+
+@if (loading() && !timeline()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (error()) {
+  <p class="field-error">{{ 'PROTOCOL_PROGRESS.LOAD_ERROR' | translate }}</p>
+} @else {
+  @if (timeline(); as t) {
+  <div class="card">
+    <div class="meta-row">
+      <span>
+        {{ 'PROTOCOL_PROGRESS.EMAIL_LABEL' | translate }}:
+        @if (t.email) { <strong>{{ t.email }}</strong> } @else { <span class="no-email">{{ 'PROTOCOL_PROGRESS.NO_EMAIL' | translate }}</span> }
+      </span>
+      <span>{{ 'PROTOCOL_PROGRESS.LANGUAGE_LABEL' | translate }}: <strong>{{ t.language ?? '—' }}</strong></span>
+      @if (t.groupName) {
+        <span>{{ 'PROTOCOL_PROGRESS.COL_GROUP' | translate }}: <strong>{{ t.groupName }}</strong></span>
+      }
+      @if (t.prLabel) {
+        <span>{{ 'PROTOCOL_PROGRESS.COL_PR' | translate }}: <strong>{{ t.prLabel }}</strong></span>
+      }
+      @if (t.reviewSessions?.length) {
+        <span>{{ 'PROTOCOL_PROGRESS.REVIEW_SESSIONS' | translate }}:
+          @for (s of t.reviewSessions; track s.sessionId) {
+            <strong>{{ s.name }}</strong> ({{ (s.finished ? 'PROTOCOL_PROGRESS.REVIEW_FINISHED' : 'PROTOCOL_PROGRESS.REVIEW_OPEN') | translate }})@if (!$last) {, }
+          }
+        </span>
+        <a class="step-edit-link" [routerLink]="['/participants', t.participantId]">{{ 'PROTOCOL_PROGRESS.REVIEW_DETAILS' | translate }}</a>
+      }
+      @if (t.slots?.length) {
+        <span>{{ 'PROTOCOL_PROGRESS.SLOTS' | translate }}:
+          @for (x of t.slots; track x.id) {
+            <span class="slot-line"><strong>{{ x.date }} {{ x.time }}</strong> {{ (x.kind === 'ONLINE' ? 'SESSION_SLOTS.KIND_ONLINE' : 'SESSION_SLOTS.KIND_IN_PERSON') | translate }}@if (x.location) { · {{ x.location }}}@if (x.meetingUrl) { · <a [href]="x.meetingUrl" target="_blank" rel="noopener noreferrer">{{ 'SESSION_SLOTS.MEETING_LINK_SHORT' | translate }}</a>}</span>
+          }
+        </span>
+      }
+      @if (!t.started) {
+        <button type="button" class="btn-primary form-submit" [disabled]="busy()" (click)="start()">{{ 'PROTOCOL_PROGRESS.START_PROTOCOL' | translate }}</button>
+      }
+    </div>
+
+    @if (message(); as msg) {
+      <p [class.field-success]="msg.tone === 'ok'" [class.field-error]="msg.tone === 'error'">{{ msg.key | translate }}</p>
+    }
+
+    <ol class="timeline">
+      @for (s of t.steps; track s.id; let i = $index) {
+        <li class="tl-step" [class]="'tl-step tl-step--' + s.status" [class.tl-step--current]="s.id === currentStepId()">
+          <div class="tl-marker" aria-hidden="true">{{ i + 1 }}</div>
+          <div class="tl-body">
+            <div class="tl-head">
+              <span class="tl-title">{{ titleOf(s) }}</span>
+              <span class="tl-type">{{ 'PROTOCOL.TYPE_' + s.stepType | translate }}</span>
+              <span [class]="'tl-status tl-status--' + s.status">{{ 'PROTOCOL_PROGRESS.STATUS_' + s.status | translate }}</span>
+            </div>
+
+            <div class="tl-times">
+              @if (s.sentAt) { <span>{{ 'PROTOCOL_PROGRESS.SENT_AT' | translate }} {{ fmt(s.sentAt) }}</span> }
+              @if (s.status === 'SCHEDULED' && s.scheduledFor) { <span>{{ 'PROTOCOL_PROGRESS.SCHEDULED_FOR' | translate }} {{ fmt(s.scheduledFor) }}</span> }
+              @if (s.completedAt) {
+                <span>{{ 'PROTOCOL_PROGRESS.COMPLETED_AT' | translate }} {{ fmt(s.completedAt) }}
+                  @if (s.completedBy && s.completedBy !== 'AUTO') { ({{ 'PROTOCOL_PROGRESS.BY_RESEARCHER' | translate }}) }
+                </span>
+              }
+              @if (s.status === 'NOT_REACHED' || s.status === 'PENDING') {
+                <span>{{ 'PROTOCOL_PROGRESS.DELIVERY_' + s.delivery | translate }}@if (s.delivery === 'AFTER_DELAY') { ({{ s.delayDays }} {{ 'PROTOCOL_PROGRESS.DAYS' | translate }}) }</span>
+              }
+            </div>
+
+            @if (s.linkUrl) {
+              <div class="tl-link">
+                <input class="text-input link-input" readonly [value]="s.linkUrl" (focus)="$any($event.target).select()" />
+                <button type="button" class="btn-ghost btn-ghost--small" (click)="copyLink(s)">
+                  {{ copiedStepId() === s.id ? ('PROTOCOL_PROGRESS.COPIED' | translate) : ('PROTOCOL_PROGRESS.COPY_LINK' | translate) }}
+                </button>
+                @if (s.linkExpired) { <span class="field-error">{{ 'PROTOCOL_PROGRESS.LINK_EXPIRED' | translate }}</span> }
+              </div>
+            }
+
+            @if (t.started && (canSendNow(s) || canResend(s) || canMarkDone(s) || canSkip(s))) {
+              <div class="tl-actions">
+                @if (canSendNow(s)) {
+                  <button type="button" class="btn-primary btn-small" [disabled]="busy()" (click)="send(s)">{{ 'PROTOCOL_PROGRESS.SEND_NOW' | translate }}</button>
+                }
+                @if (canResend(s)) {
+                  <button type="button" class="btn-ghost btn-ghost--small" [disabled]="busy()" (click)="send(s)">{{ 'PROTOCOL_PROGRESS.RESEND' | translate }}</button>
+                }
+                @if (canMarkDone(s)) {
+                  <button type="button" class="btn-ghost btn-ghost--small" [disabled]="busy()" (click)="markDone(s)">
+                    {{ (isManual(s) ? 'PROTOCOL_PROGRESS.MARK_DONE_MANUAL' : 'PROTOCOL_PROGRESS.MARK_DONE') | translate }}
+                  </button>
+                }
+                @if (canSkip(s)) {
+                  <button type="button" class="btn-ghost btn-ghost--small danger" [disabled]="busy()" (click)="skip(s)">{{ 'PROTOCOL_PROGRESS.SKIP' | translate }}</button>
+                }
+              </div>
+            }
+          </div>
+        </li>
+      }
+    </ol>
+  </div>
+}
+}

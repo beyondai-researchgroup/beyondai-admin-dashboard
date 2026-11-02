@@ -1,0 +1,238 @@
+@if (!hideHeader()) {
+  <div class="page-header">
+    <h2>{{ 'PROTOCOL.TITLE' | translate }}</h2>
+    <p>{{ 'PROTOCOL.HINT' | translate }}</p>
+  </div>
+}
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (notProtocol()) {
+  <div class="empty-state">{{ 'PROTOCOL.NOT_PROTOCOL' | translate }}</div>
+} @else if (loadError()) {
+  <div class="empty-state">{{ 'PROTOCOL.LOAD_ERROR' | translate }}</div>
+} @else {
+  <div class="card">
+    <p class="field-hint privacy-note">{{ 'PROTOCOL.PARTICIPANT_BLIND_NOTE' | translate }}</p>
+
+    @if (!steps().length) {
+      <div class="empty-state empty-steps">{{ 'PROTOCOL.EMPTY' | translate }}</div>
+    }
+
+    <div cdkDropList class="step-list" (cdkDropListDropped)="drop($event)">
+      @for (step of steps(); track step.localKey; let i = $index) {
+        <div class="step-card" cdkDrag [cdkDragDisabled]="isLocked(step)" [class.step-card--locked]="isLocked(step)">
+          <div class="step-order">
+            @if (isLocked(step)) {
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" [attr.title]="'PROTOCOL.LOCKED' | translate"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            } @else {
+              <span class="step-drag-handle" cdkDragHandle [attr.title]="'PROTOCOL.DRAG_HANDLE' | translate">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>
+              </span>
+            }
+            <span class="step-number">{{ i + 1 }}</span>
+          </div>
+
+          <div class="step-body">
+            <div class="step-head">
+              <span class="step-type-badge">{{ 'PROTOCOL.TYPE_' + step.stepType | translate }}</span>
+              @if (isLocked(step)) {
+                <span class="step-locked-note">{{ 'PROTOCOL.STARTED_NOTE' | translate: { count: step.participantsStarted } }}</span>
+              }
+              @if (usesBuiltInPage(step); as page) {
+                <a class="step-edit-link" [routerLink]="page">{{ 'PROTOCOL.EDIT_CONTENT_' + step.stepType | translate }}</a>
+              }
+            </div>
+
+            <p class="field-hint step-type-hint">{{ 'PROTOCOL.TYPE_HINT_' + step.stepType | translate }}</p>
+
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">{{ 'PROTOCOL.TITLE_SR_LABEL' | translate }}</label>
+                <input type="text" class="text-input" maxlength="200" [ngModel]="step.titleSr" (ngModelChange)="patch(i, { titleSr: $event })" />
+              </div>
+              <div class="field-group">
+                <label class="field-label">{{ 'PROTOCOL.TITLE_EN_LABEL' | translate }}</label>
+                <input type="text" class="text-input" maxlength="200" [ngModel]="step.titleEn" (ngModelChange)="patch(i, { titleEn: $event })" />
+              </div>
+            </div>
+
+            @switch (step.stepType) {
+              @case ('QUESTIONNAIRE') {
+                <div class="field-group">
+                  <label class="field-label">{{ 'PROTOCOL.QUESTIONNAIRE_LABEL' | translate }}</label>
+                  @if (questionnaireOptions().length) {
+                    <app-select
+                      [options]="questionnaireOptions()"
+                      [value]="step.questionnaireId"
+                      [disabled]="isLocked(step)"
+                      (valueChange)="onQuestionnaireChange(i, $event)"
+                    ></app-select>
+                  } @else {
+                    <span class="field-hint">
+                      {{ 'PROTOCOL.NO_QUESTIONNAIRES' | translate }}
+                      <a [routerLink]="'/questionnaires'">{{ 'PROTOCOL.GO_QUESTIONNAIRES' | translate }}</a>
+                    </span>
+                  }
+                </div>
+              }
+              @case ('EXPERIMENT') {
+                <div class="field-group">
+                  <label class="field-label">{{ 'PROTOCOL.TASK_KIND_LABEL' | translate }}</label>
+                  <app-select
+                    [options]="taskKindOptions(step)"
+                    [value]="step.config.taskKind ?? ''"
+                    [disabled]="isLocked(step)"
+                    (valueChange)="onTaskKindChange(i, $event)"
+                  ></app-select>
+                  <span class="field-hint">{{ 'PROTOCOL.TASK_KIND_HINT.' + step.config.taskKind | translate }}</span>
+                  @if (taskSetupLink(step); as link) {
+                    <a class="step-edit-link" [routerLink]="link">{{ 'PROTOCOL.TASK_SETUP_LINK' | translate }}</a>
+                  }
+                </div>
+                @if (step.config.taskKind === 'CODE_REVIEW') {
+                  <div class="field-group">
+                    <label class="field-label">{{ 'PROTOCOL.REVIEW_DEFAULT_MODE' | translate }}</label>
+                    <app-select
+                      [options]="reviewModeOptions()"
+                      [value]="step.config.defaultMode ?? 'AI'"
+                      [disabled]="isLocked(step)"
+                      (valueChange)="setReviewConfig(i, { defaultMode: $any($event) })"
+                    ></app-select>
+                    <span class="field-hint">{{ 'PROTOCOL.REVIEW_MODE_HINT.' + (step.config.defaultMode ?? 'AI') | translate }}</span>
+                  </div>
+                  @if (groups().length) {
+                    <div class="field-group">
+                      <label class="field-label">{{ 'PROTOCOL.REVIEW_MODE_BY_GROUP' | translate }}</label>
+                      @for (g of groups(); track g.id) {
+                        <div class="group-mode-row">
+                          <span class="group-mode-name">{{ g.name }}</span>
+                          <app-select
+                            class="group-mode-select"
+                            [options]="groupModeOptions()"
+                            [value]="groupMode(step, g.id)"
+                            [disabled]="isLocked(step)"
+                            (valueChange)="setGroupMode(i, g.id, $event)"
+                          ></app-select>
+                        </div>
+                      }
+                    </div>
+                  }
+                  <label class="toggle-switch intro-toggle">
+                    <input type="checkbox" [checked]="step.config.includeIntro === true" [disabled]="isLocked(step)" (change)="setReviewConfig(i, { includeIntro: $any($event.target).checked })" />
+                    <span class="toggle-track"></span>
+                    <span class="toggle-label">{{ 'PROTOCOL.REVIEW_INCLUDE_INTRO' | translate }}</span>
+                  </label>
+                  <p class="field-hint">{{ 'PROTOCOL.REVIEW_INTRO_HINT' | translate }}</p>
+                  <p class="field-hint">{{ 'PROTOCOL.REVIEW_TLX_HINT' | translate }}</p>
+                }
+                <p class="field-hint">{{ 'PROTOCOL.EXPERIMENT_DESCRIPTION_HINT' | translate }}</p>
+              }
+              @case ('EXTERNAL_LINK') {
+                <div class="field-group">
+                  <label class="field-label">{{ 'PROTOCOL.URL_LABEL' | translate }}</label>
+                  <input type="url" class="text-input" maxlength="1000" placeholder="https://" [ngModel]="step.config.url" (ngModelChange)="patchConfig(i, 'url', $event)" />
+                </div>
+              }
+              @case ('MESSAGE') {
+                <div class="field-row">
+                  <div class="field-group">
+                    <label class="field-label">{{ 'PROTOCOL.BODY_SR_LABEL' | translate }}</label>
+                    <textarea class="text-input textarea" rows="3" maxlength="2000" [ngModel]="step.config.bodySr" (ngModelChange)="patchConfig(i, 'bodySr', $event)"></textarea>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">{{ 'PROTOCOL.BODY_EN_LABEL' | translate }}</label>
+                    <textarea class="text-input textarea" rows="3" maxlength="2000" [ngModel]="step.config.bodyEn" (ngModelChange)="patchConfig(i, 'bodyEn', $event)"></textarea>
+                  </div>
+                </div>
+              }
+              @case ('MANUAL') {
+                <div class="field-row">
+                  <div class="field-group">
+                    <label class="field-label">{{ 'PROTOCOL.NOTE_SR_LABEL' | translate }}</label>
+                    <textarea class="text-input textarea" rows="2" maxlength="2000" [ngModel]="step.config.bodySr" (ngModelChange)="patchConfig(i, 'bodySr', $event)"></textarea>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">{{ 'PROTOCOL.NOTE_EN_LABEL' | translate }}</label>
+                    <textarea class="text-input textarea" rows="2" maxlength="2000" [ngModel]="step.config.bodyEn" (ngModelChange)="patchConfig(i, 'bodyEn', $event)"></textarea>
+                  </div>
+                </div>
+              }
+            }
+
+            @if (step.stepType !== 'MANUAL') {
+              <div class="field-row delivery-row">
+                <div class="field-group">
+                  <label class="field-label">{{ 'PROTOCOL.DELIVERY_LABEL' | translate }}</label>
+                  <app-select
+                    [options]="deliveryOptions()"
+                    [value]="step.delivery"
+                    (valueChange)="onDeliveryChange(i, $event)"
+                  ></app-select>
+                </div>
+                @if (step.delivery === 'AFTER_DELAY') {
+                  <div class="field-group delay-group">
+                    <label class="field-label">{{ 'PROTOCOL.DELAY_LABEL' | translate }}</label>
+                    <input type="number" class="text-input" min="0" max="365" [ngModel]="step.delayDays" (ngModelChange)="patch(i, { delayDays: $event === null || $event === '' ? null : +$event })" />
+                  </div>
+                }
+              </div>
+              <p class="field-hint">{{ 'PROTOCOL.DELIVERY_HINT_' + step.delivery | translate }}</p>
+            }
+
+            @if (hasEmail(step)) {
+              <details class="email-extra" [open]="step.config.taskKind === 'OTHER'">
+                <summary>{{ 'PROTOCOL.EMAIL_MESSAGE_SUMMARY' | translate }}</summary>
+                <div class="field-row">
+                  <div class="field-group">
+                    <label class="field-label">{{ 'PROTOCOL.EMAIL_MESSAGE_SR_LABEL' | translate }}</label>
+                    <textarea class="text-input textarea" rows="2" maxlength="2000" [ngModel]="step.emailMessageSr" (ngModelChange)="patch(i, { emailMessageSr: $event })"></textarea>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">{{ 'PROTOCOL.EMAIL_MESSAGE_EN_LABEL' | translate }}</label>
+                    <textarea class="text-input textarea" rows="2" maxlength="2000" [ngModel]="step.emailMessageEn" (ngModelChange)="patch(i, { emailMessageEn: $event })"></textarea>
+                  </div>
+                </div>
+              </details>
+            }
+          </div>
+
+          <button type="button" class="btn-ghost remove-step-btn" [disabled]="isLocked(step)" (click)="removeStep(i)">
+            {{ 'PROTOCOL.REMOVE_STEP' | translate }}
+          </button>
+        </div>
+      }
+    </div>
+
+    @if (orderHint()) {
+      <p class="field-hint order-hint">{{ 'PROTOCOL.ORDER_FROZEN_HINT' | translate }}</p>
+    }
+
+    <div class="add-step-row">
+      <app-select
+        class="add-step-select"
+        [options]="typeOptions()"
+        [value]="newType()"
+        [placeholder]="'PROTOCOL.ADD_STEP_PLACEHOLDER' | translate"
+        (valueChange)="newType.set($any($event))"
+      ></app-select>
+      <button type="button" class="btn-ghost add-step-btn" [disabled]="!newType()" (click)="addStep()">
+        {{ 'PROTOCOL.ADD_STEP' | translate }}
+      </button>
+    </div>
+
+    <div class="form-actions autosave-status" aria-live="polite">
+      @if (saving()) {
+        <span class="field-hint">{{ 'PROTOCOL.SAVING' | translate }}</span>
+      } @else if (errorKey()) {
+        <span class="field-error">{{ errorKey()! | translate }} {{ errorDetail() }}</span>
+      } @else if (incompleteKey()) {
+        <span class="field-hint">{{ 'PROTOCOL.AUTOSAVE_WAITING' | translate }} {{ incompleteKey()! | translate }}</span>
+      } @else if (saved()) {
+        <span class="field-success">{{ 'PROTOCOL.SAVED' | translate }}</span>
+      } @else {
+        <span class="field-hint">{{ 'PROTOCOL.AUTOSAVE_HINT' | translate }}</span>
+      }
+    </div>
+  </div>
+}

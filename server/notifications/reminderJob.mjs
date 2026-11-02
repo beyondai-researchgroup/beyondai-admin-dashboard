@@ -18,12 +18,13 @@ export async function runSessionReminderCheck() {
     const rows = await sql`
       SELECT DISTINCT es."ResearchId", es."SessionDate", res."Name" AS "ResearchName",
         (SELECT COUNT(*)::int FROM "ParticipantSession" ps2
-         WHERE ps2."ExperimentalSessionId" = es."Id" AND ps2."ScheduledTime" IS NOT NULL) AS "SessionCount"
+         WHERE ps2."ExperimentalSessionId" = es."Id" AND ps2."ScheduledTime" IS NOT NULL)
+        + (SELECT COUNT(*)::int FROM "SessionSlot" sl2 WHERE sl2."ExperimentalSessionId" = es."Id") AS "SessionCount"
       FROM "ExperimentalSession" es
-      JOIN "ParticipantSession" ps ON ps."ExperimentalSessionId" = es."Id"
       JOIN "Research" res ON res."Id" = es."ResearchId"
       WHERE es."SessionDate" = (CURRENT_DATE + INTERVAL '1 day')::date
-        AND ps."ScheduledTime" IS NOT NULL
+        AND (EXISTS (SELECT 1 FROM "ParticipantSession" ps WHERE ps."ExperimentalSessionId" = es."Id" AND ps."ScheduledTime" IS NOT NULL)
+             OR EXISTS (SELECT 1 FROM "SessionSlot" sl WHERE sl."ExperimentalSessionId" = es."Id"))
     `;
 
     for (const row of rows) {

@@ -33,7 +33,7 @@ const MAX_CUSTOM_TAG_LENGTH = 30;
 const PREDEFINED_TAGS = ['SUCCESS', 'CORRUPTED', 'INTERRUPTED', 'TECHNICAL_ISSUE', 'REPEAT_NEEDED', 'NOTEWORTHY'];
 const CUSTOM_TAG_PATTERN = /^[\p{L}\p{N} _-]+$/u;
 
-function isValidTags(v) {
+export function isValidTags(v) {
   if (!Array.isArray(v) || v.length > MAX_TAGS) return false;
   return v.every(
     (t) =>
@@ -124,7 +124,8 @@ router.get('/', async (req, res) => {
     const sql = getDb();
     const rows = await sql`
       SELECT es."Id", es."ResearchId", es."SessionDate", es."Label", es."Notes", es."CreatedAt",
-             (SELECT COUNT(*)::int FROM "ParticipantSession" ps WHERE ps."ExperimentalSessionId" = es."Id") AS "ParticipantSessionCount"
+             (SELECT COUNT(*)::int FROM "ParticipantSession" ps WHERE ps."ExperimentalSessionId" = es."Id") AS "ParticipantSessionCount",
+             (SELECT COUNT(*)::int FROM "SessionSlot" sl WHERE sl."ExperimentalSessionId" = es."Id") AS "SlotCount"
       FROM "ExperimentalSession" es
       WHERE (${researchId}::int IS NULL OR es."ResearchId" = ${researchId})
       ORDER BY es."SessionDate" DESC, es."Id" DESC
@@ -138,6 +139,7 @@ router.get('/', async (req, res) => {
         notes: r.Notes,
         createdAt: r.CreatedAt,
         participantSessionCount: r.ParticipantSessionCount,
+        slotCount: r.SlotCount,
       }))
     );
   } catch (err) {
@@ -221,9 +223,12 @@ router.get('/:id', async (req, res) => {
       ORDER BY ps."ScheduledTime" NULLS LAST, ps."ParticipantId", ps."SessionId"
     `;
 
+    const flow = await sql`SELECT "FlowMode" FROM "Research" WHERE "Id" = ${session.ResearchId} LIMIT 1`;
+
     res.json({
       id: session.Id,
       researchId: session.ResearchId,
+      flowMode: flow[0]?.FlowMode ?? 'CLASSIC',
       sessionDate: dateOnly(session.SessionDate),
       label: session.Label,
       notes: session.Notes,
@@ -390,6 +395,22 @@ router.put('/:id', async (req, res) => {
         );
       } catch (calendarErr) {
         console.error('[experimental-sessions] calendar sync (reschedule) failed:', calendarErr);
+      }
+      // Slots (termini) of a PROTOCOL research: one event each, moved to the new day at the slot's own time.
+      try {
+        const slots = await sql`
+          SELECT "GoogleCalendarEventId", "GoogleCalendarResearcherId", "DurationMinutes", TO_CHAR("StartTime", 'HH24:MI') AS "StartHm"
+          FROM "SessionSlot" WHERE "ExperimentalSessionId" = ${id} AND "GoogleCalendarEventId" IS NOT NULL
+        `;
+        await Promise.all(
+          slots.map(async (row) => {
+            const refreshToken = await getResearcherRefreshToken(sql, row.GoogleCalendarResearcherId);
+            if (!refreshToken) return;
+            await updateEvent({ refreshToken, eventId: row.GoogleCalendarEventId, date: sessionDate, time: row.StartHm, durationMinutes: row.DurationMinutes });
+          })
+        );
+      } catch (slotErr) {
+        console.error('[experimental-sessions] calendar sync (reschedule slots) failed:', slotErr);
       }
     });
   } catch (err) {
@@ -574,6 +595,12 @@ router.delete('/:id', async (req, res) => {
       WHERE "ExperimentalSessionId" = ${id} AND "GoogleCalendarEventId" IS NOT NULL
     `;
 
+    // Slots (PROTOCOL researches) go with the day (ON DELETE CASCADE); their Google events are removed below.
+    const slotEvents = await sql`
+      SELECT "GoogleCalendarEventId", "GoogleCalendarResearcherId" FROM "SessionSlot"
+      WHERE "ExperimentalSessionId" = ${id} AND "GoogleCalendarEventId" IS NOT NULL
+    `;
+
     await sql`
       UPDATE "ParticipantSession"
       SET "ExperimentalSessionId" = NULL, "ScheduledTime" = NULL,
@@ -583,10 +610,10 @@ router.delete('/:id', async (req, res) => {
     await sql`DELETE FROM "ExperimentalSession" WHERE "Id" = ${id}`;
     res.json({ ok: true });
 
-    if (children.length) {
+    if (children.length || slotEvents.length) {
       runInBackground(
         Promise.all(
-          children.map(async (row) => {
+          [...children, ...slotEvents].map(async (row) => {
             const refreshToken = await getResearcherRefreshToken(sql, row.GoogleCalendarResearcherId);
             if (refreshToken) await deleteEvent({ refreshToken, eventId: row.GoogleCalendarEventId });
           })

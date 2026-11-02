@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../db.mjs';
 import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
-import { DEFAULT_CONSENT_SECTIONS, DEFAULT_CHECKBOX_TEXT_SR, DEFAULT_CHECKBOX_TEXT_EN } from './defaults.mjs';
+import { DEFAULT_CONSENT_SECTIONS, GENERIC_CONSENT_SECTIONS, DEFAULT_CHECKBOX_TEXT_SR, DEFAULT_CHECKBOX_TEXT_EN } from './defaults.mjs';
 
 // Phase C of platform-ification: per-research configurable Consent Form. Any authenticated
 // researcher can read/edit their own research's config (same requireAuth-only, scope-checked
@@ -36,11 +36,14 @@ function isValidBody(v) {
   return typeof v === 'string' && v.trim().length > 0 && v.length <= MAX_BODY_LENGTH;
 }
 
-async function seedDefaultsIfEmpty(sql, researchId) {
+export async function seedDefaultsIfEmpty(sql, researchId) {
   const existing = await sql`SELECT 1 FROM "ConsentSection" WHERE "ResearchId" = ${researchId} LIMIT 1`;
   if (existing.length) return;
-  for (let i = 0; i < DEFAULT_CONSENT_SECTIONS.length; i++) {
-    const s = DEFAULT_CONSENT_SECTIONS[i];
+  // A research built with the researcher's own protocol starts from a neutral template, not the BeyondAI study's text.
+  const mode = await sql`SELECT "FlowMode" FROM "Research" WHERE "Id" = ${researchId}`;
+  const template = mode[0]?.FlowMode === 'PROTOCOL' ? GENERIC_CONSENT_SECTIONS : DEFAULT_CONSENT_SECTIONS;
+  for (let i = 0; i < template.length; i++) {
+    const s = template[i];
     await sql`
       INSERT INTO "ConsentSection" ("ResearchId", "SortOrder", "TitleSr", "TitleEn", "BodySr", "BodyEn")
       VALUES (${researchId}, ${i}, ${s.titleSr}, ${s.titleEn}, ${s.bodySr}, ${s.bodyEn})

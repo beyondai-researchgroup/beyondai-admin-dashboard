@@ -48,7 +48,7 @@ function addMinutes(date, time, minutes) {
  * null/undefined, so a participant with no Email on file simply gets a researcher-only event
  * rather than an error.
  */
-export async function createEvent({ refreshToken, summary, description, date, time, durationMinutes = 45, attendeeEmails }) {
+export async function createEvent({ refreshToken, summary, description, location, date, time, durationMinutes = 45, attendeeEmails }) {
   try {
     const calendar = clientFor(refreshToken);
     const end = addMinutes(date, time, durationMinutes);
@@ -60,6 +60,7 @@ export async function createEvent({ refreshToken, summary, description, date, ti
       requestBody: {
         summary,
         description,
+        ...(location ? { location } : {}),
         start: { dateTime: toDateTime(date, time), timeZone: TIMEZONE },
         end: { dateTime: toDateTime(end.date, end.time), timeZone: TIMEZONE },
         attendees,
@@ -72,22 +73,27 @@ export async function createEvent({ refreshToken, summary, description, date, ti
   }
 }
 
-/** Patches an existing event's start/end. Returns true on success, false on any failure. */
-export async function updateEvent({ refreshToken, eventId, date, time, durationMinutes = 45 }) {
+/**
+ * Patches an existing event. Start/end are patched when date + time are given; summary, description,
+ * location and the guest list are patched only when passed (an empty `location` clears it). Returns
+ * true on success, false on any failure.
+ */
+export async function updateEvent({ refreshToken, eventId, date, time, durationMinutes = 45, summary, description, location, attendeeEmails }) {
   if (!eventId) return false;
   try {
     const calendar = clientFor(refreshToken);
-    const end = addMinutes(date, time, durationMinutes);
+    const requestBody = {};
+    if (date && time) {
+      const end = addMinutes(date, time, durationMinutes);
+      requestBody.start = { dateTime: toDateTime(date, time), timeZone: TIMEZONE };
+      requestBody.end = { dateTime: toDateTime(end.date, end.time), timeZone: TIMEZONE };
+    }
+    if (summary !== undefined) requestBody.summary = summary;
+    if (description !== undefined) requestBody.description = description;
+    if (location !== undefined) requestBody.location = location || '';
+    if (attendeeEmails !== undefined) requestBody.attendees = attendeeEmails.filter(Boolean).map((email) => ({ email }));
 
-    await calendar.events.patch({
-      calendarId: 'primary',
-      eventId,
-      sendUpdates: 'all',
-      requestBody: {
-        start: { dateTime: toDateTime(date, time), timeZone: TIMEZONE },
-        end: { dateTime: toDateTime(end.date, end.time), timeZone: TIMEZONE },
-      },
-    });
+    await calendar.events.patch({ calendarId: 'primary', eventId, sendUpdates: 'all', requestBody });
     return true;
   } catch (err) {
     console.error('[google-calendar] updateEvent failed:', err?.message ?? err);

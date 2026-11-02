@@ -1,0 +1,237 @@
+<div class="slots-head">
+  <div>
+    <h3 class="raw-heading">{{ 'SESSION_SLOTS.HEADING' | translate }}</h3>
+    <p class="field-hint">{{ 'SESSION_SLOTS.HINT' | translate }}</p>
+  </div>
+  <button type="button" class="btn-primary new-slot-btn" [disabled]="loading() || loadError()" (click)="openCreate()">
+    {{ 'SESSION_SLOTS.NEW' | translate }}
+  </button>
+</div>
+
+@if (banner(); as b) {
+  <div class="slots-banner" [class.slots-banner--warn]="b.kind === 'warn'" role="status">
+    {{ b.key | translate: b.params }}
+  </div>
+}
+
+@if (!loading() && !calendarConnected()) {
+  <p class="field-hint">{{ 'SESSION_SLOTS.CALENDAR_OFF' | translate }}</p>
+}
+
+@if (loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <p class="field-error">{{ 'COMMON.LOAD_ERROR' | translate }}</p>
+} @else if (!slots().length) {
+  <div class="empty-state">{{ 'SESSION_SLOTS.EMPTY' | translate }}</div>
+} @else {
+  <div class="slot-list">
+    @for (s of slots(); track s.id) {
+      <div class="card slot-card">
+        <div class="slot-top">
+          <div class="slot-time">{{ s.startTime }}<span class="slot-duration">{{ s.durationMinutes }} min</span></div>
+          <span class="slot-kind" [class.slot-kind--online]="s.kind === 'ONLINE'">
+            {{ (s.kind === 'ONLINE' ? 'SESSION_SLOTS.KIND_ONLINE' : 'SESSION_SLOTS.KIND_IN_PERSON') | translate }}
+          </span>
+          <div class="slot-place">
+            @if (s.kind === 'ONLINE') {
+              @if (s.meetingUrl) {
+                <a [href]="s.meetingUrl" target="_blank" rel="noopener noreferrer">{{ s.meetingUrl }}</a>
+              } @else {
+                <span class="muted">{{ 'SESSION_SLOTS.NO_LINK' | translate }}</span>
+              }
+            } @else {
+              <span>{{ s.location }}</span>
+            }
+          </div>
+          <div class="slot-actions">
+            @if (s.googleCalendarEventUrl) {
+              <a class="btn-ghost btn-ghost--small slot-link" [href]="s.googleCalendarEventUrl" target="_blank" rel="noopener noreferrer">
+                {{ 'SESSION_SLOTS.OPEN_CALENDAR' | translate }}
+              </a>
+            }
+            <button type="button" class="btn-ghost btn-ghost--small" (click)="openEdit(s)">{{ 'SESSION_SLOTS.EDIT' | translate }}</button>
+            <button type="button" class="btn-ghost btn-ghost--small slot-delete" [disabled]="busySlot() === s.id" (click)="remove(s)">
+              {{ 'SESSION_SLOTS.DELETE' | translate }}
+            </button>
+          </div>
+        </div>
+
+        <div class="slot-audience">
+          <strong>{{ audienceLabel(s) }}</strong>
+          @if (stepLabel(s); as step) {
+            <span class="slot-step">{{ 'SESSION_SLOTS.STEP_LABEL' | translate }}: {{ step }}</span>
+          }
+        </div>
+
+        <div class="chip-row">
+          @for (a of s.attendees; track a.guid) {
+            <span class="att-chip" [class.att-chip--noemail]="!a.hasEmail" [title]="a.hasEmail ? '' : ('SESSION_SLOTS.NO_EMAIL' | translate)">
+              {{ a.participantId }}
+              @if (a.groupName && s.audienceType !== 'GROUP') {
+                <span class="att-group">{{ a.groupName }}</span>
+              }
+              <button type="button" class="att-remove" [attr.aria-label]="'SESSION_SLOTS.REMOVE' | translate" [disabled]="busySlot() === s.id" (click)="removeAttendee(s, a.guid)">×</button>
+            </span>
+          }
+        </div>
+
+        <div class="slot-add">
+          <div class="slot-add__select">
+            <app-select
+              [options]="addableOptions(s)"
+              [value]="addPick()[s.id] ?? null"
+              [placeholder]="'SESSION_SLOTS.ADD_PARTICIPANT' | translate"
+              (valueChange)="setAddPick(s, $any($event))"
+            ></app-select>
+          </div>
+          <button type="button" class="btn-ghost btn-ghost--small" [disabled]="!addPick()[s.id] || busySlot() === s.id" (click)="addPicked(s)">
+            {{ 'SESSION_SLOTS.ADD' | translate }}
+          </button>
+          @if (canSync(s)) {
+            <button type="button" class="btn-ghost btn-ghost--small" [disabled]="busySlot() === s.id" (click)="syncMembers(s)">
+              {{ (s.audienceType === 'GROUP' ? 'SESSION_SLOTS.SYNC_GROUP' : 'SESSION_SLOTS.SYNC_ALL') | translate }}
+            </button>
+          }
+        </div>
+
+        <div class="slot-notes">
+          <input
+            type="text"
+            class="text-input"
+            maxlength="4000"
+            [placeholder]="'SESSION_SLOTS.NOTES_PLACEHOLDER' | translate"
+            [ngModel]="noteDraft(s)"
+            (ngModelChange)="setNoteDraft(s, $event)"
+          />
+          <div class="slot-notes__tag">
+            <app-select [options]="tagOptions()" [value]="tagValue(s)" (valueChange)="saveNotes(s, $any($event))"></app-select>
+          </div>
+          <button type="button" class="btn-ghost btn-ghost--small" [disabled]="busySlot() === s.id" (click)="saveNotes(s)">
+            {{ 'EXPERIMENTAL_SESSIONS.SAVE_NOTE' | translate }}
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+}
+
+@if (formOpen()) {
+  <div class="chart-modal-backdrop" (click)="closeForm()">
+    <div class="chart-modal slot-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <button class="chart-modal__close" type="button" (click)="closeForm()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="chart-modal__title">
+        {{ (editingId() === null ? 'SESSION_SLOTS.MODAL_NEW' : 'SESSION_SLOTS.MODAL_EDIT') | translate }}
+      </div>
+
+      <div class="slot-form-row">
+        <div class="field-group">
+          <label class="field-label">{{ 'EXPERIMENTAL_SESSIONS.COL_TIME' | translate }} *</label>
+          <app-select [options]="timeOptions" [value]="startTime()" (valueChange)="startTime.set($any($event))"></app-select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">{{ 'SESSION_SLOTS.DURATION' | translate }}</label>
+          <app-select [options]="durationOptions" [value]="duration()" (valueChange)="duration.set($any($event))"></app-select>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <span class="field-label">{{ 'SESSION_SLOTS.KIND' | translate }}</span>
+        <div class="segmented-control">
+          <input type="radio" name="slot-kind" id="slot-kind-online" [checked]="kind() === 'ONLINE'" (change)="kind.set('ONLINE')" />
+          <label for="slot-kind-online">{{ 'SESSION_SLOTS.KIND_ONLINE' | translate }}</label>
+          <input type="radio" name="slot-kind" id="slot-kind-person" [checked]="kind() === 'IN_PERSON'" (change)="kind.set('IN_PERSON')" />
+          <label for="slot-kind-person">{{ 'SESSION_SLOTS.KIND_IN_PERSON' | translate }}</label>
+        </div>
+      </div>
+
+      @if (kind() === 'ONLINE') {
+        <div class="field-group">
+          <label class="field-label" for="slot-url">{{ 'SESSION_SLOTS.MEETING_URL' | translate }}</label>
+          <input id="slot-url" type="url" class="text-input" maxlength="500" placeholder="https://" [ngModel]="meetingUrl()" (ngModelChange)="meetingUrl.set($event)" />
+          <span class="field-hint">{{ 'SESSION_SLOTS.MEETING_URL_HINT' | translate }}</span>
+        </div>
+      } @else {
+        <div class="field-group">
+          <label class="field-label" for="slot-loc">{{ 'SESSION_SLOTS.LOCATION' | translate }} *</label>
+          <input id="slot-loc" type="text" class="text-input" maxlength="300" [placeholder]="'SESSION_SLOTS.LOCATION_PLACEHOLDER' | translate" [ngModel]="location()" (ngModelChange)="location.set($event)" />
+        </div>
+      }
+
+      @if (editingId() === null) {
+        <div class="field-group">
+          <span class="field-label">{{ 'SESSION_SLOTS.AUDIENCE' | translate }}</span>
+          <div class="segmented-control">
+            <input type="radio" name="slot-aud" id="slot-aud-p" [checked]="audience() === 'PARTICIPANT'" (change)="setAudience('PARTICIPANT')" />
+            <label for="slot-aud-p">{{ 'SESSION_SLOTS.AUDIENCE_PARTICIPANT' | translate }}</label>
+            @if (hasGroups()) {
+              <input type="radio" name="slot-aud" id="slot-aud-g" [checked]="audience() === 'GROUP'" (change)="setAudience('GROUP')" />
+              <label for="slot-aud-g">{{ 'SESSION_SLOTS.AUDIENCE_GROUP' | translate }}</label>
+            }
+            <input type="radio" name="slot-aud" id="slot-aud-a" [checked]="audience() === 'ALL'" (change)="setAudience('ALL')" />
+            <label for="slot-aud-a">{{ 'SESSION_SLOTS.AUDIENCE_ALL' | translate }}</label>
+          </div>
+        </div>
+
+        @if (audience() === 'PARTICIPANT') {
+          <div class="field-group">
+            <span class="field-label">{{ 'SESSION_SLOTS.PICK_PARTICIPANTS' | translate }}</span>
+            @if (!participants().length) {
+              <div class="empty-state small-empty">{{ 'SESSION_SLOTS.NO_PARTICIPANTS' | translate }}</div>
+            } @else {
+              <div class="chip-checkbox-list">
+                @for (p of participants(); track p.participantId) {
+                  <div class="chip-checkbox">
+                    <input type="checkbox" [id]="'slot-p-' + p.participantId" [checked]="pickedIds().includes(p.participantId)" (change)="togglePicked(p.participantId)" />
+                    <label [for]="'slot-p-' + p.participantId">{{ p.participantId }}</label>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        } @else if (audience() === 'GROUP') {
+          <div class="field-group">
+            <label class="field-label">{{ 'SESSION_SLOTS.PICK_GROUP' | translate }}</label>
+            <app-select [options]="groupOptions()" [value]="groupId()" (valueChange)="groupId.set($any($event))"></app-select>
+          </div>
+        }
+
+        <div class="field-group">
+          <label class="field-label">{{ 'SESSION_SLOTS.STEP' | translate }}</label>
+          <app-select [options]="stepOptions()" [value]="stepId() ?? ''" (valueChange)="stepId.set($any($event) === '' ? null : +$any($event))"></app-select>
+          <span class="field-hint">{{ 'SESSION_SLOTS.STEP_HINT' | translate }}</span>
+        </div>
+
+        <div class="invite-preview" [class.invite-preview--empty]="!previewAttendees().length">
+          {{ 'SESSION_SLOTS.PREVIEW' | translate: { n: previewAttendees().length, m: previewWithoutEmail() } }}
+        </div>
+      }
+
+      <div class="field-group">
+        <label class="field-label" for="slot-notes">{{ 'EXPERIMENTAL_SESSIONS.NOTES_LABEL' | translate }}</label>
+        <textarea id="slot-notes" class="text-input" rows="2" maxlength="4000" [ngModel]="formNotes()" (ngModelChange)="formNotes.set($event)"></textarea>
+        <span class="field-hint">{{ 'SESSION_SLOTS.NOTES_HINT' | translate }}</span>
+      </div>
+
+      @if (formError(); as e) {
+        <div class="field-error">
+          {{ errorKey(e) | translate }}
+          @if (conflicts().length) {
+            <span class="conflict-ids">{{ conflicts().join(', ') }}</span>
+          }
+        </div>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn-primary form-submit" [disabled]="saving() || !formValid()" (click)="save()">
+          {{ (saving() ? 'SESSION_SLOTS.SAVING' : (editingId() === null ? 'SESSION_SLOTS.CREATE' : 'SESSION_SLOTS.SAVE')) | translate }}
+        </button>
+        @if (conflicts().length) {
+          <button type="button" class="btn-ghost form-submit" [disabled]="saving()" (click)="save(true)">{{ 'SESSION_SLOTS.SKIP_BOOKED' | translate }}</button>
+        }
+      </div>
+    </div>
+  </div>
+}

@@ -28,16 +28,37 @@ export class DashboardShellComponent implements OnInit {
   // here, so a Configuration-page save is reflected immediately without needing a research switch.
   private readonly lang = signal(this.translate.currentLang || 'sr');
   readonly studyConfigStore = inject(StudyConfigStoreService);
-  readonly showTlxResults = this.studyConfigStore.usesTlx;
-  readonly showPsychTestResults = this.studyConfigStore.usesPsychTests;
+  // A PROTOCOL research (researcher-defined step list) shows a module's pages only when its protocol
+  // contains that step; a CLASSIC research keeps the original per-switch behavior unchanged.
+  readonly isProtocol = this.studyConfigStore.isProtocol;
+  readonly showTlxResults = computed(() =>
+    this.isProtocol() ? this.studyConfigStore.hasStep('NASA_TLX') : this.studyConfigStore.usesTlx());
+  readonly showReiResults = computed(() =>
+    this.isProtocol() ? this.studyConfigStore.hasStep('REI40') : this.studyConfigStore.usesPsychTests());
+  readonly showBigFiveResults = computed(() =>
+    this.isProtocol() ? this.studyConfigStore.hasStep('BIGFIVE') : this.studyConfigStore.usesPsychTests());
+  readonly showConsentNav = computed(() =>
+    this.isProtocol() ? this.studyConfigStore.hasStep('CONSENT') : this.studyConfigStore.usesConsentForm());
+  // A PROTOCOL research gets the Task Configuration page when its experiment step wraps a Generic Task, a Google Form or
+  // Code Review (the PR tasks); a table is configured in the sheets app.
+  readonly showTaskConfigNav = computed(() =>
+    !this.isProtocol() || ['GENERIC_TASK', 'GOOGLE_FORM', 'CODE_REVIEW'].includes(this.studyConfigStore.protocolTaskKind() ?? ''));
   readonly showRAnalysisResults = this.studyConfigStore.showRAnalysisResults;
   // Task-app submissions (2026-09-14) — download-only Results page, shown for a GENERIC-type
   // research the same way R analiza is shown for a GOOGLE_FORMS one (both derive off taskType).
-  readonly showGenericTaskResults = computed(() => this.studyConfigStore.taskType() === 'GENERIC');
+  readonly showGenericTaskResults = computed(() => this.isProtocol()
+    ? this.studyConfigStore.protocolTaskKind() === 'GENERIC_TASK'
+    : this.studyConfigStore.taskType() === 'GENERIC');
   // Demographic Questionnaire (2026-10-01) — drives both the config-nav entry and the
   // Results-menu item; same underlying signal, usesDemographics fails closed on a fetch error.
-  readonly showDemographicQuestionsNav = this.studyConfigStore.usesDemographics;
-  readonly showDemographicResults = this.studyConfigStore.usesDemographics;
+  readonly showDemographicQuestionsNav = computed(() =>
+    this.isProtocol() ? this.studyConfigStore.hasStep('DEMOGRAPHIC') : this.studyConfigStore.usesDemographics());
+  readonly showDemographicResults = this.showDemographicQuestionsNav;
+  /** Researcher-authored questionnaires exist only in a PROTOCOL research that has such a step. */
+  readonly showQuestionnaireResults = computed(() => this.isProtocol() && this.studyConfigStore.hasStep('QUESTIONNAIRE'));
+  readonly showResultsGroup = computed(() =>
+    this.showTlxResults() || this.showReiResults() || this.showBigFiveResults() || this.showRAnalysisResults()
+    || this.showGenericTaskResults() || this.showDemographicResults() || this.showQuestionnaireResults());
 
   readonly rei40NavLabel = computed(() => {
     this.lang();

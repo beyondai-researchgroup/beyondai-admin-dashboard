@@ -121,3 +121,30 @@ export const DEFAULT_DEMOGRAPHIC_QUESTIONS = [
     options: [],
   },
 ];
+
+// Neutral starting set for a research the platform's user builds themselves (FlowMode 'PROTOCOL'):
+// three general questions, none tied to the BeyondAI study (programming experience, AI-tool use, ...).
+// The researcher edits it on the Demographic questionnaire page.
+export const GENERIC_DEMOGRAPHIC_QUESTIONS = [
+  {
+    type: 'SINGLE_CHOICE', promptSr: 'Pol', promptEn: 'Gender',
+    options: [
+      { labelSr: 'Muški', labelEn: 'Male', isOtherSpecify: false },
+      { labelSr: 'Ženski', labelEn: 'Female', isOtherSpecify: false },
+      { labelSr: 'Ne želim da se izjasnim', labelEn: 'Prefer not to say', isOtherSpecify: false },
+    ],
+  },
+  {
+    type: 'TEXT', promptSr: 'Godine starosti', promptEn: 'Age (years)',
+    options: [],
+  },
+  {
+    type: 'SINGLE_CHOICE', promptSr: 'Najviši završeni stepen obrazovanja', promptEn: 'Highest completed level of education',
+    options: [
+      { labelSr: 'Srednja škola', labelEn: 'High school', isOtherSpecify: false },
+      { labelSr: 'Osnovne studije', labelEn: "Bachelor's studies", isOtherSpecify: false },
+      { labelSr: 'Master studije', labelEn: "Master's studies", isOtherSpecify: false },
+      { labelSr: 'Doktorske studije', labelEn: 'Doctoral studies', isOtherSpecify: false },
+    ],
+  },
+];

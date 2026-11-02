@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { AdminApiService } from './admin-api.service';
 
 /**
@@ -39,6 +39,28 @@ export class StudyConfigStoreService {
    *  as showRAnalysisResults — an opt-in feature nobody has necessarily configured yet shouldn't
    *  clutter the menu over a transient fetch hiccup. */
   readonly usesDemographics = signal(false);
+  /** Excel-like tables (2026-10) — drives the "Tabele" nav entry. Fails closed on a fetch error (opt-in). */
+  readonly usesSheets = signal(false);
+
+  /** 'CLASSIC' = the original BeyondAI flow driven by the switches above (every research that
+   *  existed before the protocol feature); 'PROTOCOL' = a researcher-defined step list. Fails open to
+   *  'CLASSIC' on a fetch error, so a hiccup can never hide the classic menu. */
+  readonly flowMode = signal<'CLASSIC' | 'PROTOCOL'>('CLASSIC');
+  /** Step types present in this research's protocol (empty for CLASSIC) — drives which module
+   *  nav/results entries a PROTOCOL research shows. */
+  readonly protocolStepTypes = signal<string[]>([]);
+  /** Task kind of the protocol's EXPERIMENT step (GENERIC_TASK / GOOGLE_FORM / SHEETS / CODE_REVIEW), or null. */
+  readonly protocolTaskKind = signal<string | null>(null);
+  readonly isProtocol = computed(() => this.flowMode() === 'PROTOCOL');
+  /** false while the study wizard that created a PROTOCOL research is unfinished (fails open to true). */
+  readonly setupComplete = signal(true);
+  /** Participant groups defined for the research (0 = none) — decides whether the Group column / actions show. */
+  readonly groupCount = signal(0);
+
+  /** True if the selected research is a PROTOCOL one whose protocol contains this step type. */
+  hasStep(type: string): boolean {
+    return this.protocolStepTypes().includes(type);
+  }
 
   private loadedResearchId: number | null = null;
 
@@ -66,13 +88,35 @@ export class StudyConfigStoreService {
       this.usesConsentForm.set(cfg.usesConsentForm);
       this.tracksParticipants.set(cfg.tracksParticipants);
       this.usesDemographics.set(cfg.usesDemographics);
+      this.usesSheets.set(cfg.usesSheets);
+      this.flowMode.set(cfg.flowMode === 'PROTOCOL' ? 'PROTOCOL' : 'CLASSIC');
+      this.setupComplete.set(cfg.setupComplete !== false);
+      this.groupCount.set(cfg.groupCount ?? 0);
     } catch {
+      this.flowMode.set('CLASSIC');
+      this.setupComplete.set(true);
+      this.groupCount.set(0);
       this.usesTlx.set(true);
       this.usesPsychTests.set(true);
       this.rei40Variant.set('v1');
       this.usesConsentForm.set(true);
       this.tracksParticipants.set(true);
       this.usesDemographics.set(false);
+      this.usesSheets.set(false);
+    }
+
+    if (this.flowMode() === 'PROTOCOL') {
+      try {
+        const protocol = await this.api.getProtocol(researchId);
+        this.protocolStepTypes.set(protocol.steps.map((s) => s.stepType));
+        this.protocolTaskKind.set(protocol.steps.find((s) => s.stepType === 'EXPERIMENT')?.config?.taskKind ?? null);
+      } catch {
+        this.protocolStepTypes.set([]);
+        this.protocolTaskKind.set(null);
+      }
+    } else {
+      this.protocolStepTypes.set([]);
+      this.protocolTaskKind.set(null);
     }
 
     try {

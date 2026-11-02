@@ -98,6 +98,68 @@
     @if (isPrReview()) {
       <p>{{ 'IMPORT.TASKS_ASSIGNED_COUNT' | translate: { count: r.tasks.assigned.length } }}</p>
     }
+    @if (r.groups?.assigned?.length) {
+      <p>{{ 'IMPORT.GROUPS_ASSIGNED_COUNT' | translate: { count: r.groups!.assigned.length } }}</p>
+    }
+    @if (r.groups?.unknown?.length) {
+      <div class="parse-issues">
+        <p class="field-error parse-issues__title">{{ 'IMPORT.GROUPS_UNKNOWN_TITLE' | translate: { count: r.groups!.unknown.length } }}</p>
+        <ul>
+          @for (u of r.groups!.unknown; track $index) {
+            <li class="field-error"><span class="parse-issues__loc">{{ u.participantId }}</span>{{ u.group }}</li>
+          }
+        </ul>
+      </div>
+    }
+    @if (r.prTasks?.assigned?.length) {
+      <p>{{ 'IMPORT.PR_ASSIGNED_COUNT' | translate: { count: r.prTasks!.assigned.length } }}</p>
+    }
+    @if (r.prTasks?.unknown?.length) {
+      <div class="parse-issues">
+        <p class="field-error parse-issues__title">{{ 'IMPORT.PR_UNKNOWN_TITLE' | translate: { count: r.prTasks!.unknown.length } }}</p>
+        <ul>
+          @for (u of r.prTasks!.unknown; track $index) {
+            <li class="field-error"><span class="parse-issues__loc">{{ u.participantId }}</span>{{ u.task }}</li>
+          }
+        </ul>
+      </div>
+    }
+    @if (r.researchTasks?.unknown?.length) {
+      <div class="parse-issues">
+        <p class="field-error parse-issues__title">{{ 'IMPORT.RESEARCH_TASK_UNKNOWN' | translate: { count: r.researchTasks!.unknown.length } }}</p>
+        <ul>
+          @for (u of r.researchTasks!.unknown; track $index) {
+            <li class="field-error"><span class="parse-issues__loc">{{ u.participantId }}</span>{{ u.task }}</li>
+          }
+        </ul>
+      </div>
+    }
+    @if (autoDraw(); as ad) {
+      <div class="auto-draw">
+        <p><strong>{{ 'IMPORT.AUTO_TITLE' | translate }}</strong></p>
+        <table class="data-table random-table">
+          <tbody>
+            @for (c of ad.cells; track $index) {
+              <tr>
+                <td>{{ c.groupName }}</td><td>{{ c.taskName }}</td><td>+{{ c.added }}</td>
+              </tr>
+            }
+            @if (!ad.cells.length) {
+              @for (s of ad.summary; track s.groupId) {
+                <tr><td>{{ s.name }}</td><td>+{{ s.added }}</td></tr>
+              }
+            }
+          </tbody>
+        </table>
+        <p class="field-hint">{{ 'IMPORT.AUTO_HINT' | translate }} {{ 'IMPORT.AUTO_SEED' | translate }}: <code>{{ ad.seed }}</code></p>
+      </div>
+    }
+    @if (autoDrawFailed()) {
+      <p class="field-error">{{ 'IMPORT.AUTO_FAILED' | translate }}</p>
+    }
+    @if (studyConfigStore.groupCount() > 0) {
+      <p class="field-hint">{{ 'IMPORT.GROUPS_NEXT_HINT' | translate }}</p>
+    }
 
     @if (r.tasks.errors.length) {
       <div class="parse-issues">

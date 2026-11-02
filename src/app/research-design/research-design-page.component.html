@@ -1,0 +1,51 @@
+<div class="page-header">
+  <h2>{{ 'RESEARCH_DESIGN.TITLE' | translate }}</h2>
+  <p>{{ 'RESEARCH_DESIGN.HINT' | translate }}</p>
+</div>
+
+@if (store.loading()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (store.notProtocol()) {
+  <div class="empty-state">{{ 'RESEARCH_DESIGN.NOT_PROTOCOL' | translate }}</div>
+} @else if (store.loadError()) {
+  <div class="empty-state">{{ 'RESEARCH_DESIGN.LOAD_ERROR' | translate }}</div>
+} @else {
+  <app-design-warnings></app-design-warnings>
+
+  <div class="card section-card">
+    <h3 class="form-heading">{{ 'RESEARCH_DESIGN.SECTION_DESIGN' | translate }}</h3>
+    <app-design-type-section></app-design-type-section>
+  </div>
+
+  <div class="card section-card">
+    <h3 class="form-heading">{{ 'RESEARCH_DESIGN.SECTION_VARIABLES' | translate }}</h3>
+    <p class="field-hint section-hint">{{ 'RESEARCH_DESIGN.VAR_HINT' | translate }}</p>
+    <app-variables-section></app-variables-section>
+  </div>
+
+  <div class="card section-card">
+    <h3 class="form-heading">{{ 'RESEARCH_DESIGN.SECTION_GROUPS' | translate }}</h3>
+    <app-groups-section></app-groups-section>
+  </div>
+
+  <div class="card section-card">
+    <h3 class="form-heading">{{ 'RESEARCH_DESIGN.SECTION_TASKS' | translate }}</h3>
+    <app-tasks-section></app-tasks-section>
+  </div>
+
+  <div class="form-actions">
+    <button type="button" class="btn-primary form-submit" [disabled]="store.saving()" (click)="save()">
+      @if (store.saving()) {
+        {{ 'RESEARCH_DESIGN.SAVING' | translate }}
+      } @else {
+        {{ 'RESEARCH_DESIGN.SAVE' | translate }}
+      }
+    </button>
+    @if (store.saved()) {
+      <span class="field-success">{{ 'RESEARCH_DESIGN.SAVED' | translate }}</span>
+    }
+    @if (store.errorKey(); as key) {
+      <span class="field-error">{{ 'RESEARCH_DESIGN.ERR_' + key | translate }}</span>
+    }
+  </div>
+}

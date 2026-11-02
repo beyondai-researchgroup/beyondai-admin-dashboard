@@ -1,0 +1,209 @@
+<div class="page-header page-header--row">
+  <div>
+    <h2>{{ 'SHEETS.TITLE' | translate }}</h2>
+    <p>{{ 'SHEETS.HINT' | translate }}</p>
+  </div>
+  @if (overview(); as o) {
+    <div class="header-actions">
+      <a class="btn-ghost" [href]="templatesUrl()" target="_blank" rel="noopener">{{ 'SHEETS.OPEN_EDITOR' | translate }}</a>
+      @if (o.workbook) {
+        <button type="button" class="btn-ghost" [disabled]="exporting()" (click)="exportExcel()">
+          {{ (exporting() ? 'SHEETS.EXPORT_SAVING' : (severalTemplates() ? 'SHEETS.EXPORT_ALL' : 'SHEETS.EXPORT')) | translate }}
+        </button>
+      }
+    </div>
+  }
+</div>
+
+@if (loading() && !overview()) {
+  <app-loading-spinner></app-loading-spinner>
+} @else if (loadError()) {
+  <div class="empty-state">{{ 'COMMON.LOAD_ERROR' | translate }}</div>
+} @else {
+  @if (overview(); as o) {
+    @if (!o.usesSheets) {
+      <div class="empty-state">{{ 'SHEETS.NOT_ENABLED' | translate }}</div>
+    } @else if (!o.workbook) {
+      <div class="empty-state">{{ 'SHEETS.NO_WORKBOOK' | translate }}</div>
+    } @else {
+      <div class="card summary-card">
+        @if (!severalTemplates()) {
+          <span class="workbook-info">{{ 'SHEETS.WORKBOOK_INFO' | translate: { title: o.workbook.title || ('SHEETS.NO_TITLE' | translate), sheets: o.workbook.sheetCount, version: o.workbook.version } }}</span>
+        } @else {
+          <ul class="template-list">
+            @for (w of templates(); track w.id) {
+              <li>
+                <strong>{{ templateName(w) }}</strong>
+                <span class="muted">{{ 'SHEETS.TEMPLATE_STATS' | translate: { entries: w.entryCount, submitted: w.submittedCount } }}</span>
+                <button type="button" class="btn-ghost btn-ghost--small" [disabled]="exporting()" (click)="exportExcel(w.id)">{{ 'SHEETS.EXPORT_ONE' | translate }}</button>
+              </li>
+            }
+          </ul>
+        }
+        <div class="summary-actions">
+          @if (o.canWrite && bulkTargets() > 0) {
+            <button type="button" class="btn-primary form-submit" [disabled]="bulkBusy()" (click)="sendAll()">
+              {{ (bulkBusy() ? 'SHEETS.SENDING' : 'SHEETS.SEND_ALL') | translate: { count: bulkTargets() } }}
+            </button>
+          }
+          @if (message(); as m) {
+            <span [class.field-success]="m.tone === 'ok'" [class.field-error]="m.tone === 'error'">{{ m.text }}</span>
+          }
+        </div>
+      </div>
+
+      <div class="card window-card">
+        <div class="window-head">
+          <strong>{{ 'SHEETS.WINDOW_TITLE' | translate }}</strong>
+          <span class="muted">{{ 'SHEETS.WINDOW_HINT' | translate }}</span>
+        </div>
+        <div class="window-fields">
+          <label class="window-field">
+            <span class="field-label">{{ 'SHEETS.WINDOW_OPENS' | translate }}</span>
+            <input type="datetime-local" class="text-input" [value]="opensInput()" [disabled]="!o.canWrite" (input)="opensInput.set($any($event.target).value)" />
+          </label>
+          <label class="window-field">
+            <span class="field-label">{{ 'SHEETS.WINDOW_CLOSES' | translate }}</span>
+            <input type="datetime-local" class="text-input" [value]="closesInput()" [disabled]="!o.canWrite" (input)="closesInput.set($any($event.target).value)" />
+          </label>
+          @if (o.canWrite) {
+            <button type="button" class="btn-primary form-submit" [disabled]="windowSaving() || !windowDirty()" (click)="saveWindow()">{{ (windowSaving() ? 'SHEETS.SENDING' : 'SHEETS.WINDOW_SAVE') | translate }}</button>
+            @if (opensInput() || closesInput()) {
+              <button type="button" class="btn-ghost" [disabled]="windowSaving()" (click)="clearWindow()">{{ 'SHEETS.WINDOW_CLEAR' | translate }}</button>
+            }
+          }
+        </div>
+      </div>
+
+      @if (withoutTemplate() > 0) {
+        <p class="field-error template-warning">{{ 'SHEETS.WARN_NO_TEMPLATE' | translate: { count: withoutTemplate() } }}</p>
+      }
+
+      @if (!o.participants.length) {
+        <div class="empty-state">{{ 'SHEETS.NO_PARTICIPANTS' | translate }}</div>
+      } @else {
+        @if (templates().length > 1) {
+          <div class="filter-row">
+            <span class="field-label">{{ 'SHEETS.FILTER_LABEL' | translate }}</span>
+            <app-select class="filter-select" [options]="filterOptions()" [value]="templateFilter()" (valueChange)="templateFilter.set('' + $event)"></app-select>
+          </div>
+        }
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ 'SHEETS.COL_PARTICIPANT' | translate }}</th>
+                @if (anyGroup()) { <th>{{ 'SHEETS.COL_GROUP' | translate }}</th> }
+                @if (anyTask()) { <th>{{ 'SHEETS.COL_TASK' | translate }}</th> }
+                @if (templates().length > 1) { <th>{{ 'SHEETS.COL_TEMPLATE' | translate }}</th> }
+                <th>{{ 'SHEETS.COL_EMAIL' | translate }}</th>
+                <th>{{ 'SHEETS.COL_LINK' | translate }}</th>
+                @if (anyRules()) {
+                  <th>{{ 'SHEETS.COL_RULES' | translate }}</th>
+                }
+                <th>{{ 'SHEETS.COL_TABLE' | translate }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of visibleParticipants(); track p.participantId) {
+                <tr>
+                  <td>{{ p.participantId }}</td>
+                  @if (anyGroup()) { <td>{{ p.groupName }}</td> }
+                  @if (anyTask()) { <td>{{ p.taskName }}</td> }
+                  @if (templates().length > 1) {
+                    <td>
+                      @if (p.noTemplate) { <span class="warn">{{ 'SHEETS.NO_TEMPLATE' | translate }}</span> }
+                      @else { {{ p.workbookLabel }} }
+                    </td>
+                  }
+                  <td>
+                    @if (p.hasEmail) { <span class="status-dot status-dot--done"></span>{{ 'SHEETS.HAS_EMAIL' | translate }} }
+                    @else { <span class="warn">{{ 'SHEETS.NO_EMAIL' | translate }}</span> }
+                  </td>
+                  <td>
+                    @if (!p.link) { <span class="muted">{{ 'SHEETS.LINK_NONE' | translate }}</span> }
+                    @else if (p.link.expired) { <span class="warn">{{ 'SHEETS.LINK_EXPIRED' | translate }}</span> }
+                    @else { {{ 'SHEETS.LINK_VALID' | translate: { date: (p.link.expiresAt | date: 'dd.MM.yyyy.') } }} }
+                  </td>
+                  @if (anyRules()) {
+                    <td>
+                      @if (p.rulesAcknowledgedAt) { <span class="pill pill--done">{{ 'SHEETS.RULES_CONFIRMED' | translate: { date: (p.rulesAcknowledgedAt | date: 'dd.MM.yyyy. HH:mm') } }}</span> }
+                      @else { <span class="muted">{{ 'SHEETS.RULES_PENDING' | translate }}</span> }
+                    </td>
+                  }
+                  <td>
+                    @if (!p.entry) { <span class="muted">{{ 'SHEETS.ENTRY_NONE' | translate }}</span> }
+                    @else if (p.entry.status === 'DRAFT') { <span class="pill pill--draft">{{ 'SHEETS.ENTRY_DRAFT' | translate }}</span> }
+                    @else { <span class="pill pill--done">{{ 'SHEETS.ENTRY_SUBMITTED' | translate: { date: (p.entry.submittedAt | date: 'dd.MM.yyyy. HH:mm') } }}</span> }
+                  </td>
+                  <td class="actions">
+                    @if (p.entry) {
+                      <button type="button" class="btn-ghost btn-ghost--small" (click)="view(p)">{{ 'SHEETS.VIEW' | translate }}</button>
+                    }
+                    @if (o.canWrite && p.entry?.status !== 'SUBMITTED') {
+                      <button type="button" class="btn-ghost btn-ghost--small" [disabled]="busyId() === p.participantId || !p.hasEmail || p.noTemplate" (click)="sendLink(p)">
+                        {{ (busyId() === p.participantId ? 'SHEETS.SENDING' : (p.link ? 'SHEETS.RESEND_LINK' : 'SHEETS.SEND_LINK')) | translate }}
+                      </button>
+                      <button type="button" class="btn-ghost btn-ghost--small" (click)="copyLink(p)">
+                        {{ (copiedId() === p.participantId ? 'SHEETS.COPIED' : 'SHEETS.COPY_LINK') | translate }}
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+  }
+}
+
+@if (viewing(); as v) {
+  <div class="modal-backdrop" (click)="closeView()">
+    <div class="modal-card" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <h3>{{ 'SHEETS.VIEW_TITLE' | translate: { id: v.participantId } }}</h3>
+        <span class="pill" [class.pill--done]="v.entry.status === 'SUBMITTED'" [class.pill--draft]="v.entry.status === 'DRAFT'">
+          {{ (v.entry.status === 'SUBMITTED' ? 'SHEETS.VIEW_STATUS_SUBMITTED' : 'SHEETS.VIEW_STATUS_DRAFT') | translate }}
+        </span>
+        <button type="button" class="btn-ghost btn-ghost--small" (click)="closeView()">{{ 'SHEETS.CLOSE' | translate }}</button>
+      </div>
+      @if (v.entry.rulesAcknowledgedAt) {
+        <p class="muted rules-note">{{ 'SHEETS.RULES_CONFIRMED_AT' | translate: { date: (v.entry.rulesAcknowledgedAt | date: 'dd.MM.yyyy. HH:mm') } }}</p>
+      }
+      @if (v.entry.sheets.length > 1) {
+        <div class="sheet-tabs">
+          @for (s of v.entry.sheets; track s.id; let i = $index) {
+            <button type="button" class="sheet-tab" [class.sheet-tab--active]="viewSheet() === i" (click)="viewSheet.set(i)">{{ s.name }}</button>
+          }
+        </div>
+      }
+      @if (v.entry.sheets[viewSheet()]; as sh) {
+        @if (!sh.rows.length) {
+          <p class="muted">{{ 'SHEETS.VIEW_EMPTY' | translate }}</p>
+        } @else {
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  @for (c of sh.columns; track c.index) { <th>{{ c.title }}@if (c.required) { * }</th> }
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of sh.rows; track r.row) {
+                  <tr>
+                    <td class="muted">{{ r.row - sh.headerRows + 1 }}</td>
+                    @for (c of sh.columns; track c.index) { <td>{{ r.cells[c.index] }}</td> }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      }
+    </div>
+  </div>
+}

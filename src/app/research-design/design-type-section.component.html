@@ -1,0 +1,33 @@
+<div class="design-grid">
+  @for (key of fieldKeys; track key) {
+    <div class="field-group">
+      <label class="field-label">{{ 'RESEARCH_DESIGN.FIELD_' + group(key) | translate }}</label>
+      <app-select [options]="options()[key]" [value]="value(key)" (valueChange)="set(key, $event)"></app-select>
+      @if (hasHint(key)) {
+        <span class="field-hint">{{ 'RESEARCH_DESIGN.' + group(key) + '_HINT.' + value(key) | translate }}</span>
+      }
+    </div>
+  }
+</div>
+
+<div class="field-group">
+  <label class="field-label">{{ 'RESEARCH_DESIGN.FIELD_HYPOTHESES' | translate }}</label>
+  <textarea
+    class="text-input textarea"
+    rows="3"
+    maxlength="2000"
+    [ngModel]="store.design().hypotheses"
+    (ngModelChange)="store.patchDesign({ hypotheses: $event || null })"
+  ></textarea>
+</div>
+
+<div class="field-group">
+  <label class="field-label">{{ 'RESEARCH_DESIGN.FIELD_NOTES' | translate }}</label>
+  <textarea
+    class="text-input textarea"
+    rows="2"
+    maxlength="2000"
+    [ngModel]="store.design().notes"
+    (ngModelChange)="store.patchDesign({ notes: $event || null })"
+  ></textarea>
+</div>

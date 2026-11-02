@@ -16,6 +16,11 @@ export interface ResearchSummary {
   hasPrConfig: boolean;
   usesEeg: boolean;
   eegDeviceType: string | null;
+  /** 'PROTOCOL' = the researcher-defined step list (every new research); 'CLASSIC' = the original
+   *  BeyondAI-style module-switch flow (only the researches that existed before the protocol work). */
+  flowMode: 'CLASSIC' | 'PROTOCOL';
+  /** false while the study wizard that created this research has not been finished (study wizard, 2026-10). */
+  setupComplete?: boolean;
   /** 2026-09-08 follow-up — the consent-andrejkatin entry-point path segment
    *  (`${consentAppUrl}/${slug}`), generated at creation, editable via
    *  updateResearchSlug/PUT /api/admin/consent-form/:researchId/slug. Read-only here. */
@@ -64,6 +69,12 @@ export interface ResearchInput {
   tracksParticipants?: boolean;
   consentLanguageSr?: boolean;
   consentLanguageEn?: boolean;
+  /** Study Builder only — 'PROTOCOL' creates a research driven by a researcher-defined step list
+   *  (every legacy module switch is then forced off server-side). Omitted = 'CLASSIC', the original
+   *  BeyondAI flow every existing research uses. */
+  flowMode?: 'PROTOCOL';
+  /** Study wizard only: false = created but not yet fully set up (PROTOCOL researches only). */
+  setupComplete?: false;
 }
 
 export type ResearcherRole = 'OWNER' | 'COLLABORATOR' | 'VIEWER';
@@ -323,6 +334,120 @@ export interface DemographicResponseRow {
   completedAt: string;
 }
 
+/** Results of the researcher-authored questionnaires of a PROTOCOL research. */
+export interface SheetsParticipantRow {
+  participantId: string;
+  hasEmail: boolean;
+  language: string | null;
+  link: { url: string; expiresAt: string; expired: boolean } | null;
+  groupName?: string | null;
+  taskName?: string | null;
+  /** The template this participant gets (by group and task); null = none fits ("noTemplate"). */
+  workbookId?: number | null;
+  workbookLabel?: string | null;
+  noTemplate?: boolean;
+  /** When the participant confirmed the rules screen (null = not yet, or the table has no rules). */
+  rulesAcknowledgedAt?: string | null;
+  entry: { status: 'DRAFT' | 'SUBMITTED'; updatedAt: string; submittedAt: string | null } | null;
+}
+export interface SheetsTemplateSummary {
+  id: number;
+  label: string | null;
+  title: string;
+  version: number;
+  sheetCount: number;
+  updatedAt: string;
+  hasRules: boolean;
+  groupId: number | null;
+  groupName: string | null;
+  taskId: number | null;
+  taskName: string | null;
+  entryCount: number;
+  submittedCount: number;
+}
+export interface SheetsOverview {
+  usesSheets: boolean;
+  appUrl: string;
+  canWrite: boolean;
+  workbook: { title: string; version: number; sheetCount: number; updatedAt: string; hasRules?: boolean } | null;
+  /** Every template of the research (one per group x task). */
+  workbooks?: SheetsTemplateSummary[];
+  /** When the tables open and close (ISO, UTC); null = no limit on that side. */
+  window?: { opensAt: string | null; closesAt: string | null };
+  participants: SheetsParticipantRow[];
+}
+export interface SheetsEntryView {
+  title: string;
+  rulesAcknowledgedAt?: string | null;
+  status: 'DRAFT' | 'SUBMITTED';
+  updatedAt: string;
+  submittedAt: string | null;
+  sheets: {
+    id: string;
+    name: string;
+    headerRows: number;
+    columns: { index: number; title: string; required: boolean }[];
+    rows: { row: number; cells: Record<string, string | number> }[];
+  }[];
+}
+export interface QuestionnaireResultsListItem { id: number; titleSr: string; titleEn: string; responseCount: number }
+export interface QuestionnaireResultsStep { stepId: number; titleSr: string; titleEn: string }
+export interface QuestionnaireResultsItem {
+  itemKey: string;
+  type: 'LIKERT' | 'SINGLE_CHOICE' | 'MULTI_CHOICE' | 'TEXT' | 'NUMBER';
+  promptSr: string;
+  promptEn: string;
+  options: { key: string; labelSr: string; labelEn: string; isOther: boolean }[];
+  scalePoints: number | null;
+  subscale: string | null;
+  reverseScored: boolean;
+}
+export interface QuestionnaireResultsRaw {
+  questionnaire: { id: number; titleSr: string; titleEn: string };
+  steps: QuestionnaireResultsStep[];
+  subscales: string[];
+  items: QuestionnaireResultsItem[];
+  responses: {
+    participantId: string;
+    groupName?: string | null;
+    stepId: number;
+    stepTitleSr: string | null;
+    stepTitleEn: string | null;
+    language: string | null;
+    answers: Record<string, { value: string | number | string[]; otherText?: string }>;
+    submittedAt: string;
+    subscaleScores: Record<string, number | null>;
+  }[];
+}
+export interface QuestionnaireAggregateItem {
+  itemKey: string;
+  type: QuestionnaireResultsItem['type'];
+  promptSr: string;
+  promptEn: string;
+  n: number;
+  textAnswers?: string[];
+  mean?: number | null;
+  sd?: number | null;
+  min?: number | null;
+  max?: number | null;
+  scalePoints?: number;
+  reverseScored?: boolean;
+  subscale?: string | null;
+  distribution?: { point: number; count: number }[];
+  rawMean?: number | null;
+  scoredMean?: number | null;
+  scoredSd?: number | null;
+  optionCounts?: { key: string; labelSr: string; labelEn: string; count: number }[];
+  otherTexts?: string[];
+}
+export interface QuestionnaireResultsAggregate {
+  questionnaire: { id: number; titleSr: string; titleEn: string };
+  steps: QuestionnaireResultsStep[];
+  totalResponses: number;
+  subscales: { name: string; itemCount: number; n: number; mean: number | null; sd: number | null }[];
+  items: QuestionnaireAggregateItem[];
+}
+
 export interface DemographicResultsRaw {
   questions: DemographicQuestion[];
   responses: DemographicResponseRow[];
@@ -502,12 +627,41 @@ export interface ImportResult {
   /** introAdded: participants who got their Intro session auto-inserted by this import (see
    *  server/participants/routes.mjs's POST /import — Intro is never listed in the Tasks sheet). */
   tasks: { introAdded: string[]; assigned: string[]; errors: ImportTaskError[] };
+  /** Group column of the Participants sheet: who was put in a group, and names that matched no group. */
+  groups?: { assigned: string[]; unknown: { participantId: string; group: string }[] };
+  /** Task column of the Participants sheet (Code Review protocol): who got a PR, and labels that matched none. */
+  prTasks?: { assigned: string[]; unknown: { participantId: string; task: string }[] };
+  /** ResearchTask column (study task A / B): who got one from the sheet, and names that matched none. */
+  researchTasks?: { assigned: string[]; unknown: { participantId: string; task: string }[] };
+  /** The automatic group + task draw done right after the import (design says "random assignment"); null when none ran. */
+  autoAssignment?: AutoAssignment | null;
 }
+
+export interface AssignmentCell {
+  groupId: number | null;
+  groupName: string | null;
+  taskId: number;
+  taskName: string;
+  added: number;
+  total: number;
+}
+
+export type AutoAssignment =
+  | { error: string }
+  | { seed: string; runId: number; count: number; summary: { groupId: number; name: string; added: number; total: number }[]; cells: AssignmentCell[] };
 
 export type Instrument = 'tlx' | 'rei40' | 'bigfive';
 
 /** Per-research instrument configuration — see server/study-config/routes.mjs. */
+export type FlowMode = 'CLASSIC' | 'PROTOCOL';
+
 export interface StudyConfig {
+  /** Read-only: set once at research creation, never by this page's PUT. */
+  flowMode: FlowMode;
+  /** Read-only: false until the study wizard that created a PROTOCOL research is finished. */
+  setupComplete?: boolean;
+  /** Read-only: number of participant groups defined for the research (0 = none). */
+  groupCount?: number;
   usesEeg: boolean;
   eegDeviceType: string | null;
   /** Whether the admin dashboard's Results menu shows "NASA-TLX" for this research. Does not
@@ -545,6 +699,8 @@ export interface StudyConfig {
    *  menu item appear. Defaults false — unlike usesPsychTests/usesTlx, this is a brand-new feature
    *  nobody has authored content for yet, so it stays off until a researcher explicitly turns it on. */
   usesDemographics: boolean;
+  /** Excel-like tables (sheets-andrejkatin, 2026-10) — default false. */
+  usesSheets: boolean;
   /** 2026-09-08 follow-up — whether Participants/Import/Experimental-Sessions are shown at all
    *  for this research. Always true (and un-editable) for TaskType='PR_REVIEW', which structurally
    *  requires participants; optional for every other task type. */
@@ -580,6 +736,8 @@ export interface ExperimentalSessionSummary {
   notes: string | null;
   createdAt: string;
   participantSessionCount: number;
+  /** Termini (slots) of a PROTOCOL research; 0 for a classic one. */
+  slotCount: number;
 }
 
 export interface ExperimentalSessionParticipantRow {
@@ -602,12 +760,65 @@ export interface ExperimentalSessionParticipantRow {
 export interface ExperimentalSessionDetail {
   id: number;
   researchId: number;
+  flowMode: 'CLASSIC' | 'PROTOCOL';
   sessionDate: string;
   label: string | null;
   notes: string | null;
   createdAt: string;
   participantSessions: ExperimentalSessionParticipantRow[];
 }
+
+export type SessionSlotKind = 'ONLINE' | 'IN_PERSON';
+export type SessionSlotAudience = 'PARTICIPANT' | 'GROUP' | 'ALL';
+
+export interface SessionSlotAttendee {
+  guid: string;
+  participantId: string;
+  hasEmail: boolean;
+  groupId: number | null;
+  groupName: string | null;
+}
+
+export interface SessionSlot {
+  id: number;
+  experimentalSessionId: number;
+  startTime: string;
+  durationMinutes: number;
+  kind: SessionSlotKind;
+  meetingUrl: string | null;
+  location: string | null;
+  audienceType: SessionSlotAudience;
+  groupId: number | null;
+  groupName: string | null;
+  protocolStepId: number | null;
+  stepTitleSr: string | null;
+  stepTitleEn: string | null;
+  notes: string | null;
+  tags: string[];
+  googleCalendarEventId: string | null;
+  googleCalendarEventUrl: string | null;
+  attendees: SessionSlotAttendee[];
+}
+
+export interface SessionSlotInput {
+  startTime: string;
+  durationMinutes: number;
+  kind: SessionSlotKind;
+  meetingUrl?: string | null;
+  location?: string | null;
+  notes?: string | null;
+}
+
+export interface SessionSlotCreateInput extends SessionSlotInput {
+  audienceType: SessionSlotAudience;
+  groupId?: number | null;
+  participantIds?: string[];
+  protocolStepId?: number | null;
+  skipConflicts?: boolean;
+}
+
+/** A refused slot call: the server's error code, and the participants that block it (ALREADY_SCHEDULED). */
+export type SessionSlotResult<T> = ({ ok: true } & T) | { ok: false; error: string; conflicts?: string[] };
 
 export interface CalendarStatus {
   connected: boolean;
@@ -1285,6 +1496,90 @@ export class AdminApiService {
     return this.req(this.http.put<{ ok: true }>(`/api/admin/demographic-questions/${researchId}`, { questions }));
   }
 
+  getSheetsOverview(researchId: number): Promise<SheetsOverview> {
+    return this.req(this.http.get<SheetsOverview>(`/api/admin/sheets/${researchId}`));
+  }
+
+  /** Mint a personal link for one participant; with `send` it is also emailed. A failed email resolves with ok:false. */
+  async sheetsLink(researchId: number, participantId: string, send: boolean): Promise<{ ok: boolean; url?: string; error?: string }> {
+    const token = this.auth.token();
+    const res = await fetch(`/api/admin/sheets/${researchId}/participants/${encodeURIComponent(participantId)}/link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ send }),
+    });
+    const body = await res.json().catch(() => ({}));
+    return { ok: res.ok && body.ok !== false, url: body.url, error: res.ok ? undefined : body.error };
+  }
+
+  sheetsSendAll(researchId: number): Promise<{ ok: true; sent: number; skippedNoEmail: number; skippedSubmitted: number; skippedNoTemplate?: number; failed: string[] }> {
+    return this.req(this.http.post<{ ok: true; sent: number; skippedNoEmail: number; skippedSubmitted: number; skippedNoTemplate?: number; failed: string[] }>(`/api/admin/sheets/${researchId}/links`, {}));
+  }
+
+  getSheetsEntry(researchId: number, participantId: string): Promise<SheetsEntryView> {
+    return this.req(this.http.get<SheetsEntryView>(`/api/admin/sheets/${researchId}/participants/${encodeURIComponent(participantId)}/entry`));
+  }
+
+  /** Authenticated fetch+blob download of the Excel export. */
+  async saveSheetsWindow(researchId: number, body: { opensAt: string | null; closesAt: string | null }): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      await this.req(this.http.put<{ ok: true }>(`/api/admin/sheets/${researchId}/window`, body));
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR' };
+    }
+  }
+
+  /** Excel export of all templates of the research, or just one (workbookId). */
+  async exportSheets(researchId: number, workbookId?: number): Promise<void> {
+    const token = this.auth.token();
+    const qs = workbookId != null ? `?workbookId=${workbookId}` : '';
+    const res = await fetch(`/api/admin/sheets/${researchId}/export${qs}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sheets-research-${researchId}${workbookId != null ? '-' + workbookId : ''}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  getQuestionnaireResultsList(researchId: number): Promise<{ questionnaires: QuestionnaireResultsListItem[] }> {
+    return this.req(this.http.get<{ questionnaires: QuestionnaireResultsListItem[] }>(`/api/admin/questionnaire-results/${researchId}`));
+  }
+
+  getQuestionnaireResults(researchId: number, questionnaireId: number, stepId: number | null): Promise<QuestionnaireResultsRaw> {
+    const q = stepId != null ? `?stepId=${stepId}` : '';
+    return this.req(this.http.get<QuestionnaireResultsRaw>(`/api/admin/questionnaire-results/${researchId}/${questionnaireId}${q}`));
+  }
+
+  getQuestionnaireAggregate(researchId: number, questionnaireId: number, stepId: number | null): Promise<QuestionnaireResultsAggregate> {
+    const q = stepId != null ? `&stepId=${stepId}` : '';
+    return this.req(this.http.get<QuestionnaireResultsAggregate>(`/api/admin/questionnaire-results/${researchId}/${questionnaireId}?mode=aggregate${q}`));
+  }
+
+  /** Authenticated fetch+blob download, like exportDemographicResults(). */
+  async exportQuestionnaireResults(researchId: number, questionnaireId: number, stepId: number | null): Promise<void> {
+    const token = this.auth.token();
+    const q = stepId != null ? `?stepId=${stepId}` : '';
+    const res = await fetch(`/api/admin/questionnaire-results/${researchId}/${questionnaireId}/export${q}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `questionnaire-${questionnaireId}-results.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   getDemographicResults(researchId: number): Promise<DemographicResultsRaw> {
     return this.req(this.http.get<DemographicResultsRaw>(`/api/admin/demographic-results/${researchId}`));
   }
@@ -1374,6 +1669,9 @@ export class AdminApiService {
       email: string | null;
       language: 'sr' | 'en' | null;
       genericTask: string | null;
+      group?: string | null;
+      prTask?: string | null;
+      researchTask?: string | null;
     }[];
     tasks: { participantId: string; session: 'AI' | 'REPORT'; taskLabel: string }[];
   }): Promise<ImportResult> {
@@ -1508,7 +1806,7 @@ export class AdminApiService {
 
   async updateStudyConfig(
     researchId: number,
-    body: Omit<StudyConfig, 'rei40Variants' | 'rei40VariantLocked'>
+    body: Omit<StudyConfig, 'rei40Variants' | 'rei40VariantLocked' | 'flowMode'>
   ): Promise<{ ok: true } | { ok: false; error: UpdateStudyConfigErrorCode }> {
     try {
       await this.req(this.http.put<{ ok: true }>(`/api/admin/study-config/${researchId}`, body));
@@ -1689,6 +1987,53 @@ export class AdminApiService {
     }
   }
 
+  getSessionSlots(experimentalSessionId: number): Promise<{ slots: SessionSlot[]; calendarConnected: boolean }> {
+    return this.req(this.http.get<{ slots: SessionSlot[]; calendarConnected: boolean }>(`/api/admin/session-slots/${experimentalSessionId}`));
+  }
+
+  private async slotCall<T>(call: Promise<T>): Promise<SessionSlotResult<T>> {
+    try {
+      return { ok: true, ...(await call) } as SessionSlotResult<T>;
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR', conflicts: err?.error?.conflicts };
+    }
+  }
+
+  createSessionSlot(
+    experimentalSessionId: number,
+    body: SessionSlotCreateInput
+  ): Promise<SessionSlotResult<{ id: number; attendeeCount: number; withoutEmail: number; skipped: number; calendarConnected: boolean }>> {
+    return this.slotCall(
+      this.req(this.http.post<{ id: number; attendeeCount: number; withoutEmail: number; skipped: number; calendarConnected: boolean }>(
+        `/api/admin/session-slots/${experimentalSessionId}`, body))
+    );
+  }
+
+  updateSessionSlot(slotId: number, body: SessionSlotInput): Promise<SessionSlotResult<{}>> {
+    return this.slotCall(this.req(this.http.put<{}>(`/api/admin/session-slots/slot/${slotId}`, body)));
+  }
+
+  addSessionSlotAttendees(
+    slotId: number,
+    body: { participantIds?: string[]; syncGroup?: boolean; skipConflicts?: boolean }
+  ): Promise<SessionSlotResult<{ added: number; withoutEmail: number; skipped: number }>> {
+    return this.slotCall(
+      this.req(this.http.post<{ added: number; withoutEmail: number; skipped: number }>(`/api/admin/session-slots/slot/${slotId}/attendees`, body))
+    );
+  }
+
+  removeSessionSlotAttendee(slotId: number, guid: string): Promise<{ ok: true }> {
+    return this.req(this.http.delete<{ ok: true }>(`/api/admin/session-slots/slot/${slotId}/attendees/${guid}`));
+  }
+
+  updateSessionSlotNotesTags(slotId: number, notes: string | null, tags: string[]): Promise<{ ok: true }> {
+    return this.req(this.http.put<{ ok: true }>(`/api/admin/session-slots/slot/${slotId}/notes-tags`, { notes, tags }));
+  }
+
+  deleteSessionSlot(slotId: number): Promise<{ ok: true }> {
+    return this.req(this.http.delete<{ ok: true }>(`/api/admin/session-slots/slot/${slotId}`));
+  }
+
   unassignParticipantSession(id: number, participantId: string, sessionId: number): Promise<{ ok: true }> {
     return this.req(
       this.http.post<{ ok: true }>(`/api/admin/experimental-sessions/${id}/unassign`, { participantId, sessionId })
@@ -1714,4 +2059,544 @@ export class AdminApiService {
       })
     );
   }
+
+  // ── Research protocol + researcher-authored questionnaires (2026-10) ──────────────────────────
+
+  getProtocol(researchId: number): Promise<ProtocolConfig> {
+    return this.req(this.http.get<ProtocolConfig>(`/api/admin/protocol/${researchId}`));
+  }
+
+  async updateProtocol(researchId: number, steps: ProtocolStepInput[]): Promise<ProtocolSaveResult> {
+    try {
+      await this.req(this.http.put<{ ok: true }>(`/api/admin/protocol/${researchId}`, { steps }));
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR', reason: err?.error?.reason, stepType: err?.error?.stepType };
+    }
+  }
+
+  getQuestionnaires(researchId: number): Promise<{ questionnaires: QuestionnaireSummary[] }> {
+    return this.req(this.http.get<{ questionnaires: QuestionnaireSummary[] }>(`/api/admin/questionnaires/${researchId}`));
+  }
+
+  getQuestionnaire(researchId: number, id: number): Promise<QuestionnaireDetail> {
+    return this.req(this.http.get<QuestionnaireDetail>(`/api/admin/questionnaires/${researchId}/${id}`));
+  }
+
+  async createQuestionnaire(
+    researchId: number,
+    body: QuestionnaireBody
+  ): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
+    try {
+      const r = await this.req(this.http.post<{ id: number }>(`/api/admin/questionnaires/${researchId}`, body));
+      return { ok: true, id: r.id };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR' };
+    }
+  }
+
+  async updateQuestionnaire(
+    researchId: number,
+    id: number,
+    body: QuestionnaireBody
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      await this.req(this.http.put<{ ok: true }>(`/api/admin/questionnaires/${researchId}/${id}`, body));
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR' };
+    }
+  }
+
+  async duplicateQuestionnaire(researchId: number, id: number): Promise<{ ok: true; id: number } | { ok: false }> {
+    try {
+      const r = await this.req(this.http.post<{ id: number }>(`/api/admin/questionnaires/${researchId}/${id}/duplicate`, {}));
+      return { ok: true, id: r.id };
+    } catch {
+      return { ok: false };
+    }
+  }
+
+  async deleteQuestionnaire(researchId: number, id: number): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      await this.req(this.http.delete<{ ok: true }>(`/api/admin/questionnaires/${researchId}/${id}`));
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR' };
+    }
+  }
+
+  // ── Participant progress through a protocol (2026-10) ──────────────────────────────────────────
+
+  getProtocolMatrix(researchId: number): Promise<ProtocolMatrix> {
+    return this.req(this.http.get<ProtocolMatrix>(`/api/admin/protocol-progress/${researchId}/participants`));
+  }
+
+  getProtocolTimeline(researchId: number, participantId: string): Promise<ProtocolTimeline> {
+    return this.req(
+      this.http.get<ProtocolTimeline>(`/api/admin/protocol-progress/${researchId}/participants/${encodeURIComponent(participantId)}`)
+    );
+  }
+
+  private async protocolAction(path: string, body: object = {}): Promise<ProtocolEngineResult> {
+    try {
+      return await this.req(this.http.post<ProtocolEngineResult>(`/api/admin/protocol-progress/${path}`, body));
+    } catch (err: any) {
+      return { ok: false, reason: err?.error?.error ?? 'SERVER_ERROR', sentStepIds: [], currentStepId: null, finished: false };
+    }
+  }
+
+  startProtocolParticipant(researchId: number, participantId: string): Promise<ProtocolEngineResult> {
+    return this.protocolAction(`${researchId}/participants/${encodeURIComponent(participantId)}/start`);
+  }
+
+  sendProtocolStep(researchId: number, participantId: string, stepId: number): Promise<ProtocolEngineResult> {
+    return this.protocolAction(`${researchId}/participants/${encodeURIComponent(participantId)}/steps/${stepId}/send`);
+  }
+
+  completeProtocolStep(researchId: number, participantId: string, stepId: number): Promise<ProtocolEngineResult> {
+    return this.protocolAction(`${researchId}/participants/${encodeURIComponent(participantId)}/steps/${stepId}/complete`);
+  }
+
+  skipProtocolStep(researchId: number, participantId: string, stepId: number): Promise<ProtocolEngineResult> {
+    return this.protocolAction(`${researchId}/participants/${encodeURIComponent(participantId)}/steps/${stepId}/skip`);
+  }
+
+  // ── Research design: study type, variables, groups (2026-10) ───────────────────────────────────
+
+  getResearchDesign(researchId: number): Promise<ResearchDesignDoc> {
+    return this.req(this.http.get<ResearchDesignDoc>(`/api/admin/research-design/${researchId}`));
+  }
+
+  async saveResearchDesign(
+    researchId: number,
+    body: Pick<ResearchDesignDoc, 'design' | 'variables' | 'groups' | 'tasks'>,
+  ): Promise<{ ok: true; doc: ResearchDesignDoc } | { ok: false; error: string; name?: string }> {
+    try {
+      return { ok: true, doc: await this.req(this.http.put<ResearchDesignDoc>(`/api/admin/research-design/${researchId}`, body)) };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR', name: err?.error?.name };
+    }
+  }
+
+  /** Attaches (or replaces) the task's PDF. The task has to be saved already (it needs an id). */
+  async uploadTaskPdf(researchId: number, taskId: number, file: File): Promise<{ ok: true; pdfName: string; pdfSize: number } | { ok: false; error: string }> {
+    const formData = new FormData();
+    formData.append('pdf', file, file.name);
+    try {
+      const r = await this.req(this.http.put<{ ok: true; pdfName: string; pdfSize: number }>(`/api/admin/research-design/${researchId}/tasks/${taskId}/pdf`, formData));
+      return { ok: true, pdfName: r.pdfName, pdfSize: r.pdfSize };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'UPLOAD_FAILED' };
+    }
+  }
+
+  async deleteTaskPdf(researchId: number, taskId: number): Promise<boolean> {
+    try {
+      await this.req(this.http.delete<{ ok: true }>(`/api/admin/research-design/${researchId}/tasks/${taskId}/pdf`));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Opens the task's PDF in a new tab (a plain link cannot carry the auth header, so it is fetched as a blob first). */
+  async openTaskPdf(researchId: number, taskId: number): Promise<boolean> {
+    const token = this.auth.token();
+    const res = await fetch(`/api/admin/research-design/${researchId}/tasks/${taskId}/pdf`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) return false;
+    const url = URL.createObjectURL(await res.blob());
+    window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return true;
+  }
+
+  async completeResearchSetup(researchId: number): Promise<boolean> {
+    try {
+      await this.req(this.http.post<{ ok: true }>(`/api/admin/research-design/${researchId}/complete-setup`, {}));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async setParticipantGroup(researchId: number, participantId: string, groupId: number | null): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      await this.req(
+        this.http.put<{ ok: true }>(`/api/admin/research-design/${researchId}/participants/${encodeURIComponent(participantId)}/group`, { groupId }),
+      );
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR' };
+    }
+  }
+
+  async setParticipantTask(researchId: number, participantId: string, taskId: number | null): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      await this.req(
+        this.http.put<{ ok: true }>(`/api/admin/research-design/${researchId}/participants/${encodeURIComponent(participantId)}/task`, { taskId }),
+      );
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR' };
+    }
+  }
+
+  async setParticipantPrTask(researchId: number, participantId: string, prConfigId: number | null): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      await this.req(
+        this.http.put<{ ok: true }>(`/api/admin/protocol-progress/${researchId}/participants/${encodeURIComponent(participantId)}/pr-task`, { prConfigId }),
+      );
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.error?.error ?? 'SERVER_ERROR' };
+    }
+  }
+
+  /** Balanced random assignment of every participant that still needs a group and/or a task. preview=true only computes it;
+   *  reset=true also re-draws the ones a previous random run placed (and that have not started). */
+  async randomizeGroups(researchId: number, opts: { preview: boolean; seed?: string; reset?: boolean }): Promise<RandomizeResult | { error: string }> {
+    try {
+      return await this.req(this.http.post<RandomizeResult>(`/api/admin/research-design/${researchId}/randomize`, opts));
+    } catch (err: any) {
+      return { error: err?.error?.error ?? 'SERVER_ERROR' };
+    }
+  }
+
+  // ── mail queue (the relay allows about 100 recipients a day, so bulk mails wait here) ──
+  getMailOutbox(researchId: number): Promise<MailOutboxStats> {
+    return this.req(this.http.get<MailOutboxStats>(`/api/admin/mail-outbox/${researchId}`));
+  }
+
+  async drainMailOutbox(researchId: number): Promise<(MailOutboxStats & { sent: number }) | null> {
+    try {
+      return await this.req(this.http.post<MailOutboxStats & { sent: number }>(`/api/admin/mail-outbox/${researchId}/drain`, {}));
+    } catch {
+      return null;
+    }
+  }
+
+  async retryFailedMail(researchId: number): Promise<number | null> {
+    try {
+      return (await this.req(this.http.post<{ ok: true; requeued: number }>(`/api/admin/mail-outbox/${researchId}/retry-failed`, {}))).requeued;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Sends one protocol step (e.g. the participants' tables) to everybody who is ready for it. */
+  async sendProtocolStepToAll(researchId: number, stepId: number, opts: { participantIds?: string[]; force?: boolean } = {}): Promise<ProtocolSendAllResult | null> {
+    try {
+      return await this.req(this.http.post<ProtocolSendAllResult>(`/api/admin/protocol-progress/${researchId}/steps/${stepId}/send-all`, opts));
+    } catch {
+      return null;
+    }
+  }
+
+  async startProtocolAll(researchId: number): Promise<ProtocolStartAllResult | null> {
+    try {
+      return await this.req(this.http.post<ProtocolStartAllResult>(`/api/admin/protocol-progress/${researchId}/start-all`, {}));
+    } catch {
+      return null;
+    }
+  }
+}
+
+// ── Research design types (2026-10) ───────────────────────────────────────────────────────────
+
+export type DesignApproach = 'EXPERIMENTAL' | 'QUASI_EXPERIMENTAL' | 'CORRELATIONAL' | 'DESCRIPTIVE';
+export type DesignSubject = 'BETWEEN' | 'WITHIN' | 'MIXED' | 'SINGLE_GROUP';
+export type DesignTime = 'CROSS_SECTIONAL' | 'PRE_POST' | 'REPEATED' | 'CROSSOVER';
+export type DesignFactor = 'SINGLE_FACTOR' | 'FACTORIAL';
+export type DesignControl = 'NONE' | 'NO_TREATMENT' | 'PLACEBO_ACTIVE' | 'WAITLIST' | 'TREATMENT_AS_USUAL';
+export type DesignBlinding = 'NONE' | 'SINGLE' | 'DOUBLE';
+export type AssignmentMode = 'MANUAL' | 'RANDOM';
+export type VariableRole = 'INDEPENDENT' | 'DEPENDENT' | 'CONTROL' | 'MODERATOR' | 'MEDIATOR' | 'COVARIATE';
+
+export interface ResearchDesignData {
+  approach: DesignApproach | null;
+  subjectDesign: DesignSubject | null;
+  timeDimension: DesignTime | null;
+  factorStructure: DesignFactor | null;
+  controlCondition: DesignControl | null;
+  blinding: DesignBlinding | null;
+  assignmentMode: AssignmentMode;
+  hypotheses: string | null;
+  notes: string | null;
+}
+
+export interface ResearchVariableData {
+  id?: number;
+  role: VariableRole;
+  name: string;
+  description: string | null;
+  levels: string[];
+  measurement: string | null;
+}
+
+export interface ResearchGroupData {
+  id?: number;
+  name: string;
+  description: string | null;
+  weight: number;
+  isControl: boolean;
+  /** Read-only, returned by the server. */
+  participantCount?: number;
+}
+
+export interface ResearchTaskData {
+  id?: number;
+  name: string;
+  weight: number;
+  /** The written task as a PDF (read-only here, set through uploadTaskPdf / deleteTaskPdf). */
+  hasPdf?: boolean;
+  pdfName?: string | null;
+  pdfSize?: number | null;
+  /** Read-only, returned by the server. */
+  participantCount?: number;
+}
+
+export interface ResearchDesignDoc {
+  setupComplete: boolean;
+  design: ResearchDesignData;
+  variables: ResearchVariableData[];
+  groups: ResearchGroupData[];
+  /** Study tasks (A / B ...): a second factor, balanced inside each group. */
+  tasks: ResearchTaskData[];
+  participantCount: number;
+  unassignedCount: number;
+  unassignedTaskCount: number;
+}
+
+export interface MailOutboxStats {
+  pending: number;
+  failed: number;
+  nextAttemptAt: string | null;
+  sentLast24h: number;
+  dailyLimit: number;
+  failedItems?: { id: number; participantId: string | null; to: string; subject: string; error: string | null; attempts: number }[];
+}
+
+export interface ProtocolSendAllResult {
+  ok: boolean;
+  sent: number;
+  failed: { participantId: string; reason: string }[];
+  skippedNotReady: number;
+  skippedAlready: number;
+  limited: boolean;
+}
+
+export interface RandomizeResult {
+  preview: boolean;
+  seed: string;
+  runId?: number;
+  assignments: { participantId: string; groupId: number | null; taskId: number | null }[];
+  summary: { groupId: number; name: string; added: number; total: number }[];
+  cells: AssignmentCell[];
+}
+
+// ── Protocol progress types ───────────────────────────────────────────────────────────────────
+
+export type ProtocolProgressStatus = 'NOT_REACHED' | 'PENDING' | 'SCHEDULED' | 'SENT' | 'COMPLETED' | 'SKIPPED';
+
+export interface ProtocolCell {
+  status: ProtocolProgressStatus;
+  scheduledFor: string | null;
+  sentAt: string | null;
+  completedAt: string | null;
+}
+
+export interface ProtocolMatrixStep {
+  id: number;
+  stepType: ProtocolStepType;
+  titleSr: string;
+  titleEn: string;
+  delivery: ProtocolDelivery;
+}
+
+export interface ProtocolMatrixParticipant {
+  participantId: string;
+  hasEmail: boolean;
+  language: string | null;
+  started: boolean;
+  finished: boolean;
+  statuses: Record<number, ProtocolCell>;
+  groupId: number | null;
+  groupName: string | null;
+  groupAssignedBy?: 'RESEARCHER' | 'RANDOM' | null;
+  /** Study task (A / B ...) of the design. */
+  taskId?: number | null;
+  taskName?: string | null;
+  taskAssignedBy?: 'RESEARCHER' | 'RANDOM' | null;
+  /** E-mails of this participant waiting in the queue / that failed for good. */
+  mailPending?: number;
+  mailFailed?: number;
+  /** Code Review step: the pull request this participant reviews. */
+  prConfigId?: number | null;
+  prLabel?: string | null;
+  /** Next session slot (YYYY-MM-DD HH:MM) from today on, if any. */
+  nextSlot?: string | null;
+}
+
+export interface ProtocolMatrix {
+  groups: { id: number; name: string; weight: number; isControl: boolean }[];
+  tasks?: { id: number; name: string; weight: number }[];
+  prTasks?: { id: number; label: string }[];
+  steps: ProtocolMatrixStep[];
+  participants: ProtocolMatrixParticipant[];
+}
+
+export interface ProtocolTimelineStep {
+  id: number;
+  stepType: ProtocolStepType;
+  titleSr: string;
+  titleEn: string;
+  delivery: ProtocolDelivery;
+  delayDays: number | null;
+  status: ProtocolProgressStatus;
+  scheduledFor: string | null;
+  sentAt: string | null;
+  completedAt: string | null;
+  completedBy: string | null;
+  linkUrl: string | null;
+  linkExpired: boolean;
+}
+
+export interface ProtocolTimeline {
+  participantId: string;
+  email: string | null;
+  language: string | null;
+  groupId: number | null;
+  groupName: string | null;
+  prConfigId?: number | null;
+  prLabel?: string | null;
+  /** The Code Review sessions created for this participant and whether each is finished. */
+  reviewSessions?: { sessionId: number; name: string; finished: boolean; finishedAt: string | null }[];
+  /** Appointments (termini) this participant is invited to. */
+  slots?: { id: number; date: string; time: string; durationMinutes: number; kind: 'ONLINE' | 'IN_PERSON'; meetingUrl: string | null; location: string | null; stepId: number | null; calendarUrl: string | null }[];
+  started: boolean;
+  steps: ProtocolTimelineStep[];
+}
+
+/** What the engine reports after a researcher action. `reason` e.g. NO_EMAIL, EMAIL_FAILED, SCHEDULED, WAITING_FOR_RESEARCHER. */
+export interface ProtocolEngineResult {
+  ok: boolean;
+  reason: string | null;
+  sentStepIds: number[];
+  currentStepId: number | null;
+  finished: boolean;
+}
+
+export interface ProtocolStartAllResult {
+  started: number;
+  failed: { participantId: string; ok: boolean; reason: string | null }[];
+  limited: boolean;
+}
+
+// ── Research protocol types ───────────────────────────────────────────────────────────────────
+
+export type ProtocolStepType =
+  | 'CONSENT' | 'DEMOGRAPHIC' | 'QUESTIONNAIRE' | 'REI40' | 'BIGFIVE' | 'NASA_TLX'
+  | 'EXTERNAL_LINK' | 'MESSAGE' | 'MANUAL' | 'EXPERIMENT';
+/** The kind of task an EXPERIMENT step ("experimental session") wraps. SHEETS and CODE_REVIEW are superadmin-only. */
+export type ProtocolTaskKind = 'GENERIC_TASK' | 'GOOGLE_FORM' | 'SHEETS' | 'CODE_REVIEW' | 'OTHER';
+export type ProtocolDelivery = 'AUTO' | 'AFTER_DELAY' | 'MANUAL';
+
+export type ReviewMode = 'AI' | 'REPORT' | 'HYBRID';
+
+export interface ProtocolStepConfig {
+  url?: string;
+  taskKind?: ProtocolTaskKind;
+  /** Code Review only: the review mode everyone gets unless their group has its own, and an optional practice session first. */
+  defaultMode?: ReviewMode;
+  modeByGroup?: { groupId: number; mode: ReviewMode }[];
+  includeIntro?: boolean;
+  bodySr?: string;
+  bodyEn?: string;
+}
+
+export interface ProtocolStep {
+  id: number;
+  stepType: ProtocolStepType;
+  titleSr: string;
+  titleEn: string;
+  questionnaireId: number | null;
+  config: ProtocolStepConfig;
+  delivery: ProtocolDelivery;
+  delayDays: number | null;
+  emailMessageSr: string | null;
+  emailMessageEn: string | null;
+  /** Participants who already have progress on this step — the step is then locked. */
+  participantsStarted: number;
+}
+
+/** What the editor sends back: existing steps carry their id, new ones don't. */
+export type ProtocolStepInput = Omit<ProtocolStep, 'id' | 'participantsStarted'> & { id?: number };
+
+export interface ProtocolConfig {
+  flowMode: FlowMode;
+  steps: ProtocolStep[];
+}
+
+export type ProtocolSaveResult =
+  | { ok: true }
+  | { ok: false; error: string; reason?: string; stepType?: string };
+
+// ── Questionnaire types ───────────────────────────────────────────────────────────────────────
+
+export type QuestionnaireItemType = 'LIKERT' | 'SINGLE_CHOICE' | 'MULTI_CHOICE' | 'TEXT' | 'NUMBER';
+
+export interface QuestionnaireOption {
+  /** Stable uuid, assigned by the server; absent on a brand-new option. */
+  key?: string;
+  labelSr: string;
+  labelEn: string;
+  isOther: boolean;
+}
+
+export interface QuestionnaireScaleLabels {
+  minSr?: string;
+  minEn?: string;
+  maxSr?: string;
+  maxEn?: string;
+}
+
+export interface QuestionnaireItem {
+  /** Stable uuid, assigned by the server; absent on a brand-new item. */
+  itemKey?: string;
+  itemType: QuestionnaireItemType;
+  promptSr: string;
+  promptEn: string;
+  options: QuestionnaireOption[];
+  scalePoints: number | null;
+  scaleLabels: QuestionnaireScaleLabels | null;
+  subscale: string | null;
+  reverseScored: boolean;
+  required: boolean;
+}
+
+export interface QuestionnaireSummary {
+  id: number;
+  titleSr: string;
+  titleEn: string;
+  createdAt: string;
+  itemCount: number;
+  responseCount: number;
+  usedInSteps: number;
+}
+
+export interface QuestionnaireDetail {
+  id: number;
+  titleSr: string;
+  titleEn: string;
+  createdAt: string;
+  responseCount: number;
+  usedInSteps: number;
+  items: QuestionnaireItem[];
+}
+
+export interface QuestionnaireBody {
+  titleSr: string;
+  titleEn: string;
+  items: QuestionnaireItem[];
 }

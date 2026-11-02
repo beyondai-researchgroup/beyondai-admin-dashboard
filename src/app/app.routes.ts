@@ -87,15 +87,37 @@ export const routes: Routes = [
         loadComponent: () => import('./calendar/calendar.component').then((m) => m.CalendarComponent),
       },
       {
-        path: 'researches',
+        path: 'protocol',
+        loadComponent: () => import('./protocol/protocol.component').then((m) => m.ProtocolComponent),
+      },
+      {
+        path: 'design',
         loadComponent: () =>
-          import('./researches/researches-manage.component').then((m) => m.ResearchesManageComponent),
+          import('./research-design/research-design-page.component').then((m) => m.ResearchDesignPageComponent),
+      },
+      {
+        path: 'study-wizard',
+        loadComponent: () => import('./study-wizard/study-wizard.component').then((m) => m.StudyWizardComponent),
         canActivate: [superAdminGuard],
       },
       {
-        path: 'study-builder',
+        path: 'protocol-participants',
         loadComponent: () =>
-          import('./study-builder/study-builder.component').then((m) => m.StudyBuilderComponent),
+          import('./protocol-participants/protocol-participants.component').then((m) => m.ProtocolParticipantsComponent),
+      },
+      {
+        path: 'protocol-participants/:id',
+        loadComponent: () =>
+          import('./protocol-participants/protocol-participant-detail.component').then((m) => m.ProtocolParticipantDetailComponent),
+      },
+      {
+        path: 'questionnaires',
+        loadComponent: () => import('./questionnaires/questionnaires.component').then((m) => m.QuestionnairesComponent),
+      },
+      {
+        path: 'researches',
+        loadComponent: () =>
+          import('./researches/researches-manage.component').then((m) => m.ResearchesManageComponent),
         canActivate: [superAdminGuard],
       },
       {
@@ -130,6 +152,15 @@ export const routes: Routes = [
           import('./results/results-generic-task/results-generic-task.component').then(
             (m) => m.ResultsGenericTaskComponent
           ),
+      },
+      {
+        path: 'sheets',
+        loadComponent: () => import('./sheets/sheets.component').then((m) => m.SheetsComponent),
+      },
+      {
+        path: 'results/questionnaires',
+        loadComponent: () =>
+          import('./results/results-questionnaires/results-questionnaires.component').then((m) => m.ResultsQuestionnairesComponent),
       },
       {
         path: 'results/demographic',

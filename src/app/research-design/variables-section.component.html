@@ -1,0 +1,70 @@
+@if (!store.variables().length) {
+  <div class="empty-state small-empty">{{ 'RESEARCH_DESIGN.VAR_EMPTY' | translate }}</div>
+}
+
+<div class="item-list">
+  @for (v of store.variables(); track i; let i = $index) {
+    <div class="item-card">
+      <div class="item-card__head">
+        <span class="role-badge" [attr.data-role]="v.role">{{ 'RESEARCH_DESIGN.VAR_ROLE.' + v.role | translate }}</span>
+        <button type="button" class="btn-ghost remove-btn" (click)="store.removeVariable(i)">{{ 'RESEARCH_DESIGN.VAR_REMOVE' | translate }}</button>
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">{{ 'RESEARCH_DESIGN.VAR_NAME' | translate }}</label>
+          <input type="text" class="text-input" maxlength="200" [ngModel]="v.name" (ngModelChange)="store.patchVariable(i, { name: $event })" />
+        </div>
+        <div class="field-group role-field">
+          <label class="field-label">{{ 'RESEARCH_DESIGN.VAR_ROLE_LABEL' | translate }}</label>
+          <app-select [options]="roleOptions()" [value]="v.role" (valueChange)="onRole(i, $event)"></app-select>
+        </div>
+      </div>
+
+      <span class="field-hint">{{ 'RESEARCH_DESIGN.VAR_ROLE_HINT.' + v.role | translate }}</span>
+
+      @if (v.role === 'INDEPENDENT') {
+        <div class="field-group">
+          <label class="field-label">{{ 'RESEARCH_DESIGN.VAR_LEVELS' | translate }}</label>
+          <div class="chip-row">
+            @for (level of v.levels; track level) {
+              <span class="chip">
+                {{ level }}
+                <button type="button" class="chip-x" (click)="removeLevel(i, level)" [attr.aria-label]="'RESEARCH_DESIGN.VAR_LEVEL_REMOVE' | translate">×</button>
+              </span>
+            }
+          </div>
+          <div class="inline-add">
+            <input
+              type="text"
+              class="text-input"
+              maxlength="100"
+              [placeholder]="'RESEARCH_DESIGN.VAR_LEVELS_PLACEHOLDER' | translate"
+              [ngModel]="levelDraft()[i] ?? ''"
+              (ngModelChange)="setDraft(i, $event)"
+              (keydown.enter)="$event.preventDefault(); addLevel(i)"
+            />
+            <button type="button" class="btn-ghost btn-ghost--small" (click)="addLevel(i)">{{ 'RESEARCH_DESIGN.VAR_LEVEL_ADD' | translate }}</button>
+          </div>
+        </div>
+      }
+
+      <div class="field-group">
+        <label class="field-label">{{ 'RESEARCH_DESIGN.VAR_MEASUREMENT' | translate }}</label>
+        <input type="text" class="text-input" maxlength="1000" [ngModel]="v.measurement" (ngModelChange)="store.patchVariable(i, { measurement: $event || null })" />
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">{{ 'RESEARCH_DESIGN.VAR_DESC' | translate }}</label>
+        <textarea class="text-input textarea" rows="2" maxlength="2000" [ngModel]="v.description" (ngModelChange)="store.patchVariable(i, { description: $event || null })"></textarea>
+      </div>
+    </div>
+  }
+</div>
+
+<div class="add-row">
+  <app-select class="add-select" [options]="roleOptions()" [value]="newRole()" (valueChange)="newRole.set($any($event))"></app-select>
+  <button type="button" class="btn-ghost add-btn" [disabled]="store.variables().length >= 30" (click)="store.addVariable(newRole())">
+    {{ 'RESEARCH_DESIGN.VAR_ADD' | translate }}
+  </button>
+</div>

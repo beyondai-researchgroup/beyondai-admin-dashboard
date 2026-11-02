@@ -1,0 +1,19 @@
+# Drains the e-mail queue of the admin dashboard every 10 minutes (2026-10-30).
+# Vercel's free plan runs crons only once a day, and the free mail relay sends about 100 recipients a day, so queued
+# participant e-mails (consent, questionnaires, table links) are sent in small batches by calling this endpoint on a schedule.
+# Needs two repository secrets: ADMIN_API_URL (e.g. https://beyondai-admin.vercel.app) and CRON_SECRET (the same value as the
+# CRON_SECRET environment variable of the Vercel project).
+name: mail-outbox
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the drain endpoint
+        run: |
+          curl --fail --silent --show-error --max-time 70 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.ADMIN_API_URL }}/api/cron/mail-outbox"

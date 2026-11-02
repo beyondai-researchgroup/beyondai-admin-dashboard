@@ -12,6 +12,13 @@ export interface ParsedParticipantRow {
    *  when taskType==='GENERIC' — null means unassigned. Same "brand-new participants only, never
    *  reassigns an existing one" rule as Email/Language, applied server-side. */
   genericTask: string | null;
+  /** Participant group's name (matched against the research's groups, case-insensitively), only meaningful
+   *  for a research that defines groups — null means "no group yet". Brand-new participants only. */
+  group: string | null;
+  /** Label of the PR the participant reviews (Code Review protocol), matched against the research's PR tasks. */
+  prTask: string | null;
+  /** Study task (A / B ...), matched against the research's tasks case-insensitively. Empty = drawn automatically. */
+  researchTask: string | null;
 }
 
 export interface ParsedTaskRow {
@@ -73,14 +80,17 @@ export class ExcelImportService {
     lang: 'sr' | 'en',
     taskType: ImportTaskType,
     taskLabels: string[] = [],
-    genericTaskTitles: string[] = []
+    genericTaskTitles: string[] = [],
+    groupNames: string[] = [],
+    prTaskLabels: string[] = [],
+    researchTaskNames: string[] = []
   ): Promise<void> {
     const wb = new ExcelJS.Workbook();
     const isPrReview = taskType === 'PR_REVIEW';
     const isGeneric = taskType === 'GENERIC';
 
-    this.buildInstructionsSheet(wb, lang, taskType, taskLabels.length > 0, genericTaskTitles.length > 0);
-    this.buildParticipantsSheet(wb, lang, isGeneric ? genericTaskTitles : []);
+    this.buildInstructionsSheet(wb, lang, taskType, taskLabels.length > 0, genericTaskTitles.length > 0, groupNames.length > 0, prTaskLabels.length > 0);
+    this.buildParticipantsSheet(wb, lang, isGeneric ? genericTaskTitles : [], groupNames, prTaskLabels, researchTaskNames);
     if (isPrReview) this.buildTasksSheet(wb, lang, taskLabels);
 
     const buffer = await wb.xlsx.writeBuffer();
@@ -98,7 +108,9 @@ export class ExcelImportService {
     lang: 'sr' | 'en',
     taskType: ImportTaskType,
     hasPrConfigs: boolean,
-    hasGenericTasks: boolean
+    hasGenericTasks: boolean,
+    hasGroups = false,
+    hasPrTasks = false
   ): void {
     const sheet = wb.addWorksheet(lang === 'sr' ? 'Uputstvo' : 'Instructions');
     sheet.columns = [{ width: 100 }];
@@ -138,6 +150,36 @@ export class ExcelImportService {
               ]
           : [];
 
+      const groupLines: { text: string; bold?: boolean }[] = !hasGroups
+        ? []
+        : lang === 'sr'
+          ? [
+              { text: '  • Group — opciono. Naziv jedne od grupa definisanih na stranici "Nacrt istraživanja" (padajuća' },
+              { text: '    lista, npr. Kontrola ili Tretman). Postavlja se SAMO za potpuno nove učesnike. Prazno polje = učesnik' },
+              { text: '    još nema grupu: rasporedite ga ručno na stranici sa učesnicima ili ga platforma nasumično' },
+              { text: '    rasporedi (dugme "Rasporedi nasumično"). Protokol se ne može pokrenuti učesniku bez grupe.' },
+            ]
+          : [
+              { text: '  • Group — optional. The name of one of the groups defined on the "Research design" page (dropdown,' },
+              { text: '    e.g. Control or Treatment). Only set for brand-new participants. An empty cell = the participant has' },
+              { text: '    no group yet: assign them by hand on the participants page or let the platform assign them at' },
+              { text: '    random ("Assign at random" button). The protocol cannot be started for a participant without a group.' },
+            ];
+
+      const prTaskLines: { text: string; bold?: boolean }[] = !hasPrTasks
+        ? []
+        : lang === 'sr'
+          ? [
+              { text: '  • Task — naziv PR zadatka koji ovaj učesnik pregleda (padajuća lista zadataka sa stranice "Konfiguracija' },
+              { text: '    zadatka"). Postavlja se SAMO za potpuno nove učesnike; kasnije se menja u listi učesnika. Bez zadatka se' },
+              { text: '    korak Code Review ne može poslati učesniku.' },
+            ]
+          : [
+              { text: '  • Task — the name of the PR task this participant reviews (dropdown of the tasks from the "Task' },
+              { text: '    configuration" page). Only set for brand-new participants; change it later in the participant list.' },
+              { text: '    Without a task the Code Review step cannot be sent to the participant.' },
+            ];
+
       const simpleLines: { text: string; bold?: boolean }[] =
         lang === 'sr'
           ? [
@@ -154,6 +196,8 @@ export class ExcelImportService {
               { text: '  • Language — opciono, "sr" ili "en". Ako je već postavljen za postojećeg učesnika (npr. preko' },
               { text: '    Consent aplikacije), ovaj uvoz ga NE menja — samo se postavlja za potpuno nove učesnike.' },
               ...genericTaskLines,
+              ...groupLines,
+              ...prTaskLines,
               { text: '  • Postojeći učesnik (isti ParticipantId) se preskače u potpunosti — ovaj list ga ne ažurira.' },
               ...noGenericTasksNote,
               { text: '' },
@@ -175,6 +219,8 @@ export class ExcelImportService {
               { text: '  • Language — optional, "sr" or "en". If already set for an existing participant (e.g. via' },
               { text: '    the Consent app), this import does NOT change it — only set for brand-new participants.' },
               ...genericTaskLines,
+              ...groupLines,
+              ...prTaskLines,
               { text: '  • An existing participant (same ParticipantId) is skipped entirely — this sheet never updates one.' },
               ...noGenericTasksNote,
               { text: '' },
@@ -309,9 +355,12 @@ export class ExcelImportService {
     });
   }
 
-  private buildParticipantsSheet(wb: ExcelJS.Workbook, lang: 'sr' | 'en', genericTaskTitles: string[]): void {
+  private buildParticipantsSheet(wb: ExcelJS.Workbook, lang: 'sr' | 'en', genericTaskTitles: string[], groupNames: string[] = [], prTaskLabels: string[] = [], researchTaskNames: string[] = []): void {
     const sheet = wb.addWorksheet('Participants');
+    const hasResearchTasks = researchTaskNames.length > 0;
     const hasGenericTasks = genericTaskTitles.length > 0;
+    const hasGroups = groupNames.length > 0;
+    const hasPrTasks = prTaskLabels.length > 0;
     sheet.columns = [
       { header: 'ParticipantId', key: 'participantId', width: 16 },
       { header: 'FirstName', key: 'firstName', width: 18 },
@@ -319,6 +368,9 @@ export class ExcelImportService {
       { header: 'Email', key: 'email', width: 28 },
       { header: 'Language', key: 'language', width: 12 },
       ...(hasGenericTasks ? [{ header: 'GenericTask', key: 'genericTask', width: 28 }] : []),
+      ...(hasGroups ? [{ header: 'Group', key: 'group', width: 20 }] : []),
+      ...(hasPrTasks ? [{ header: 'Task', key: 'prTask', width: 24 }] : []),
+      ...(hasResearchTasks ? [{ header: 'ResearchTask', key: 'researchTask', width: 22 }] : []),
     ];
     sheet.getColumn('participantId').numFmt = '@';
     sheet.addRow({
@@ -328,8 +380,11 @@ export class ExcelImportService {
       email: 'marko@example.com',
       language: lang,
       ...(hasGenericTasks ? { genericTask: genericTaskTitles[0] } : {}),
+      ...(hasGroups ? { group: groupNames[0] } : {}),
+      ...(hasPrTasks ? { prTask: prTaskLabels[0] } : {}),
+      ...(hasResearchTasks ? { researchTask: researchTaskNames[0] } : {}),
     });
-    sheet.addRow({ participantId: '002', firstName: '', lastName: '', email: '', language: '', genericTask: '' });
+    sheet.addRow({ participantId: '002', firstName: '', lastName: '', email: '', language: '', genericTask: '', group: hasGroups ? (groupNames[1] ?? groupNames[0]) : '', prTask: hasPrTasks ? (prTaskLabels[1] ?? prTaskLabels[0]) : '', researchTask: hasResearchTasks ? (researchTaskNames[1] ?? researchTaskNames[0]) : '' });
 
     // GenericTask dropdown (mirrors buildTasksSheet's own _PrNumbers hidden-reference-sheet
     // pattern) — sourced from this research's real task titles, hidden reference sheet rather
@@ -354,6 +409,60 @@ export class ExcelImportService {
           error: errorMessage,
         };
       }
+    }
+    if (hasGroups) this.addGroupDropdown(wb, sheet, lang, groupNames, hasGenericTasks ? 'G' : 'F');
+    if (hasResearchTasks) {
+      const col = String.fromCharCode('F'.charCodeAt(0) + (hasGenericTasks ? 1 : 0) + (hasGroups ? 1 : 0) + (hasPrTasks ? 1 : 0));
+      this.addResearchTaskDropdown(wb, sheet, lang, researchTaskNames, col);
+    }
+    if (hasPrTasks) {
+      // Same hidden-reference-sheet dropdown as the groups: only this research's PR task labels are accepted.
+      const col = String.fromCharCode('F'.charCodeAt(0) + (hasGenericTasks ? 1 : 0) + (hasGroups ? 1 : 0));
+      const ref = wb.addWorksheet('_PrTasks');
+      ref.state = 'veryHidden';
+      prTaskLabels.forEach((label, i) => { ref.getCell(`A${i + 1}`).value = label; });
+      const error = lang === 'sr' ? 'Taj PR zadatak ne postoji u ovom istraživanju.' : 'That PR task does not exist in this research.';
+      for (let r = 2; r <= MAX_ROWS_PER_SHEET + 1; r++) {
+        sheet.getCell(`${col}${r}`).dataValidation = {
+          type: 'list', allowBlank: true, formulae: [`_PrTasks!$A$1:$A$${prTaskLabels.length}`],
+          showErrorMessage: true, errorStyle: 'error', error,
+        };
+      }
+    }
+  }
+
+  /** Study-task dropdown for the Participants sheet (a hidden reference sheet feeding a list validation, like the groups). */
+  private addResearchTaskDropdown(wb: ExcelJS.Workbook, sheet: ExcelJS.Worksheet, lang: 'sr' | 'en', names: string[], column: string): void {
+    const refSheet = wb.addWorksheet('_ResearchTasks');
+    refSheet.state = 'veryHidden';
+    names.forEach((name, i) => { refSheet.getCell(`A${i + 1}`).value = name; });
+    const error = lang === 'sr' ? 'Taj zadatak ne postoji u ovom istraživanju.' : 'That task does not exist in this research.';
+    for (let r = 2; r <= MAX_ROWS_PER_SHEET + 1; r++) {
+      sheet.getCell(`${column}${r}`).dataValidation = {
+        type: 'list', allowBlank: true, formulae: [`_ResearchTasks!$A$1:$A$${names.length}`],
+        showErrorMessage: true, errorStyle: 'error', error,
+      };
+    }
+  }
+
+  /** Group dropdown for the Participants sheet: a hidden reference sheet (like _GenericTasks) feeding a list validation. */
+  private addGroupDropdown(wb: ExcelJS.Workbook, sheet: ExcelJS.Worksheet, lang: 'sr' | 'en', groupNames: string[], column: string): void {
+    const refSheet = wb.addWorksheet('_Groups');
+    refSheet.state = 'veryHidden';
+    groupNames.forEach((name, i) => {
+      refSheet.getCell(`A${i + 1}`).value = name;
+    });
+    const errorMessage =
+      lang === 'sr' ? 'Ta grupa ne postoji u ovom istraživanju.' : 'That group does not exist in this research.';
+    for (let r = 2; r <= MAX_ROWS_PER_SHEET + 1; r++) {
+      sheet.getCell(`${column}${r}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: [`_Groups!$A$1:$A$${groupNames.length}`],
+        showErrorMessage: true,
+        errorStyle: 'error',
+        error: errorMessage,
+      };
     }
   }
 
@@ -425,7 +534,14 @@ export class ExcelImportService {
    * Excel dropdown (which someone could still bypass by hand-typing a label, or by uploading an
    * old template downloaded before a task was added/renamed/removed).
    */
-  async parseFile(file: File, validTaskLabels?: Set<string>, validGenericTaskTitles?: Set<string>): Promise<ParsedImportFile> {
+  async parseFile(
+    file: File,
+    validTaskLabels?: Set<string>,
+    validGenericTaskTitles?: Set<string>,
+    validGroupNames?: Set<string>,
+    validPrTaskLabels?: Set<string>,
+    validResearchTaskNames?: Set<string>
+  ): Promise<ParsedImportFile> {
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array' });
 
@@ -477,6 +593,33 @@ export class ExcelImportService {
           });
           return;
         }
+        const group = this.normalizeText(row['Group'], MAX_NAME_LENGTH);
+        if (group !== null && validGroupNames && !validGroupNames.has(group.toLowerCase())) {
+          issues.push({
+            sheet: 'Participants',
+            row: i + 1,
+            message: `Grupa "${group}" ne postoji u ovom istraživanju — proverite naziv na stranici "Nacrt istraživanja".`,
+          });
+          return;
+        }
+        const prTask = this.normalizeText(row['Task'], MAX_NAME_LENGTH);
+        if (prTask !== null && validPrTaskLabels && !validPrTaskLabels.has(prTask)) {
+          issues.push({
+            sheet: 'Participants',
+            row: i + 1,
+            message: `PR zadatak "${prTask}" ne postoji u ovom istraživanju — proverite naziv na stranici "Konfiguracija zadatka".`,
+          });
+          return;
+        }
+        const researchTask = this.normalizeText(row['ResearchTask'], MAX_NAME_LENGTH);
+        if (researchTask !== null && validResearchTaskNames && !validResearchTaskNames.has(researchTask.toLowerCase())) {
+          issues.push({
+            sheet: 'Participants',
+            row: i + 1,
+            message: `Zadatak "${researchTask}" ne postoji u ovom istraživanju — proverite naziv na stranici "Nacrt istraživanja".`,
+          });
+          return;
+        }
         participants.push({
           participantId,
           firstName: this.normalizeText(row['FirstName'], MAX_NAME_LENGTH),
@@ -484,6 +627,9 @@ export class ExcelImportService {
           email,
           language: rawLanguage,
           genericTask,
+          group,
+          prTask,
+          researchTask,
         });
       });
     }
