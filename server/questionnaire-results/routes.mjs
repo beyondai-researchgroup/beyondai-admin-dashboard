@@ -3,6 +3,7 @@ import { getDb } from '../db.mjs';
 import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
 import { toCsv } from '../results/csv.mjs';
+import { withCodes } from '../participants/code.mjs';
 
 // Results of the researcher-authored questionnaires of a PROTOCOL research (2026-10). Own router at its
 // own base path, like demographic-results and results-export: never folded into a router with
@@ -303,7 +304,7 @@ router.get('/:researchId/:questionnaireId/export', async (req, res) => {
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="questionnaire-${ids.questionnaireId}-results.csv"`);
-    res.send(toCsv(csvRows));
+    res.send(toCsv(await withCodes(sql, ids.researchId, csvRows)));
   } catch (err) {
     console.error('[questionnaire-results] export error:', err);
     res.status(500).json({ error: 'Database error' });

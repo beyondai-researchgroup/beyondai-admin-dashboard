@@ -11,7 +11,10 @@
   border: 1px solid var(--color-border); color: var(--color-text-secondary);
   &--draft { color: #c98500; border-color: #c98500; }
   &--done { color: var(--color-accent); border-color: var(--color-accent); }
+  &--warn { color: var(--color-error); border-color: var(--color-error); }
 }
+.duration { font-size: 12px; margin-left: 6px; }
+.window-field--timer input { max-width: 140px; }
 .modal-backdrop { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(0, 0, 0, 0.55); }
 .modal-card {
   width: 100%; max-width: 980px; max-height: 86vh; overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px;

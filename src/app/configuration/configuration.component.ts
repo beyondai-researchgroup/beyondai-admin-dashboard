@@ -92,6 +92,7 @@ export class ConfigurationComponent {
     usesDemographics: [false],
     // Excel-like tables (2026-10) — off by default, shown for both CLASSIC and PROTOCOL researches.
     usesSheets: [false],
+    showBeyondAiBranding: [true],
     // 2026-09-08 follow-up — whether Participants/Import/Experimental-Sessions are shown at all;
     // forced true (and un-editable, see the template's taskType gate) for PR_REVIEW research.
     tracksParticipants: [true],
@@ -242,6 +243,7 @@ export class ConfigurationComponent {
         usesConsentForm: cfg.usesConsentForm,
         usesDemographics: cfg.usesDemographics,
         usesSheets: cfg.usesSheets,
+        showBeyondAiBranding: cfg.showBeyondAiBranding !== false,
         tracksParticipants: cfg.tracksParticipants,
         consentLanguageSr: cfg.consentLanguageSr,
         consentLanguageEn: cfg.consentLanguageEn,
@@ -320,6 +322,7 @@ export class ConfigurationComponent {
       usesConsentForm: v.usesConsentForm ?? true,
       usesDemographics: v.usesDemographics ?? false,
       usesSheets: v.usesSheets ?? false,
+      showBeyondAiBranding: v.showBeyondAiBranding ?? true,
       tracksParticipants: this.studyConfigStore.taskType() === 'PR_REVIEW' ? true : (v.tracksParticipants ?? true),
       consentLanguageSr: v.consentLanguageSr ?? true,
       consentLanguageEn: v.consentLanguageEn ?? true,

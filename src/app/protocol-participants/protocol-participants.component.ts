@@ -14,6 +14,7 @@ import {
 } from '../services/admin-api.service';
 import { ScopeService } from '../services/scope.service';
 import { StudyConfigStoreService } from '../services/study-config-store.service';
+import { ParticipantCodesActionsComponent } from '../shared/participant-codes-actions/participant-codes-actions.component';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner/loading-spinner.component';
 import { SelectComponent, SelectOption } from '../shared/select/select.component';
 
@@ -25,7 +26,7 @@ import { SelectComponent, SelectOption } from '../shared/select/select.component
 @Component({
   selector: 'app-protocol-participants',
   standalone: true,
-  imports: [TranslateModule, LoadingSpinnerComponent, SelectComponent],
+  imports: [TranslateModule, LoadingSpinnerComponent, SelectComponent, ParticipantCodesActionsComponent],
   templateUrl: './protocol-participants.component.html',
   styleUrl: './protocol-participants.component.scss',
 })
@@ -241,6 +242,17 @@ export class ProtocolParticipantsComponent {
     toObservable(this.scope.selectedResearchId).subscribe((id) => {
       if (id != null) this.load(id);
     });
+  }
+
+  /** How many participants there are and how many already have a code. */
+  readonly codeCounts = computed(() => {
+    const ps = this.matrix()?.participants ?? [];
+    return { total: ps.length, withCode: ps.filter((p) => !!p.participantCode).length };
+  });
+
+  async reloadCodes(): Promise<void> {
+    const id = this.scope.selectedResearchId();
+    if (id != null) await this.load(id);
   }
 
   async load(researchId: number): Promise<void> {

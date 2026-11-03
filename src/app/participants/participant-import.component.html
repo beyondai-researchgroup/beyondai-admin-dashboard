@@ -160,6 +160,43 @@
     @if (studyConfigStore.groupCount() > 0) {
       <p class="field-hint">{{ 'IMPORT.GROUPS_NEXT_HINT' | translate }}</p>
     }
+    @if (r.codes?.assigned) {
+      <p>{{ 'CODES.IMPORT_ASSIGNED' | translate: { count: r.codes!.assigned } }}</p>
+    }
+    @if (r.codes?.error) {
+      <p class="field-error">{{ (r.codes!.error === 'CODES_EXHAUSTED' ? 'CODES.EXHAUSTED' : 'CODES.ERROR') | translate }}</p>
+    }
+    @if (r.overview?.length) {
+      <div class="import-overview">
+        <p><strong>{{ 'CODES.OVERVIEW_TITLE' | translate }}</strong></p>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>{{ 'CODES.OVERVIEW_ID' | translate }}</th>
+                @if (overviewHas().code) { <th>{{ 'CODES.COL' | translate }}</th> }
+                @if (overviewHas().group) { <th>{{ 'CODES.OVERVIEW_GROUP' | translate }}</th> }
+                @if (overviewHas().task) { <th>{{ 'CODES.OVERVIEW_TASK' | translate }}</th> }
+              </tr>
+            </thead>
+            <tbody>
+              @for (o of r.overview!; track o.participantId) {
+                <tr>
+                  <td>{{ o.participantId }}</td>
+                  @if (overviewHas().code) { <td class="code-cell">{{ o.code ?? '' }}</td> }
+                  @if (overviewHas().group) { <td>{{ o.groupName ?? '' }}</td> }
+                  @if (overviewHas().task) { <td>{{ o.taskName ?? '' }}</td> }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (!overviewHas().group && studyConfigStore.groupCount() > 0) {
+          <p class="field-hint">{{ 'CODES.OVERVIEW_NO_GROUPS' | translate }}</p>
+        }
+        <app-participant-codes-actions [total]="r.overview!.length" [withCode]="r.overview!.length"></app-participant-codes-actions>
+      </div>
+    }
 
     @if (r.tasks.errors.length) {
       <div class="parse-issues">

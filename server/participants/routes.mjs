@@ -5,11 +5,14 @@ import { getDb } from '../db.mjs';
 import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
 import { sendMail } from '../email/mailer.mjs';
+import { resolveBranding } from '../email/branding.mjs';
 import { buildRegenerateLinksEmail } from '../email/regenerateLinksEmail.mjs';
 import { buildConsentLinkEmail } from '../email/consentLinkEmail.mjs';
 import { notifyResearchMembers } from '../notifications/create.mjs';
 import { resolveParticipantByBareId, AMBIGUOUS_PARTICIPANT } from './resolve.mjs';
 import { dateOnly } from '../date-only.mjs';
+import { toCsv } from '../results/csv.mjs';
+import { assignParticipantCodes } from './code.mjs';
 import { planAssignment, applyAssignment, summarize } from '../research-design/assign.mjs';
 
 const router = Router();
@@ -71,7 +74,7 @@ router.post('/:participantId/regenerate-links', async (req, res) => {
       return;
     }
     const researchRows = await sql`
-      SELECT "EmailSenderName", "StudyDisplayName", "Name" AS "ResearchName", "UsesPsychTests", "UsesTlx", "TaskType", "UsesDemographics"
+      SELECT "EmailSenderName", "StudyDisplayName", "Name" AS "ResearchName", "UsesPsychTests", "UsesTlx", "TaskType", "UsesDemographics", "ShowBeyondAiBranding"
       FROM "Research" WHERE "Id" = ${participant.ResearchId} LIMIT 1
     `;
     // Task-app link (2026-09-14) — gated on the participant's own GenericTaskId assignment, not a
@@ -168,8 +171,9 @@ router.post('/:participantId/regenerate-links', async (req, res) => {
     // Fallback chain: an explicit per-research sender-name override, else the research's own
     // display name, else its raw Name, else buildRegenerateLinksEmail/sendMail's own hardcoded
     // default — same chain StudyDisplayName itself already uses for the thank-you email.
-    const senderName = p.EmailSenderName ?? p.StudyDisplayName ?? p.ResearchName ?? undefined;
-    const { subject, html } = buildRegenerateLinksEmail(p.Language ?? 'sr', { urls, taskUrl, demographicUrl, senderName });
+    const branding = resolveBranding({ showBranding: p.ShowBeyondAiBranding, emailSenderName: p.EmailSenderName, studyDisplayName: p.StudyDisplayName, name: p.ResearchName });
+    const senderName = branding.senderName ?? undefined;
+    const { subject, html } = buildRegenerateLinksEmail(p.Language ?? 'sr', { urls, taskUrl, demographicUrl, senderName, hideContact: branding.hideContact });
     await sendMail({ to: p.Email, subject, html, fromName: senderName });
 
     res.json({ ok: true });
@@ -206,7 +210,7 @@ router.get('/', async (req, res) => {
     // all. Guarded below (`r.SessionId != null`) so a sessionless participant gets an empty
     // `sessions: []` instead of a phantom row.
     const rows = await sql`
-      SELECT p."ParticipantId", p."FirstName", p."LastName", p."ResearchId", p."IsTestParticipant",
+      SELECT p."ParticipantId", p."FirstName", p."LastName", p."ResearchId", p."IsTestParticipant", p."ParticipantCode",
              ps."SessionId", s."Name" AS "SessionName", ps."SequenceOrder", ps."IsFinished",
              ps."ExperimentalSessionId",
              prc."GitHubPrNumber" AS "PrNumber"
@@ -227,6 +231,7 @@ router.get('/', async (req, res) => {
           lastName: r.LastName,
           researchId: r.ResearchId,
           isTestParticipant: r.IsTestParticipant === true,
+          participantCode: r.ParticipantCode ?? null,
           sessions: [],
         });
       }
@@ -249,6 +254,67 @@ router.get('/', async (req, res) => {
     res.json([...byParticipant.values()]);
   } catch (err) {
     console.error('[participants] list error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ── participant codes ────────────────────────────────────────────────────────────────────────────────
+// A random four-digit code per participant (see ./code.mjs). Import assigns them to the people it creates; this gives one to every
+// participant of the research that has none (the ones imported before codes existed). Nobody who has a code ever gets a new one.
+router.post('/assign-codes', async (req, res) => {
+  let researchId;
+  try {
+    researchId = resolveResearchScope(req.researcher, req.body?.researchId ?? req.query.researchId);
+  } catch (err) {
+    if (err instanceof ScopeForbiddenError) { res.status(403).json({ error: err.message }); return; }
+    throw err;
+  }
+  if (researchId == null) { res.status(400).json({ error: 'researchId is required' }); return; }
+  try {
+    const sql = getDb();
+    const result = await assignParticipantCodes(sql, researchId);
+    if (!result.ok) { res.status(409).json({ error: result.error, free: result.free }); return; }
+    const total = (await sql`SELECT COUNT(*)::int AS n FROM "Participant" WHERE "ResearchId" = ${researchId}`)[0].n;
+    res.json({ ok: true, assigned: result.assigned, total });
+  } catch (err) {
+    console.error('[participants] assign-codes error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// The "key": participant id -> code -> group -> task, as a CSV (UTF-8 with BOM). This is the one file that links a code in a paper back to a person.
+router.get('/code-key', async (req, res) => {
+  let researchId;
+  try {
+    researchId = resolveResearchScope(req.researcher, req.query.researchId);
+  } catch (err) {
+    if (err instanceof ScopeForbiddenError) { res.status(403).json({ error: err.message }); return; }
+    throw err;
+  }
+  if (researchId == null) { res.status(400).json({ error: 'researchId is required' }); return; }
+  try {
+    const sql = getDb();
+    const rows = await sql`
+      SELECT p."ParticipantId", p."ParticipantCode" AS "Code", g."Name" AS "Group", t."Name" AS "Task"
+      FROM "Participant" p
+      LEFT JOIN "ResearchGroup" g ON g."Id" = p."GroupId"
+      LEFT JOIN "ResearchTask" t ON t."Id" = p."ResearchTaskId"
+      WHERE p."ResearchId" = ${researchId}
+      ORDER BY p."ParticipantCode" NULLS LAST, p."ParticipantId"
+    `;
+    const hasGroups = rows.some((r) => r.Group != null);
+    const hasTasks = rows.some((r) => r.Task != null);
+    const out = rows.map((r) => {
+      const o = { ParticipantId: r.ParticipantId, Code: r.Code ?? '' };
+      if (hasGroups) o.Group = r.Group ?? '';
+      if (hasTasks) o.Task = r.Task ?? '';
+      return o;
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="participant-codes-research-${researchId}.csv"`);
+    res.send('\uFEFF' + (out.length ? toCsv(out) : 'ParticipantId,Code') + '\n');
+  } catch (err) {
+    console.error('[participants] code-key error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -309,7 +375,7 @@ router.post('/:participantId/send-consent-email', async (req, res) => {
       return;
     }
     const researchRows = await sql`
-      SELECT "EmailSenderName", "StudyDisplayName", "Name" AS "ResearchName", "UsesConsentForm"
+      SELECT "EmailSenderName", "StudyDisplayName", "Name" AS "ResearchName", "UsesConsentForm", "ShowBeyondAiBranding"
       FROM "Research" WHERE "Id" = ${participant.ResearchId} LIMIT 1
     `;
     const p = { ...participant, ...(researchRows[0] ?? {}) };
@@ -343,8 +409,9 @@ router.post('/:participantId/send-consent-email', async (req, res) => {
     `;
 
     const url = `${CONSENT_APP_URL}/link/${token}`;
-    const senderName = p.EmailSenderName ?? p.StudyDisplayName ?? p.ResearchName ?? undefined;
-    const { subject, html } = buildConsentLinkEmail(p.Language ?? 'sr', { url, senderName });
+    const branding = resolveBranding({ showBranding: p.ShowBeyondAiBranding, emailSenderName: p.EmailSenderName, studyDisplayName: p.StudyDisplayName, name: p.ResearchName });
+    const senderName = branding.senderName ?? undefined;
+    const { subject, html } = buildConsentLinkEmail(p.Language ?? 'sr', { url, senderName, hideContact: branding.hideContact });
     await sendMail({ to: p.Email, subject, html, fromName: senderName });
 
     res.json({ ok: true });
@@ -885,6 +952,19 @@ router.post('/import', async (req, res) => {
       }
     }
 
+    // A random four-digit code for every person this import created (never fatal: the import itself already succeeded).
+    let codes = { assigned: 0 };
+    if (newlyInserted.length) {
+      try {
+        const guids = newlyInserted.map((pid) => participantGuid.get(pid)).filter(Boolean);
+        const c = await assignParticipantCodes(sql, researchId, guids);
+        codes = c.ok ? { assigned: c.assigned } : { assigned: 0, error: c.error };
+      } catch (codeErr) {
+        console.error('[participants] code assignment failed:', codeErr);
+        codes = { assigned: 0, error: 'CODE_ASSIGNMENT_FAILED' };
+      }
+    }
+
     // Group Tasks rows by participant, preserving their original sheet order — that order is
     // what decides AI-vs-Report SequenceOrder for each participant (see doc comment above).
     const seenTaskKeys = new Set();
@@ -1018,8 +1098,24 @@ router.post('/import', async (req, res) => {
       }
     }
 
+    // Who is who right after the import: id, code, group, task of the people this import created (after the draw above).
+    let overview = [];
+    if (newlyInserted.length) {
+      const ov = await sql`
+        SELECT p."ParticipantId", p."ParticipantCode", g."Name" AS "GroupName", t."Name" AS "TaskName"
+        FROM "Participant" p
+        LEFT JOIN "ResearchGroup" g ON g."Id" = p."GroupId"
+        LEFT JOIN "ResearchTask" t ON t."Id" = p."ResearchTaskId"
+        WHERE p."ResearchId" = ${researchId} AND p."ParticipantId" = ANY(${newlyInserted})
+        ORDER BY p."ParticipantId"
+      `;
+      overview = ov.map((r) => ({ participantId: r.ParticipantId, code: r.ParticipantCode ?? null, groupName: r.GroupName ?? null, taskName: r.TaskName ?? null }));
+    }
+
     res.json({
       participants: { imported, skippedExisting },
+      codes,
+      overview,
       tasks: { introAdded, assigned, errors },
       groups: { assigned: groupAssigned, unknown: groupUnknown },
       prTasks: { assigned: prAssigned, unknown: prUnknown },

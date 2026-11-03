@@ -5,11 +5,12 @@ import { AdminApiService, ImportResult, TaskType } from '../services/admin-api.s
 import { ExcelImportService, ParsedImportFile } from '../services/excel-import.service';
 import { ScopeService } from '../services/scope.service';
 import { StudyConfigStoreService } from '../services/study-config-store.service';
+import { ParticipantCodesActionsComponent } from '../shared/participant-codes-actions/participant-codes-actions.component';
 
 @Component({
   selector: 'app-participant-import',
   standalone: true,
-  imports: [TranslateModule],
+  imports: [TranslateModule, ParticipantCodesActionsComponent],
   templateUrl: './participant-import.component.html',
   styleUrl: './participant-import.component.scss',
 })
@@ -46,6 +47,12 @@ export class ParticipantImportComponent {
       }
     });
   }
+
+  /** Overview of the people this import created: do their rows carry a group / a task / a code at all (decides the columns). */
+  readonly overviewHas = computed(() => {
+    const rows = this.importResult()?.overview ?? [];
+    return { group: rows.some((r) => !!r.groupName), task: rows.some((r) => !!r.taskName), code: rows.some((r) => !!r.code) };
+  });
 
   /** The automatic group + task draw done right after the import (null when none ran or it failed). */
   readonly autoDraw = computed(() => {

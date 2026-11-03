@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { AdminApiService, SheetsEntryView, SheetsOverview, SheetsParticipantRow } from '../services/admin-api.service';
 import { SelectComponent, SelectOption } from '../shared/select/select.component';
@@ -25,6 +26,9 @@ export class SheetsComponent {
   private api = inject(AdminApiService);
   private scope = inject(ScopeService);
   private translate = inject(TranslateService);
+
+  /** The language the researcher uses here: the sheets app opens in the same one. */
+  private readonly lang = toSignal(this.translate.onLangChange.pipe(map((e) => e.lang)), { initialValue: this.translate.currentLang || 'sr' });
 
   readonly overview = signal<SheetsOverview | null>(null);
   readonly loading = signal(false);
@@ -67,10 +71,12 @@ export class SheetsComponent {
   // ── availability window: the tables open and close at these moments (the participant's local picker -> UTC) ──
   readonly opensInput = signal('');
   readonly closesInput = signal('');
+  /** The countdown in minutes ("" = none). */
+  readonly timerInput = signal('');
   readonly windowSaving = signal(false);
   readonly windowDirty = computed(() => {
     const w = this.overview()?.window;
-    return this.opensInput() !== this.toInput(w?.opensAt) || this.closesInput() !== this.toInput(w?.closesAt);
+    return this.opensInput() !== this.toInput(w?.opensAt) || this.closesInput() !== this.toInput(w?.closesAt) || this.timerInput() !== this.timerToInput(this.overview()?.timerMinutes);
   });
 
   /** ISO (UTC) -> the value of a datetime-local input in the researcher's own time zone. */
@@ -81,15 +87,21 @@ export class SheetsComponent {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
+  private timerToInput(v: number | null | undefined): string {
+    return v ? String(v) : '';
+  }
+
   async saveWindow(): Promise<void> {
     if (this.researchId == null || this.windowSaving()) return;
+    const timer = this.timerInput().trim() === '' ? null : Number(this.timerInput());
+    if (timer != null && (!Number.isInteger(timer) || timer < 1 || timer > 480)) { this.say('SHEETS.ERR_TIMER', 'error'); return; }
     this.windowSaving.set(true);
     this.message.set(null);
     const iso = (v: string) => (v ? new Date(v).toISOString() : null);
-    const res = await this.api.saveSheetsWindow(this.researchId, { opensAt: iso(this.opensInput()), closesAt: iso(this.closesInput()) });
+    const res = await this.api.saveSheetsWindow(this.researchId, { opensAt: iso(this.opensInput()), closesAt: iso(this.closesInput()), timerMinutes: timer });
     this.windowSaving.set(false);
     if (res.ok) this.say('SHEETS.WINDOW_SAVED', 'ok');
-    else this.say(res.error === 'WINDOW_ORDER' ? 'SHEETS.ERR_WINDOW_ORDER' : 'SHEETS.ERR_GENERIC', 'error');
+    else this.say(res.error === 'WINDOW_ORDER' ? 'SHEETS.ERR_WINDOW_ORDER' : res.error === 'INVALID_TIMER' ? 'SHEETS.ERR_TIMER' : 'SHEETS.ERR_GENERIC', 'error');
     await this.load(this.researchId);
   }
 
@@ -116,6 +128,7 @@ export class SheetsComponent {
       this.overview.set(o);
       this.opensInput.set(this.toInput(o.window?.opensAt));
       this.closesInput.set(this.toInput(o.window?.closesAt));
+      this.timerInput.set(this.timerToInput(o.timerMinutes));
     } catch {
       this.loadError.set(true);
     } finally {
@@ -124,12 +137,12 @@ export class SheetsComponent {
   }
 
   editorUrl(): string {
-    return `${this.overview()?.appUrl ?? ''}/login`;
+    return `${this.overview()?.appUrl ?? ''}/login?lang=${this.lang()}`;
   }
 
   /** The template list in the sheets app (opens after the researcher's login there). */
   templatesUrl(): string {
-    return `${this.overview()?.appUrl ?? ''}/research/${this.researchId ?? ''}`;
+    return `${this.overview()?.appUrl ?? ''}/research/${this.researchId ?? ''}?lang=${this.lang()}`;
   }
 
   templateName(w: { label: string | null; title: string }): string {

@@ -348,7 +348,11 @@ export interface SheetsParticipantRow {
   noTemplate?: boolean;
   /** When the participant confirmed the rules screen (null = not yet, or the table has no rules). */
   rulesAcknowledgedAt?: string | null;
-  entry: { status: 'DRAFT' | 'SUBMITTED'; updatedAt: string; submittedAt: string | null } | null;
+  /** When the participant pressed "Start task" (null = not yet). */
+  startedAt?: string | null;
+  /** The countdown ran out and nothing was handed in yet. */
+  timeUp?: boolean;
+  entry: { status: 'DRAFT' | 'SUBMITTED'; updatedAt: string; submittedAt: string | null; timedOut?: boolean; durationMin?: number | null } | null;
 }
 export interface SheetsTemplateSummary {
   id: number;
@@ -374,11 +378,16 @@ export interface SheetsOverview {
   workbooks?: SheetsTemplateSummary[];
   /** When the tables open and close (ISO, UTC); null = no limit on that side. */
   window?: { opensAt: string | null; closesAt: string | null };
+  /** Minutes a participant has from pressing Start (null = no countdown). */
+  timerMinutes?: number | null;
   participants: SheetsParticipantRow[];
 }
 export interface SheetsEntryView {
   title: string;
   rulesAcknowledgedAt?: string | null;
+  /** Handed in because the countdown ran out. */
+  timedOut?: boolean;
+  durationMin?: number | null;
   status: 'DRAFT' | 'SUBMITTED';
   updatedAt: string;
   submittedAt: string | null;
@@ -566,6 +575,8 @@ export interface ParticipantRow {
   lastName: string | null;
   researchId: number;
   isTestParticipant: boolean;
+  /** Random four-digit code for analysis and papers (null until assigned). */
+  participantCode?: string | null;
   sessions: ParticipantSessionRow[];
 }
 
@@ -622,8 +633,19 @@ export interface ImportTaskError {
   reasonCode: ImportTaskErrorCode;
 }
 
+/** Who is who right after an import: the people this import created, with their code, group and task. */
+export interface ImportOverviewRow {
+  participantId: string;
+  code: string | null;
+  groupName: string | null;
+  taskName: string | null;
+}
+
 export interface ImportResult {
   participants: { imported: string[]; skippedExisting: string[] };
+  /** Four-digit codes given to the people this import created (`error` when they could not all be given). */
+  codes?: { assigned: number; error?: string };
+  overview?: ImportOverviewRow[];
   /** introAdded: participants who got their Intro session auto-inserted by this import (see
    *  server/participants/routes.mjs's POST /import — Intro is never listed in the Tasks sheet). */
   tasks: { introAdded: string[]; assigned: string[]; errors: ImportTaskError[] };
@@ -701,6 +723,8 @@ export interface StudyConfig {
   usesDemographics: boolean;
   /** Excel-like tables (sheets-andrejkatin, 2026-10) — default false. */
   usesSheets: boolean;
+  /** false hides the BeyondAI logo / name from participants of this research (apps and participant emails). */
+  showBeyondAiBranding: boolean;
   /** 2026-09-08 follow-up — whether Participants/Import/Experimental-Sessions are shown at all
    *  for this research. Always true (and un-editable) for TaskType='PR_REVIEW', which structurally
    *  requires participants; optional for every other task type. */
@@ -1521,7 +1545,7 @@ export class AdminApiService {
   }
 
   /** Authenticated fetch+blob download of the Excel export. */
-  async saveSheetsWindow(researchId: number, body: { opensAt: string | null; closesAt: string | null }): Promise<{ ok: true } | { ok: false; error: string }> {
+  async saveSheetsWindow(researchId: number, body: { opensAt: string | null; closesAt: string | null; timerMinutes?: number | null }): Promise<{ ok: true } | { ok: false; error: string }> {
     try {
       await this.req(this.http.put<{ ok: true }>(`/api/admin/sheets/${researchId}/window`, body));
       return { ok: true };
@@ -1794,6 +1818,27 @@ export class AdminApiService {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${instrument}-results.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Gives every participant of the research that has no code a random four-digit one. */
+  assignParticipantCodes(researchId: number): Promise<{ ok: true; assigned: number; total: number }> {
+    return this.req(this.http.post<{ ok: true; assigned: number; total: number }>('/api/admin/participants/assign-codes', { researchId }));
+  }
+
+  /** Saves the key file (participant id, code, group, task) as a CSV. */
+  async downloadCodeKey(researchId: number): Promise<void> {
+    const token = this.auth.token();
+    const res = await fetch(`/api/admin/participants/code-key?researchId=${researchId}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `participant-codes-research-${researchId}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -2416,6 +2461,7 @@ export interface ProtocolMatrixStep {
 
 export interface ProtocolMatrixParticipant {
   participantId: string;
+  participantCode?: string | null;
   hasEmail: boolean;
   language: string | null;
   started: boolean;
@@ -2464,6 +2510,7 @@ export interface ProtocolTimelineStep {
 
 export interface ProtocolTimeline {
   participantId: string;
+  participantCode?: string | null;
   email: string | null;
   language: string | null;
   groupId: number | null;

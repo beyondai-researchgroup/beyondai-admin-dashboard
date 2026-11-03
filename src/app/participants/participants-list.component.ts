@@ -1,15 +1,16 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { AdminApiService, ParticipantRow } from '../services/admin-api.service';
 import { ScopeService } from '../services/scope.service';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner/loading-spinner.component';
+import { ParticipantCodesActionsComponent } from '../shared/participant-codes-actions/participant-codes-actions.component';
 
 @Component({
   selector: 'app-participants-list',
   standalone: true,
-  imports: [TranslateModule, LoadingSpinnerComponent],
+  imports: [TranslateModule, LoadingSpinnerComponent, ParticipantCodesActionsComponent],
   templateUrl: './participants-list.component.html',
 })
 export class ParticipantsListComponent {
@@ -50,6 +51,13 @@ export class ParticipantsListComponent {
     const next = [...p.sessions].sort((a, b) => (a.sequenceOrder ?? a.sessionId) - (b.sequenceOrder ?? b.sessionId))
       .find((s) => !s.isFinished);
     return next?.sessionName ?? null;
+  }
+
+  readonly withCode = computed(() => this.participants().filter((p) => !!p.participantCode).length);
+
+  /** Codes were assigned: reload the list. */
+  async reload(): Promise<void> {
+    await this.load(this.scope.selectedResearchId());
   }
 
   private async load(researchId: number | null): Promise<void> {

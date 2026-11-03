@@ -58,7 +58,7 @@ const DEFAULT_SENDER_NAME = 'BeyondAI Research Group';
  *   reasoning as consentEmail.mjs's own `taskUrl`/`demographicUrl` doc comment.
  * @returns {{ subject: string, html: string }}
  */
-export function buildRegenerateLinksEmail(lang, { urls, taskUrl, demographicUrl, senderName }) {
+export function buildRegenerateLinksEmail(lang, { urls, taskUrl, demographicUrl, senderName, hideContact = false }) {
   const t = COPY[lang] ?? COPY.sr;
   // Escaped (not just trimmed) since this is researcher-supplied free text rendered directly
   // into HTML — same escaping discipline thankYouEmail.mjs already applies to its own
@@ -99,11 +99,11 @@ export function buildRegenerateLinksEmail(lang, { urls, taskUrl, demographicUrl,
             <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#6b7280;">${t.expiry}</p>
           </td>
         </tr>
-        <tr>
+${hideContact ? '' : `<tr>
           <td style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
             <p style="margin:0;font-size:12px;color:#6b7280;">${t.footer} <a href="mailto:beyondai.researchgroup@gmail.com" style="color:#16a34a;">beyondai.researchgroup@gmail.com</a></p>
           </td>
-        </tr>
+        </tr>`}
       </table>
     </td></tr>
   </table>

@@ -3,6 +3,7 @@ import { getDb } from '../db.mjs';
 import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
 import { toCsv } from '../results/csv.mjs';
+import { withCodes } from '../participants/code.mjs';
 
 // Standardized export — Phase 5 of the modular-platform plan (2026-09-04). One common
 // GET /:researchId/:instrumentCode/export shape across instruments, per the plan. Mounted at its
@@ -71,7 +72,7 @@ router.get('/:researchId/:instrumentCode/export', async (req, res) => {
       `;
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="tlx-results.csv"');
-      res.send(toCsv(rows));
+      res.send(toCsv(await withCodes(sql, researchId, rows)));
       return;
     }
 
@@ -88,7 +89,7 @@ router.get('/:researchId/:instrumentCode/export', async (req, res) => {
       `;
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="rei40-results.csv"');
-      res.send(toCsv(rows));
+      res.send(toCsv(await withCodes(sql, researchId, rows)));
       return;
     }
 
@@ -104,7 +105,7 @@ router.get('/:researchId/:instrumentCode/export', async (req, res) => {
       `;
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="bigfive-results.csv"');
-      res.send(toCsv(rows));
+      res.send(toCsv(await withCodes(sql, researchId, rows)));
       return;
     }
 

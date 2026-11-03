@@ -178,7 +178,9 @@
     "LANGUAGES_HEADING": "Jezici učesnika",
     "SHEETS_HEADING": "Tabele",
     "USES_SHEETS_LABEL": "Ovo istraživanje koristi Excel-like tabele",
-    "USES_SHEETS_HINT": "Uključuje stranicu „Tabele“: šablon se pravi u posebnoj aplikaciji, a učesnici ga popunjavaju preko ličnog linka. Rezultate pregledate i izvozite ovde."
+    "USES_SHEETS_HINT": "Uključuje stranicu „Tabele“: šablon se pravi u posebnoj aplikaciji, a učesnici ga popunjavaju preko ličnog linka. Rezultate pregledate i izvozite ovde.",
+    "SHOW_BRANDING_LABEL": "Prikaži BeyondAI logo i naziv učesnicima",
+    "SHOW_BRANDING_HINT": "Kada je isključeno, učesnici ovog istraživanja ne vide BeyondAI logo ni naziv „BeyondAI Research Group“ ni u jednoj aplikaciji (ni u kartici browsera), a mejlovi umesto njega nose naziv „Empirical Software Engineering Platform“ (ili ime pošiljaoca iz polja iznad, ako je upisano) i bez kontakt adrese u podnožju. Admin ostaje nepromenjen."
   },
   "CALENDAR": {
     "TITLE": "Kalendar",
@@ -1285,7 +1287,17 @@
     "WINDOW_SAVE": "Sačuvaj vreme",
     "WINDOW_CLEAR": "Ukloni ograničenje",
     "WINDOW_SAVED": "Vreme dostupnosti je sačuvano.",
-    "ERR_WINDOW_ORDER": "Vreme otvaranja mora biti pre vremena zatvaranja."
+    "ERR_WINDOW_ORDER": "Vreme otvaranja mora biti pre vremena zatvaranja.",
+    "TIMER_LABEL": "Vreme za rešavanje (min)",
+    "TIMER_PLACEHOLDER": "bez ograničenja",
+    "TIMER_HINT": "Vreme za rešavanje: koliko minuta učesnik ima od trenutka kad pritisne „Počni zadatak“. Kad istekne, tabela se predaje automatski sa onim što je do tada uneo. Ostavi prazno ako nema odbrojavanja.",
+    "ERR_TIMER": "Vreme za rešavanje mora biti ceo broj minuta od 1 do 480.",
+    "ENTRY_STARTED": "počeo, još bez unosa",
+    "ENTRY_TIMED_OUT": "isteklo vreme",
+    "ENTRY_TIME_UP": "vreme isteklo, nije predato",
+    "ENTRY_DURATION": "trajanje {{min}} min",
+    "VIEW_TIMED_OUT": "Tabela je predata automatski jer je isteklo vreme za rešavanje.",
+    "VIEW_DURATION": "Trajanje od početka do predaje: {{min}} min."
   },
   "RESEARCH_DESIGN": {
     "TITLE": "Nacrt istraživanja",
@@ -1580,5 +1592,20 @@
     "CLEAR": "Ukloni oblikovanje",
     "UNDO": "Poništi",
     "REDO": "Ponovi"
+  },
+  "CODES": {
+    "COL": "Šifra",
+    "HINT": "Šifra je nasumičan četvorocifreni broj koji možeš da koristiš umesto pravog ID-a u analizi podataka i u radu. Ključ (ID i šifra) preuzmi i čuvaj odvojeno.",
+    "ASSIGN": "Dodeli šifre ({{count}})",
+    "ASSIGNED": "Dodeljeno šifara: {{count}}.",
+    "DOWNLOAD_KEY": "Preuzmi ključ (ID i šifra)",
+    "EXHAUSTED": "Nema dovoljno slobodnih četvorocifrenih šifara u ovom istraživanju (ukupno ih ima 9000).",
+    "ERROR": "Akcija nije uspela. Pokušaj ponovo.",
+    "IMPORT_ASSIGNED": "Dodeljeno četvorocifrenih šifara: {{count}}.",
+    "OVERVIEW_TITLE": "Pregled uvezenih učesnika",
+    "OVERVIEW_ID": "ID učesnika",
+    "OVERVIEW_GROUP": "Grupa",
+    "OVERVIEW_TASK": "Zadatak",
+    "OVERVIEW_NO_GROUPS": "Grupe još nisu raspoređene: raspodela se radi na stranici Učesnici."
   }
 }

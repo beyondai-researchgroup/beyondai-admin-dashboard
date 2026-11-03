@@ -37,7 +37,7 @@ const DEFAULT_SENDER_NAME = 'BeyondAI Research Group';
  * @param {{ url: string, senderName?: string }} args
  * @returns {{ subject: string, html: string }}
  */
-export function buildConsentLinkEmail(lang, { url, senderName }) {
+export function buildConsentLinkEmail(lang, { url, senderName, hideContact = false }) {
   const t = COPY[lang] ?? COPY.sr;
   const brand = escapeHtml(senderName?.trim() || DEFAULT_SENDER_NAME);
   const html = `
@@ -69,11 +69,11 @@ export function buildConsentLinkEmail(lang, { url, senderName }) {
             <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#6b7280;">${t.expiry}</p>
           </td>
         </tr>
-        <tr>
+${hideContact ? '' : `<tr>
           <td style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
             <p style="margin:0;font-size:12px;color:#6b7280;">${t.footer} <a href="mailto:beyondai.researchgroup@gmail.com" style="color:#16a34a;">beyondai.researchgroup@gmail.com</a></p>
           </td>
-        </tr>
+        </tr>`}
       </table>
     </td></tr>
   </table>

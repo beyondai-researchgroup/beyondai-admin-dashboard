@@ -6,6 +6,7 @@ import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
 import { hasMinRole } from '../roles.mjs';
 import { sendMail } from '../email/mailer.mjs';
+import { resolveBranding } from '../email/branding.mjs';
 import { enqueueMail, kickOutbox } from '../email/outbox.mjs';
 import { buildProtocolStepEmail } from '../email/protocolStepEmail.mjs';
 import { loadWorkbookSlots, pickWorkbook, upsertSheetLink, loadSheetsWindow, sheetLinkExpiry } from './resolve.mjs';
@@ -55,7 +56,7 @@ function requireWrite(req, res, researchId) {
 }
 
 async function loadResearch(sql, researchId) {
-  const rows = await sql`SELECT "Id","Name","UsesSheets","StudyDisplayName","EmailSenderName" FROM "Research" WHERE "Id" = ${researchId} LIMIT 1`;
+  const rows = await sql`SELECT "Id","Name","UsesSheets","StudyDisplayName","EmailSenderName","SheetsTimerMinutes","ShowBeyondAiBranding" FROM "Research" WHERE "Id" = ${researchId} LIMIT 1`;
   return rows[0] ?? null;
 }
 
@@ -103,15 +104,17 @@ async function mintLink(sql, workbookId, participantGuid, window) {
 /** Queues the link mail (bulk sends go through the outbox, so the relay's daily limit is respected). */
 async function queueLink(sql, research, participant, url, window) {
   const lang = participant.Language === 'en' ? 'en' : 'sr';
-  const senderName = research.EmailSenderName || research.StudyDisplayName || research.Name;
-  const { subject, html } = buildProtocolStepEmail(lang, { url, message: null, senderName, window });
+  const branding = resolveBranding({ showBranding: research.ShowBeyondAiBranding, emailSenderName: research.EmailSenderName, studyDisplayName: research.StudyDisplayName, name: research.Name });
+  const senderName = branding.senderName ?? research.Name;
+  const { subject, html } = buildProtocolStepEmail(lang, { url, message: null, senderName, hideContact: branding.hideContact, window });
   await enqueueMail(sql, { researchId: research.Id, participantGuid: participant.Guid, to: participant.Email, subject, html, fromName: senderName });
 }
 
 async function emailLink(research, participant, url, window) {
   const lang = participant.Language === 'en' ? 'en' : 'sr';
-  const senderName = research.EmailSenderName || research.StudyDisplayName || research.Name;
-  const { subject, html } = buildProtocolStepEmail(lang, { url, message: null, senderName, window });
+  const branding = resolveBranding({ showBranding: research.ShowBeyondAiBranding, emailSenderName: research.EmailSenderName, studyDisplayName: research.StudyDisplayName, name: research.Name });
+  const senderName = branding.senderName ?? research.Name;
+  const { subject, html } = buildProtocolStepEmail(lang, { url, message: null, senderName, hideContact: branding.hideContact, window });
   await sendMail({ to: participant.Email, subject, html, fromName: senderName });
 }
 
@@ -127,6 +130,8 @@ router.get('/:researchId', async (req, res) => {
     const base = {
       usesSheets: research.UsesSheets, appUrl: appUrl(), canWrite: hasMinRole(req.researcher, researchId, WRITE_ROLES),
       window: { opensAt: win.opensAt?.toISOString() ?? null, closesAt: win.closesAt?.toISOString() ?? null },
+      // The countdown (minutes) that runs from the moment a participant presses Start; null = none.
+      timerMinutes: research.SheetsTimerMinutes ?? null,
     };
     const workbooks = await sql`
       SELECT w."Id", w."Label", w."Title", w."Version", w."UpdatedAt", w."GroupId", w."ResearchTaskId", w."Rules", w."InstructionsSr", w."InstructionsEn",
@@ -156,7 +161,7 @@ router.get('/:researchId', async (req, res) => {
         JOIN "SheetWorkbook" w ON w."Id" = l."WorkbookId" WHERE w."ResearchId" = ${researchId}
       `,
       sql`
-        SELECT e."ParticipantGuid", e."WorkbookId", e."Status", e."UpdatedAt", e."SubmittedAt" FROM "SheetEntry" e
+        SELECT e."ParticipantGuid", e."WorkbookId", e."Status", e."UpdatedAt", e."SubmittedAt", e."IsTimedOut" FROM "SheetEntry" e
         JOIN "SheetWorkbook" w ON w."Id" = e."WorkbookId" WHERE w."ResearchId" = ${researchId}
       `,
     ]);
@@ -173,6 +178,12 @@ router.get('/:researchId', async (req, res) => {
         const wb = pickWorkbook(workbooks, r.GroupId, r.ResearchTaskId);
         const l = (wb && linkBy.get(`${r.Guid}:${wb.Id}`)) ?? anyLink.get(r.Guid);
         const e = (wb && entryBy.get(`${r.Guid}:${wb.Id}`)) ?? anyEntry.get(r.Guid);
+        // Timing: the start is the moment the participant pressed "Start task"; the time is up when the countdown ran out without a hand-in.
+        const started = l?.RulesAcknowledgedAt ? new Date(l.RulesAcknowledgedAt).getTime() : null;
+        const timerMs = research.SheetsTimerMinutes ? research.SheetsTimerMinutes * 60_000 : null;
+        const submitted = e?.Status === 'SUBMITTED';
+        const durationMin = submitted && started && e.SubmittedAt ? Math.max(0, Math.round((new Date(e.SubmittedAt).getTime() - started) / 60_000)) : null;
+        const timeUp = !!(timerMs && started && !submitted && now > started + timerMs);
         return {
           participantId: r.ParticipantId,
           hasEmail: !!r.Email,
@@ -184,7 +195,9 @@ router.get('/:researchId', async (req, res) => {
           noTemplate: !wb,
           link: l ? { url: `${appUrl()}/link/${l.Token}`, expiresAt: l.ExpiresAt, expired: new Date(l.ExpiresAt).getTime() <= now } : null,
           rulesAcknowledgedAt: l?.RulesAcknowledgedAt ?? null,
-          entry: e ? { status: e.Status, updatedAt: e.UpdatedAt, submittedAt: e.SubmittedAt } : null,
+          startedAt: l?.RulesAcknowledgedAt ?? null,
+          timeUp,
+          entry: e ? { status: e.Status, updatedAt: e.UpdatedAt, submittedAt: e.SubmittedAt, timedOut: !!e.IsTimedOut, durationMin } : null,
         };
       }),
     });
@@ -210,11 +223,19 @@ router.put('/:researchId/window', async (req, res) => {
   const closesAt = toDate(req.body?.closesAt);
   if (opensAt === undefined || closesAt === undefined) { res.status(400).json({ error: 'INVALID_DATE' }); return; }
   if (opensAt && closesAt && opensAt >= closesAt) { res.status(400).json({ error: 'WINDOW_ORDER' }); return; }
+  // The countdown is optional in the body: a caller that does not send it leaves it as it is.
+  const hasTimer = req.body && Object.prototype.hasOwnProperty.call(req.body, 'timerMinutes');
+  let timerMinutes = null;
+  if (hasTimer && req.body.timerMinutes != null && req.body.timerMinutes !== '') {
+    timerMinutes = Number(req.body.timerMinutes);
+    if (!Number.isInteger(timerMinutes) || timerMinutes < 1 || timerMinutes > 480) { res.status(400).json({ error: 'INVALID_TIMER' }); return; }
+  }
   try {
     const sql = getDb();
     const research = await loadResearch(sql, researchId);
     if (!research) { res.status(404).json({ error: 'Research not found' }); return; }
     await sql`UPDATE "Research" SET "SheetsOpensAt" = ${opensAt?.toISOString() ?? null}, "SheetsClosesAt" = ${closesAt?.toISOString() ?? null} WHERE "Id" = ${researchId}`;
+    if (hasTimer) await sql`UPDATE "Research" SET "SheetsTimerMinutes" = ${timerMinutes} WHERE "Id" = ${researchId}`;
     // A link already sent must not run out before the table closes.
     if (closesAt) {
       await sql`
@@ -222,7 +243,7 @@ router.put('/:researchId/window', async (req, res) => {
         WHERE l."WorkbookId" IN (SELECT "Id" FROM "SheetWorkbook" WHERE "ResearchId" = ${researchId}) AND l."ExpiresAt" < ${closesAt.toISOString()}
       `;
     }
-    res.json({ ok: true, opensAt: opensAt?.toISOString() ?? null, closesAt: closesAt?.toISOString() ?? null });
+    res.json({ ok: true, opensAt: opensAt?.toISOString() ?? null, closesAt: closesAt?.toISOString() ?? null, ...(hasTimer ? { timerMinutes } : {}) });
   } catch (err) {
     console.error('[sheets] window error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -339,7 +360,7 @@ router.get('/:researchId/participants/:participantId/entry', async (req, res) =>
   try {
     const sql = getDb();
     const rows = await sql`
-      SELECT e."Rows", e."Status", e."UpdatedAt", e."SubmittedAt", e."WorkbookId", l."RulesAcknowledgedAt"
+      SELECT e."Rows", e."Status", e."UpdatedAt", e."SubmittedAt", e."WorkbookId", e."IsTimedOut", l."RulesAcknowledgedAt"
       FROM "SheetEntry" e JOIN "Participant" p ON p."Guid" = e."ParticipantGuid"
       JOIN "SheetWorkbook" w ON w."Id" = e."WorkbookId"
       LEFT JOIN "SheetAccessLink" l ON l."ParticipantGuid" = e."ParticipantGuid" AND l."WorkbookId" = e."WorkbookId"
@@ -350,7 +371,9 @@ router.get('/:researchId/participants/:participantId/entry', async (req, res) =>
     if (!e) { res.status(404).json({ error: 'NO_ENTRY' }); return; }
     const wb = await loadWorkbookById(sql, researchId, e.WorkbookId);
     if (!wb) { res.status(404).json({ error: 'NO_WORKBOOK' }); return; }
-    res.json({ title: wb.Label || wb.Title, status: e.Status, updatedAt: e.UpdatedAt, submittedAt: e.SubmittedAt, rulesAcknowledgedAt: e.RulesAcknowledgedAt ?? null, sheets: describeSheets(wb, e.Rows) });
+    const startedMs = e.RulesAcknowledgedAt ? new Date(e.RulesAcknowledgedAt).getTime() : null;
+    const durationMin = e.Status === 'SUBMITTED' && startedMs && e.SubmittedAt ? Math.max(0, Math.round((new Date(e.SubmittedAt).getTime() - startedMs) / 60_000)) : null;
+    res.json({ title: wb.Label || wb.Title, status: e.Status, updatedAt: e.UpdatedAt, submittedAt: e.SubmittedAt, rulesAcknowledgedAt: e.RulesAcknowledgedAt ?? null, timedOut: !!e.IsTimedOut, durationMin, sheets: describeSheets(wb, e.Rows) });
   } catch (err) {
     console.error('[sheets] entry error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -361,7 +384,7 @@ router.get('/:researchId/participants/:participantId/entry', async (req, res) =>
 // One worksheet per template sheet: the template's header (merged cells included) with a ParticipantId column in
 // front and a Status column at the end, then one row per filled row of every participant. All templates of the research
 // go into one file (each sheet name starts with the template's label), or just one with ?workbookId=.
-function addWorkbookSheets(book, wb, entries, { hasGroups, hasTasks, prefix, withTemplate }, usedNames) {
+function addWorkbookSheets(book, wb, entries, { hasCodes, hasGroups, hasTasks, hasTimer, prefix, withTemplate }, usedNames) {
   const hasRules = !!(wb.InstructionsSr?.trim() || wb.InstructionsEn?.trim());
   const order = wb.Snapshot.sheetOrder ?? Object.keys(wb.Snapshot.sheets);
   for (const id of order) {
@@ -378,10 +401,18 @@ function addWorkbookSheets(book, wb, entries, { hasGroups, hasTasks, prefix, wit
     const statusCol = cols + 2; // ParticipantId is column 1, template columns follow, then Status (1-based)
     // After Status, in this order, only the columns that apply: Group, Task, Template, RulesAcknowledged.
     const extras = [];
+    if (hasCodes) extras.push({ header: 'Code', width: 10, value: (e) => e.ParticipantCode ?? '' });
     if (hasGroups) extras.push({ header: 'Group', width: 16, value: (e) => e.GroupName ?? '' });
     if (hasTasks) extras.push({ header: 'Task', width: 16, value: (e) => e.TaskName ?? '' });
     if (withTemplate) extras.push({ header: 'Template', width: 24, value: () => wb.Label || wb.Title });
     if (hasRules) extras.push({ header: 'RulesAcknowledged', width: 22, value: (e) => (e.RulesAcknowledgedAt ? new Date(e.RulesAcknowledgedAt).toISOString() : '') });
+    // Timing: when the participant pressed Start, when the table was handed in, how many minutes that took, and (with a countdown) whether
+    // the time ran out. Every one of them is empty for a participant who has not started / not handed in.
+    const iso = (v) => (v ? new Date(v).toISOString() : '');
+    extras.push({ header: 'StartedAt', width: 22, value: (e) => iso(e.RulesAcknowledgedAt) });
+    extras.push({ header: 'SubmittedAt', width: 22, value: (e) => (e.Status === 'SUBMITTED' ? iso(e.SubmittedAt) : '') });
+    extras.push({ header: 'DurationMin', width: 14, value: (e) => (e.Status === 'SUBMITTED' && e.RulesAcknowledgedAt && e.SubmittedAt ? Math.max(0, Math.round((new Date(e.SubmittedAt).getTime() - new Date(e.RulesAcknowledgedAt).getTime()) / 60_000)) : '') });
+    if (hasTimer) extras.push({ header: 'TimedOut', width: 12, value: (e) => (e.Status === 'SUBMITTED' ? (e.IsTimedOut ? 'Yes' : 'No') : '') });
     const extraCol = (i) => cols + 3 + i;
 
     // header rows: ParticipantId (merged down), template header cells, Status and the extra columns (merged down)
@@ -442,13 +473,15 @@ router.get('/:researchId/export', async (req, res) => {
     // A trailing Group / Task column only for a research that defines them, so every other export keeps its shape.
     const hasGroups = (await sql`SELECT 1 FROM "ResearchGroup" WHERE "ResearchId" = ${researchId} LIMIT 1`).length > 0;
     const hasTasks = (await sql`SELECT 1 FROM "ResearchTask" WHERE "ResearchId" = ${researchId} LIMIT 1`).length > 0;
+    const hasCodes = (await sql`SELECT 1 FROM "Participant" WHERE "ResearchId" = ${researchId} AND "ParticipantCode" IS NOT NULL LIMIT 1`).length > 0;
+    const hasTimer = !!(await loadResearch(sql, researchId))?.SheetsTimerMinutes;
     const book = new ExcelJS.Workbook();
     const usedNames = new Set();
     const several = chosen.length > 1;
     for (const slot of chosen) {
       const wb = await loadWorkbookById(sql, researchId, slot.Id);
       const entries = await sql`
-        SELECT p."ParticipantId", g."Name" AS "GroupName", t."Name" AS "TaskName", l."RulesAcknowledgedAt", e."Rows", e."Status"
+        SELECT p."ParticipantId", p."ParticipantCode", g."Name" AS "GroupName", t."Name" AS "TaskName", l."RulesAcknowledgedAt", e."Rows", e."Status", e."SubmittedAt", e."IsTimedOut"
         FROM "SheetEntry" e JOIN "Participant" p ON p."Guid" = e."ParticipantGuid"
         LEFT JOIN "ResearchGroup" g ON g."Id" = p."GroupId"
         LEFT JOIN "ResearchTask" t ON t."Id" = p."ResearchTaskId"
@@ -456,7 +489,7 @@ router.get('/:researchId/export', async (req, res) => {
         WHERE e."WorkbookId" = ${wb.Id} AND p."ResearchId" = ${researchId}
         ORDER BY p."ParticipantId"
       `;
-      addWorkbookSheets(book, wb, entries, { hasGroups, hasTasks, prefix: several ? (wb.Label || wb.Title || `T${wb.Id}`) : '', withTemplate: several }, usedNames);
+      addWorkbookSheets(book, wb, entries, { hasCodes, hasGroups, hasTasks, hasTimer, prefix: several ? (wb.Label || wb.Title || `T${wb.Id}`) : '', withTemplate: several }, usedNames);
     }
     const buffer = await book.xlsx.writeBuffer();
     const fileLabel = only != null ? String(chosen[0].Label || chosen[0].Title || only).replace(/[^A-Za-z0-9_-]+/g, '-').slice(0, 40) : 'all';

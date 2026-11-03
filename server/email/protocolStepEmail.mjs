@@ -67,7 +67,7 @@ function noteFor(t, lang, window) {
  *   `url` present = a "next step" email with a button; absent = a plain message email.
  * @returns {{ subject: string, html: string }}
  */
-export function buildProtocolStepEmail(lang, { url, message, senderName, window = null }) {
+export function buildProtocolStepEmail(lang, { url, message, senderName, hideContact = false, window = null }) {
   const t = COPY[lang] ?? COPY.sr;
   const brand = escapeHtml(senderName?.trim() || DEFAULT_SENDER_NAME);
   const hasButton = !!url;
@@ -107,11 +107,11 @@ export function buildProtocolStepEmail(lang, { url, message, senderName, window 
             ${button}
           </td>
         </tr>
-        <tr>
+${hideContact ? '' : `<tr>
           <td style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
             <p style="margin:0;font-size:12px;color:#6b7280;">${t.footer} <a href="mailto:beyondai.researchgroup@gmail.com" style="color:#16a34a;">beyondai.researchgroup@gmail.com</a></p>
           </td>
-        </tr>
+        </tr>`}
       </table>
     </td></tr>
   </table>

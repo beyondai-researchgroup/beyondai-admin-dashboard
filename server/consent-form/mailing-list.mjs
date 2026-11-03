@@ -15,6 +15,7 @@ import { getDb } from '../db.mjs';
 import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
 import { sendMail } from '../email/mailer.mjs';
+import { resolveBranding } from '../email/branding.mjs';
 import { buildConsentLinkEmail } from '../email/consentLinkEmail.mjs';
 import { isValidSlug } from '../researches/slug.mjs';
 
@@ -170,7 +171,7 @@ router.post('/:researchId/mailing-list', upload.single('file'), async (req, res)
   try {
     const sql = getDb();
     const researchRows = await sql`
-      SELECT "Name", "StudyDisplayName", "EmailSenderName", "ConsentLanguageSr", "ConsentLanguageEn", "ConsentPortalActive"
+      SELECT "Name", "StudyDisplayName", "EmailSenderName", "ConsentLanguageSr", "ConsentLanguageEn", "ConsentPortalActive", "ShowBeyondAiBranding"
       FROM "Research" WHERE "Id" = ${id} LIMIT 1
     `;
     if (!researchRows.length) {
@@ -187,7 +188,8 @@ router.post('/:researchId/mailing-list', upload.single('file'), async (req, res)
     }
     const allowedLangs = [research.ConsentLanguageSr && 'sr', research.ConsentLanguageEn && 'en'].filter(Boolean);
     const defaultLang = research.ConsentLanguageSr ? 'sr' : 'en';
-    const senderName = research.EmailSenderName || research.StudyDisplayName || research.Name || undefined;
+    const branding = resolveBranding({ showBranding: research.ShowBeyondAiBranding, emailSenderName: research.EmailSenderName, studyDisplayName: research.StudyDisplayName, name: research.Name });
+    const senderName = branding.senderName ?? undefined;
 
     let rows;
     try {
@@ -267,6 +269,7 @@ router.post('/:researchId/mailing-list', upload.single('file'), async (req, res)
         const { subject, html } = buildConsentLinkEmail(resolvedLang === 'en' ? 'en' : 'sr', {
           url: `${CONSENT_APP_URL}/link/${token}`,
           senderName,
+          hideContact: branding.hideContact,
         });
         await sendMail({ to: resolvedEmail, subject, html, fromName: senderName });
         sent++;

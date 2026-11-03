@@ -14,6 +14,7 @@
   } @else if (!m.participants.length) {
     <div class="empty-state">{{ 'PROTOCOL_PROGRESS.NO_PARTICIPANTS' | translate }}</div>
   } @else {
+    <app-participant-codes-actions [total]="codeCounts().total" [withCode]="codeCounts().withCode" (changed)="reloadCodes()"></app-participant-codes-actions>
     <div class="card summary-card">
       <div class="summary-stats">
         <span><strong>{{ stats().total }}</strong> {{ 'PROTOCOL_PROGRESS.STAT_TOTAL' | translate }}</span>
@@ -194,6 +195,7 @@
         <thead>
           <tr>
             <th>{{ 'PROTOCOL_PROGRESS.COL_PARTICIPANT' | translate }}</th>
+            @if (codeCounts().withCode > 0) { <th>{{ 'CODES.COL' | translate }}</th> }
             @if (hasGroups()) {
               <th>{{ 'PROTOCOL_PROGRESS.COL_GROUP' | translate }}</th>
             }
@@ -230,6 +232,7 @@
                   <span class="mail-pill mail-pill--failed" [attr.title]="'PROTOCOL_PROGRESS.MAIL_FAILED_HINT' | translate">{{ 'PROTOCOL_PROGRESS.MAIL_FAILED' | translate }}</span>
                 }
               </td>
+              @if (codeCounts().withCode > 0) { <td class="code-cell">{{ p.participantCode ?? '' }}</td> }
               @if (hasGroups()) {
                 <td class="group-col" (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
                   <app-select

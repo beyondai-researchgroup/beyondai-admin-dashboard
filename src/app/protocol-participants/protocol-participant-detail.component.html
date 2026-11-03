@@ -1,6 +1,9 @@
 <div class="page-header">
   <a class="back-link" routerLink="/protocol-participants">← {{ 'PROTOCOL_PROGRESS.BACK' | translate }}</a>
   <h2>{{ 'PROTOCOL_PROGRESS.DETAIL_TITLE' | translate: { id: participantId } }}</h2>
+  @if (timeline()?.participantCode; as code) {
+    <p>{{ 'CODES.COL' | translate }}: <strong>{{ code }}</strong></p>
+  }
 </div>
 
 @if (loading() && !timeline()) {

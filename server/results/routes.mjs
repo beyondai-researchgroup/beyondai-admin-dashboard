@@ -4,6 +4,7 @@ import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
 import { toAggregateResponse } from './aggregate.mjs';
 import { toCsv } from './csv.mjs';
+import { withCodes } from '../participants/code.mjs';
 
 const router = Router();
 router.use(requireAuth);
@@ -128,7 +129,7 @@ router.get('/tlx/export', async (req, res) => {
     `;
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="tlx-results.csv"');
-    res.send(toCsv(rows));
+    res.send(toCsv(await withCodes(sql, researchId, rows)));
   } catch (err) {
     console.error('[results] tlx export error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -197,7 +198,7 @@ router.get('/rei40/export', async (req, res) => {
     `;
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="rei40-results.csv"');
-    res.send(toCsv(rows));
+    res.send(toCsv(await withCodes(sql, researchId, rows)));
   } catch (err) {
     console.error('[results] rei40 export error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -263,7 +264,7 @@ router.get('/bigfive/export', async (req, res) => {
     `;
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="bigfive-results.csv"');
-    res.send(toCsv(rows));
+    res.send(toCsv(await withCodes(sql, researchId, rows)));
   } catch (err) {
     console.error('[results] bigfive export error:', err);
     res.status(500).json({ error: 'Database error' });

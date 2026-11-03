@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { enqueueMail, kickOutbox } from '../email/outbox.mjs';
 import { buildProtocolStepEmail } from '../email/protocolStepEmail.mjs';
+import { resolveBranding } from '../email/branding.mjs';
 import { resolveSheetWorkbook, upsertSheetLink, loadSheetsWindow, sheetLinkExpiry } from '../sheets/resolve.mjs';
 
 // Research-protocol engine (2026-10). Decides, for ONE participant of a PROTOCOL research, which step
@@ -70,7 +71,7 @@ async function loadContext(sql, participantGuid) {
   if (!prow.length) return null;
   const participant = prow[0];
   const rrow = await sql`
-    SELECT "Id","FlowMode","Name","StudyDisplayName","EmailSenderName","ConsentLanguageSr","ConsentLanguageEn","GoogleFormsUrl"
+    SELECT "Id","FlowMode","Name","StudyDisplayName","EmailSenderName","ShowBeyondAiBranding","ConsentLanguageSr","ConsentLanguageEn","GoogleFormsUrl"
     FROM "Research" WHERE "Id" = ${participant.ResearchId} LIMIT 1
   `;
   const research = rrow[0];
@@ -230,17 +231,19 @@ async function emailStep(sql, ctx, step, url, window = null) {
   const body = step.StepType === 'MESSAGE'
     ? (lang === 'en' ? step.Config?.bodyEn : step.Config?.bodySr)
     : message;
+  const branding = resolveBranding({ showBranding: research.ShowBeyondAiBranding, emailSenderName: research.EmailSenderName, studyDisplayName: research.StudyDisplayName, name: research.Name });
   const { subject, html } = buildProtocolStepEmail(lang, {
     url: step.StepType === 'MESSAGE' ? null : url,
     message: body,
-    senderName: research.EmailSenderName || research.StudyDisplayName || research.Name,
+    senderName: branding.senderName ?? research.Name,
+    hideContact: branding.hideContact,
     window,
   });
   // Written to the outbox and sent by the drain, within the daily limit of the mail relay (a bulk start would otherwise hit
   // the quota or the function's time limit). The step counts as sent once its link exists and the message is queued.
   await enqueueMail(sql, {
     researchId: research.Id, participantGuid: participant.Guid, stepId: step.Id, to: participant.Email, subject, html,
-    fromName: research.EmailSenderName || research.StudyDisplayName || research.Name,
+    fromName: branding.senderName ?? research.Name,
   });
   await kickOutbox(sql);
 }

@@ -72,7 +72,7 @@ router.get('/:id', async (req, res) => {
              "UsesDemographics", "UsesSheets", "TracksParticipants", "ConsentLanguageSr", "ConsentLanguageEn", "FlowMode",
              "SetupComplete", (SELECT COUNT(*)::int FROM "ResearchGroup" g WHERE g."ResearchId" = "Research"."Id") AS "GroupCount",
              "TimerCodeReviewEnabled", "TimerCodeReviewMinutes", "TimerRei40Enabled", "TimerRei40Minutes",
-             "TimerBigFiveEnabled", "TimerBigFiveMinutes", "TimerNasaTlxEnabled", "TimerNasaTlxMinutes"
+             "TimerBigFiveEnabled", "TimerBigFiveMinutes", "TimerNasaTlxEnabled", "TimerNasaTlxMinutes", "ShowBeyondAiBranding"
       FROM "Research" WHERE "Id" = ${id} LIMIT 1
     `;
     const r = rows[0];
@@ -139,6 +139,9 @@ router.get('/:id', async (req, res) => {
       timerBigFiveMinutes: r.TimerBigFiveMinutes,
       timerNasaTlxEnabled: r.TimerNasaTlxEnabled,
       timerNasaTlxMinutes: r.TimerNasaTlxMinutes,
+      // Branding (2026-11): false hides the BeyondAI logo / "BeyondAI Research Group" from everything a participant of this research
+      // sees (every participant app's header and tab, the brand line of participant emails). Admin / researcher apps keep the logo.
+      showBeyondAiBranding: r.ShowBeyondAiBranding !== false,
     });
   } catch (err) {
     console.error('[study-config] get error:', err);
@@ -159,7 +162,7 @@ router.put('/:id', async (req, res) => {
     usesPsychTests, studyDisplayName, emailSenderName, usesConsentForm, usesDemographics, usesSheets,
     tracksParticipants, consentLanguageSr, consentLanguageEn,
     timerCodeReviewEnabled, timerCodeReviewMinutes, timerRei40Enabled, timerRei40Minutes,
-    timerBigFiveEnabled, timerBigFiveMinutes, timerNasaTlxEnabled, timerNasaTlxMinutes,
+    timerBigFiveEnabled, timerBigFiveMinutes, timerNasaTlxEnabled, timerNasaTlxMinutes, showBeyondAiBranding,
   } = req.body ?? {};
   const timerValues = {
     CodeReview: [timerCodeReviewEnabled, timerCodeReviewMinutes],
@@ -209,6 +212,10 @@ router.put('/:id', async (req, res) => {
   }
   if (typeof usesDemographics !== 'boolean') {
     res.status(400).json({ error: 'usesDemographics must be a boolean' });
+    return;
+  }
+  if (typeof showBeyondAiBranding !== 'boolean') {
+    res.status(400).json({ error: 'showBeyondAiBranding must be a boolean' });
     return;
   }
   if (typeof usesSheets !== 'boolean') {
@@ -272,6 +279,7 @@ router.put('/:id', async (req, res) => {
           "UsesConsentForm" = ${usesConsentForm},
           "UsesDemographics" = ${usesDemographics},
           "UsesSheets" = ${usesSheets},
+          "ShowBeyondAiBranding" = ${showBeyondAiBranding},
           "TracksParticipants" = ${effectiveTracksParticipants},
           "ConsentLanguageSr" = ${consentLanguageSr}, "ConsentLanguageEn" = ${consentLanguageEn},
           "TimerCodeReviewEnabled" = ${timerCodeReviewEnabled}, "TimerCodeReviewMinutes" = ${timerCodeReviewEnabled ? timerCodeReviewMinutes : null},

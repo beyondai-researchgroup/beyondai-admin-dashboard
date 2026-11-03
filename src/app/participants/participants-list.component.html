@@ -9,11 +9,13 @@
 } @else if (!participants().length) {
   <div class="empty-state">{{ 'PARTICIPANTS.EMPTY' | translate }}</div>
 } @else {
+  <app-participant-codes-actions [total]="participants().length" [withCode]="withCode()" (changed)="reload()"></app-participant-codes-actions>
   <div class="table-wrap">
     <table class="data-table">
       <thead>
         <tr>
           <th>{{ 'PARTICIPANTS.COL_ID' | translate }}</th>
+          @if (withCode() > 0) { <th>{{ 'CODES.COL' | translate }}</th> }
           <th>{{ 'PARTICIPANTS.COL_PHASE' | translate }}</th>
           <th>Intro</th>
           <th>AI</th>
@@ -32,6 +34,7 @@
                 <span class="status-badge status-badge--test">{{ 'PARTICIPANTS.TEST_BADGE' | translate }}</span>
               }
             </td>
+            @if (withCode() > 0) { <td class="code-cell">{{ p.participantCode ?? '' }}</td> }
             <td>{{ currentPhase(p) ?? ('PARTICIPANTS.PHASE_ALL_DONE' | translate) }}</td>
             @for (sessionId of [1, 2, 3]; track sessionId) {
               <td>

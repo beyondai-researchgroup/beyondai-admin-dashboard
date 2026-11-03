@@ -56,6 +56,7 @@
         <div class="window-head">
           <strong>{{ 'SHEETS.WINDOW_TITLE' | translate }}</strong>
           <span class="muted">{{ 'SHEETS.WINDOW_HINT' | translate }}</span>
+          <span class="muted">{{ 'SHEETS.TIMER_HINT' | translate }}</span>
         </div>
         <div class="window-fields">
           <label class="window-field">
@@ -65,6 +66,10 @@
           <label class="window-field">
             <span class="field-label">{{ 'SHEETS.WINDOW_CLOSES' | translate }}</span>
             <input type="datetime-local" class="text-input" [value]="closesInput()" [disabled]="!o.canWrite" (input)="closesInput.set($any($event.target).value)" />
+          </label>
+          <label class="window-field window-field--timer">
+            <span class="field-label">{{ 'SHEETS.TIMER_LABEL' | translate }}</span>
+            <input type="number" min="1" max="480" step="1" class="text-input" [value]="timerInput()" [disabled]="!o.canWrite" [placeholder]="'SHEETS.TIMER_PLACEHOLDER' | translate" (input)="timerInput.set($any($event.target).value)" />
           </label>
           @if (o.canWrite) {
             <button type="button" class="btn-primary form-submit" [disabled]="windowSaving() || !windowDirty()" (click)="saveWindow()">{{ (windowSaving() ? 'SHEETS.SENDING' : 'SHEETS.WINDOW_SAVE') | translate }}</button>
@@ -133,9 +138,13 @@
                     </td>
                   }
                   <td>
-                    @if (!p.entry) { <span class="muted">{{ 'SHEETS.ENTRY_NONE' | translate }}</span> }
-                    @else if (p.entry.status === 'DRAFT') { <span class="pill pill--draft">{{ 'SHEETS.ENTRY_DRAFT' | translate }}</span> }
-                    @else { <span class="pill pill--done">{{ 'SHEETS.ENTRY_SUBMITTED' | translate: { date: (p.entry.submittedAt | date: 'dd.MM.yyyy. HH:mm') } }}</span> }
+                    @if (p.entry?.status === 'SUBMITTED') {
+                      <span class="pill pill--done">{{ 'SHEETS.ENTRY_SUBMITTED' | translate: { date: (p.entry!.submittedAt | date: 'dd.MM.yyyy. HH:mm') } }}</span>
+                      @if (p.entry!.timedOut) { <span class="pill pill--warn">{{ 'SHEETS.ENTRY_TIMED_OUT' | translate }}</span> }
+                      @if (p.entry!.durationMin != null) { <span class="muted duration">{{ 'SHEETS.ENTRY_DURATION' | translate: { min: p.entry!.durationMin } }}</span> }
+                    } @else if (p.timeUp) { <span class="pill pill--warn">{{ 'SHEETS.ENTRY_TIME_UP' | translate }}</span> }
+                    @else if (!p.entry) { <span class="muted">{{ (p.startedAt ? 'SHEETS.ENTRY_STARTED' : 'SHEETS.ENTRY_NONE') | translate }}</span> }
+                    @else { <span class="pill pill--draft">{{ 'SHEETS.ENTRY_DRAFT' | translate }}</span> }
                   </td>
                   <td class="actions">
                     @if (p.entry) {
@@ -170,6 +179,12 @@
         </span>
         <button type="button" class="btn-ghost btn-ghost--small" (click)="closeView()">{{ 'SHEETS.CLOSE' | translate }}</button>
       </div>
+      @if (v.entry.timedOut) {
+        <p class="warn rules-note">{{ 'SHEETS.VIEW_TIMED_OUT' | translate }}</p>
+      }
+      @if (v.entry.durationMin != null) {
+        <p class="muted rules-note">{{ 'SHEETS.VIEW_DURATION' | translate: { min: v.entry.durationMin } }}</p>
+      }
       @if (v.entry.rulesAcknowledgedAt) {
         <p class="muted rules-note">{{ 'SHEETS.RULES_CONFIRMED_AT' | translate: { date: (v.entry.rulesAcknowledgedAt | date: 'dd.MM.yyyy. HH:mm') } }}</p>
       }

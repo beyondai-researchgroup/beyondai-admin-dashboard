@@ -178,7 +178,9 @@
     "LANGUAGES_HEADING": "Participant languages",
     "SHEETS_HEADING": "Tables",
     "USES_SHEETS_LABEL": "This research uses Excel-like tables",
-    "USES_SHEETS_HINT": "Switches on the \"Tables\" page: the template is built in a separate app and participants fill it in through a personal link. You review and export the results here."
+    "USES_SHEETS_HINT": "Switches on the \"Tables\" page: the template is built in a separate app and participants fill it in through a personal link. You review and export the results here.",
+    "SHOW_BRANDING_LABEL": "Show the BeyondAI logo and name to participants",
+    "SHOW_BRANDING_HINT": "When off, participants of this research see no BeyondAI logo or \"BeyondAI Research Group\" name in any app (nor in the browser tab), and emails carry \"Empirical Software Engineering Platform\" instead (or the sender name set above, if any) with no contact address in the footer. The admin dashboard is unchanged."
   },
   "CALENDAR": {
     "TITLE": "Calendar",
@@ -1285,7 +1287,17 @@
     "WINDOW_SAVE": "Save the time",
     "WINDOW_CLEAR": "Remove the limit",
     "WINDOW_SAVED": "The availability time was saved.",
-    "ERR_WINDOW_ORDER": "The opening time must be before the closing time."
+    "ERR_WINDOW_ORDER": "The opening time must be before the closing time.",
+    "TIMER_LABEL": "Time to complete (min)",
+    "TIMER_PLACEHOLDER": "no limit",
+    "TIMER_HINT": "Time to complete: how many minutes a participant has from pressing \"Start task\". When it runs out, the table is submitted automatically with what they had entered. Leave empty for no countdown.",
+    "ERR_TIMER": "The time to complete must be a whole number of minutes from 1 to 480.",
+    "ENTRY_STARTED": "started, nothing entered yet",
+    "ENTRY_TIMED_OUT": "timed out",
+    "ENTRY_TIME_UP": "time is up, not submitted",
+    "ENTRY_DURATION": "took {{min}} min",
+    "VIEW_TIMED_OUT": "The table was submitted automatically because the time to complete ran out.",
+    "VIEW_DURATION": "Time from start to submission: {{min}} min."
   },
   "RESEARCH_DESIGN": {
     "TITLE": "Research design",
@@ -1580,5 +1592,20 @@
     "CLEAR": "Clear formatting",
     "UNDO": "Undo",
     "REDO": "Redo"
+  },
+  "CODES": {
+    "COL": "Code",
+    "HINT": "The code is a random four-digit number you can use instead of the real ID in data analysis and in papers. Download the key (ID and code) and keep it separately.",
+    "ASSIGN": "Assign codes ({{count}})",
+    "ASSIGNED": "Codes assigned: {{count}}.",
+    "DOWNLOAD_KEY": "Download key (ID and code)",
+    "EXHAUSTED": "There are not enough free four-digit codes in this research (there are 9000 in total).",
+    "ERROR": "The action failed. Please try again.",
+    "IMPORT_ASSIGNED": "Four-digit codes assigned: {{count}}.",
+    "OVERVIEW_TITLE": "Overview of the imported participants",
+    "OVERVIEW_ID": "Participant ID",
+    "OVERVIEW_GROUP": "Group",
+    "OVERVIEW_TASK": "Task",
+    "OVERVIEW_NO_GROUPS": "Groups are not assigned yet: do it on the Participants page."
   }
 }

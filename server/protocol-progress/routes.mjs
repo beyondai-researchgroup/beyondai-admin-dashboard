@@ -74,7 +74,7 @@ async function protocolResearch(req, res, write) {
 
 async function findParticipant(sql, researchId, participantId) {
   const rows = await sql`
-    SELECT p."Guid", p."ParticipantId", p."Email", p."Language", p."GroupId", g."Name" AS "GroupName",
+    SELECT p."Guid", p."ParticipantId", p."ParticipantCode", p."Email", p."Language", p."GroupId", g."Name" AS "GroupName",
            p."ResearchTaskId", t."Name" AS "TaskName",
            p."CodeReviewPrConfigId", pc."Label" AS "PrLabel"
     FROM "Participant" p LEFT JOIN "ResearchGroup" g ON g."Id" = p."GroupId"
@@ -99,7 +99,7 @@ router.get('/:researchId/participants', async (req, res) => {
       SELECT "Id","StepType","TitleSr","TitleEn","Delivery" FROM "ResearchProtocolStep" WHERE "ResearchId" = ${research.Id} ORDER BY "SortOrder","Id"
     `;
     const participants = await sql`
-      SELECT p."Guid", p."ParticipantId", p."Email", p."Language", p."GroupId", g."Name" AS "GroupName",
+      SELECT p."Guid", p."ParticipantId", p."ParticipantCode", p."Email", p."Language", p."GroupId", g."Name" AS "GroupName",
              p."ResearchTaskId", t."Name" AS "TaskName", p."GroupAssignedBy", p."TaskAssignedBy",
              p."CodeReviewPrConfigId", pc."Label" AS "PrLabel",
              (SELECT COUNT(*)::int FROM "EmailOutbox" o WHERE o."ParticipantGuid" = p."Guid" AND o."Status" IN ('PENDING','SENDING')) AS "MailPending",
@@ -146,6 +146,7 @@ router.get('/:researchId/participants', async (req, res) => {
         const finished = started && steps.length > 0 && steps.every((s) => ['COMPLETED', 'SKIPPED'].includes(statuses[s.Id]?.status));
         return {
           participantId: p.ParticipantId, hasEmail: !!p.Email, language: p.Language, started, finished, statuses,
+          participantCode: p.ParticipantCode ?? null,
           groupId: p.GroupId ?? null, groupName: p.GroupName ?? null, groupAssignedBy: p.GroupAssignedBy ?? null,
           taskId: p.ResearchTaskId ?? null, taskName: p.TaskName ?? null, taskAssignedBy: p.TaskAssignedBy ?? null,
           mailPending: p.MailPending, mailFailed: p.MailFailed, nextSlot: p.NextSlot ?? null,
@@ -229,6 +230,7 @@ router.get('/:researchId/participants/:participantId', async (req, res) => {
       language: p.Language,
       groupId: p.GroupId ?? null,
       groupName: p.GroupName ?? null,
+      participantCode: p.ParticipantCode ?? null,
       prConfigId: p.CodeReviewPrConfigId ?? null,
       prLabel: p.PrLabel ?? null,
       started: progress.size > 0,
