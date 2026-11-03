@@ -38,6 +38,8 @@ export class ProtocolParticipantsComponent {
   private studyConfig = inject(StudyConfigStoreService);
 
   readonly matrix = signal<ProtocolMatrix | null>(null);
+  /** The legend explains the work-state icons only when some Sheets task has them. */
+  readonly hasSheetsStep = computed(() => (this.matrix()?.participants ?? []).some((p) => Object.values(p.statuses).some((c) => !!c.activity)));
   readonly loading = signal(false);
   readonly error = signal(false);
   readonly busy = signal(false);
@@ -276,9 +278,24 @@ export class ProtocolParticipantsComponent {
     return p.statuses[stepId]?.status ?? 'NOT_REACHED';
   }
 
+  cellClass(p: ProtocolMatrixParticipant, stepId: number): string {
+    const a = p.statuses[stepId]?.activity;
+    return 'cell cell--' + this.statusOf(p, stepId) + (a ? ' cell--act-' + a : '');
+  }
+
+  /** The icon: a sent Sheets task shows whether the participant has started / is working. */
+  cellIcon(p: ProtocolMatrixParticipant, stepId: number): string {
+    const st = this.statusOf(p, stepId);
+    const a = p.statuses[stepId]?.activity;
+    if (st === 'SENT' && a === 'WORKING') return '✎';
+    if (st === 'SENT' && a === 'STARTED') return '▸';
+    return this.statusIcon(st);
+  }
+
   cellTitle(p: ProtocolMatrixParticipant, stepId: number): string {
     const c = p.statuses[stepId];
-    const label = this.translate.instant('PROTOCOL_PROGRESS.STATUS_' + (c?.status ?? 'NOT_REACHED'));
+    const base = this.translate.instant('PROTOCOL_PROGRESS.STATUS_' + (c?.status ?? 'NOT_REACHED'));
+    const label = c?.activity ? base + ' - ' + this.translate.instant('PROTOCOL_PROGRESS.ACTIVITY_' + c.activity) : base;
     const when = c?.completedAt ?? c?.scheduledFor ?? c?.sentAt;
     return when ? `${label} · ${new Date(when).toLocaleString()}` : label;
   }

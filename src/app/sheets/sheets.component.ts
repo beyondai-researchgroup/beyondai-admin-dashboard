@@ -73,10 +73,12 @@ export class SheetsComponent {
   readonly closesInput = signal('');
   /** The countdown in minutes ("" = none). */
   readonly timerInput = signal('');
+  /** The earliest hand-in, in minutes from Start ("" = any time). */
+  readonly minSubmitInput = signal('');
   readonly windowSaving = signal(false);
   readonly windowDirty = computed(() => {
     const w = this.overview()?.window;
-    return this.opensInput() !== this.toInput(w?.opensAt) || this.closesInput() !== this.toInput(w?.closesAt) || this.timerInput() !== this.timerToInput(this.overview()?.timerMinutes);
+    return this.opensInput() !== this.toInput(w?.opensAt) || this.closesInput() !== this.toInput(w?.closesAt) || this.timerInput() !== this.timerToInput(this.overview()?.timerMinutes) || this.minSubmitInput() !== this.timerToInput(this.overview()?.minSubmitMinutes);
   });
 
   /** ISO (UTC) -> the value of a datetime-local input in the researcher's own time zone. */
@@ -95,13 +97,16 @@ export class SheetsComponent {
     if (this.researchId == null || this.windowSaving()) return;
     const timer = this.timerInput().trim() === '' ? null : Number(this.timerInput());
     if (timer != null && (!Number.isInteger(timer) || timer < 1 || timer > 480)) { this.say('SHEETS.ERR_TIMER', 'error'); return; }
+    const minSubmit = this.minSubmitInput().trim() === '' ? null : Number(this.minSubmitInput());
+    if (minSubmit != null && (!Number.isInteger(minSubmit) || minSubmit < 1 || minSubmit > 479)) { this.say('SHEETS.ERR_MIN_SUBMIT', 'error'); return; }
+    if (minSubmit != null && timer != null && minSubmit >= timer) { this.say('SHEETS.ERR_MIN_AFTER_TIMER', 'error'); return; }
     this.windowSaving.set(true);
     this.message.set(null);
     const iso = (v: string) => (v ? new Date(v).toISOString() : null);
-    const res = await this.api.saveSheetsWindow(this.researchId, { opensAt: iso(this.opensInput()), closesAt: iso(this.closesInput()), timerMinutes: timer });
+    const res = await this.api.saveSheetsWindow(this.researchId, { opensAt: iso(this.opensInput()), closesAt: iso(this.closesInput()), timerMinutes: timer, minSubmitMinutes: minSubmit });
     this.windowSaving.set(false);
     if (res.ok) this.say('SHEETS.WINDOW_SAVED', 'ok');
-    else this.say(res.error === 'WINDOW_ORDER' ? 'SHEETS.ERR_WINDOW_ORDER' : res.error === 'INVALID_TIMER' ? 'SHEETS.ERR_TIMER' : 'SHEETS.ERR_GENERIC', 'error');
+    else this.say(res.error === 'WINDOW_ORDER' ? 'SHEETS.ERR_WINDOW_ORDER' : res.error === 'INVALID_TIMER' ? 'SHEETS.ERR_TIMER' : res.error === 'INVALID_MIN_SUBMIT' ? 'SHEETS.ERR_MIN_SUBMIT' : res.error === 'MIN_SUBMIT_AFTER_TIMER' ? 'SHEETS.ERR_MIN_AFTER_TIMER' : 'SHEETS.ERR_GENERIC', 'error');
     await this.load(this.researchId);
   }
 
@@ -129,6 +134,7 @@ export class SheetsComponent {
       this.opensInput.set(this.toInput(o.window?.opensAt));
       this.closesInput.set(this.toInput(o.window?.closesAt));
       this.timerInput.set(this.timerToInput(o.timerMinutes));
+      this.minSubmitInput.set(this.timerToInput(o.minSubmitMinutes));
     } catch {
       this.loadError.set(true);
     } finally {

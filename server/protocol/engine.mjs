@@ -224,6 +224,16 @@ export async function mintStepUrl(sql, participant, step) {
   return null;
 }
 
+/** The live link of a forms-app step: the one already issued while it is valid, else a new one. */
+async function currentStepUrl(sql, participant, step) {
+  const rows = await sql`
+    SELECT "Token" FROM "ProtocolStepLink"
+    WHERE "ParticipantGuid" = ${participant.Guid} AND "StepId" = ${step.Id} AND "ExpiresAt" > NOW() LIMIT 1
+  `;
+  if (rows.length) return `${urls().FORMS}/link/${rows[0].Token}`;
+  return mintStepUrl(sql, participant, step);
+}
+
 async function emailStep(sql, ctx, step, url, window = null) {
   const { participant, research } = ctx;
   const lang = resolveLang(participant, research);
@@ -254,7 +264,7 @@ async function emailStep(sql, ctx, step, url, window = null) {
  *  - MESSAGE step: the message is emailed and the step is complete.
  *  - every other step: a link is minted and emailed; the step is SENT until the participant completes it.
  */
-async function sendStep(sql, ctx, step) {
+async function sendStep(sql, ctx, step, { immediate = false } = {}) {
   const guid = ctx.participant.Guid;
   if (step.StepType === 'MANUAL') {
     await setStatus(sql, guid, step.Id, 'SENT', { sent: true });
@@ -265,6 +275,12 @@ async function sendStep(sql, ctx, step) {
   if (blocker) return { ok: false, reason: blocker };
   if (step.StepType === 'EXPERIMENT' && step.Config?.taskKind === 'CODE_REVIEW') await ensureReviewSessions(sql, ctx, step);
   const url = step.StepType === 'MESSAGE' ? null : await mintStepUrl(sql, ctx.participant, step);
+  // A questionnaire set to "open right after the table is handed in" is not e-mailed when the hand-in page asks for it: the link is made
+  // and returned, and the participant is taken there at once. Any other trigger (the daily sweep, a missed notification) still sends the e-mail.
+  if (immediate && url && step.StepType === 'QUESTIONNAIRE' && step.Config?.openImmediately === true) {
+    await setStatus(sql, guid, step.Id, 'SENT', { sent: true });
+    return { ok: true, sent: true, openUrl: url };
+  }
   try {
     const window = step.StepType === 'EXPERIMENT' && step.Config?.taskKind === 'SHEETS' ? await loadSheetsWindow(sql, ctx.participant.ResearchId) : null;
     await emailStep(sql, ctx, step, url, window);
@@ -286,7 +302,7 @@ const isFinishedStatus = (s) => s === 'COMPLETED' || s === 'SKIPPED';
  *   forceStepId   — send this step now regardless of its delivery setting (researcher's "send now")
  * @returns {Promise<{ ok: boolean, reason?: string, sent: number[], current: number|null, finished: boolean }>}
  */
-export async function advanceParticipant(sql, participantGuid, { start = false, forceStepId = null } = {}) {
+export async function advanceParticipant(sql, participantGuid, { start = false, forceStepId = null, immediate = false } = {}) {
   let ctx = await loadContext(sql, participantGuid);
   if (!ctx) return { ok: false, reason: 'NOT_PROTOCOL', sent: [], current: null, finished: false };
   if (ctx.steps.length === 0) return { ok: false, reason: 'EMPTY_PROTOCOL', sent: [], current: null, finished: false };
@@ -333,7 +349,12 @@ export async function advanceParticipant(sql, participantGuid, { start = false, 
     const force = forceStepId === step.Id;
     const now = new Date();
 
-    if (row?.Status === 'SENT') return { ok: true, sent, current: step.Id, finished: false, reason };
+    if (row?.Status === 'SENT') {
+      // A questionnaire set to open straight after the table: whoever asks (the participant coming back to the handed-in table) gets its
+      // link again, so handing in can never end without the questionnaire opening.
+      const openUrl = immediate && step.StepType === 'QUESTIONNAIRE' && step.Config?.openImmediately === true ? await currentStepUrl(sql, ctx.participant, step) : null;
+      return { ok: true, sent, current: step.Id, finished: false, reason, openUrl };
+    }
 
     if (row?.Status === 'SCHEDULED' && !force) {
       if (new Date(row.ScheduledFor) > now) return { ok: true, sent, current: step.Id, finished: false, reason };
@@ -362,12 +383,12 @@ export async function advanceParticipant(sql, participantGuid, { start = false, 
       continue;
     }
 
-    const result = await sendStep(sql, ctx, step);
+    const result = await sendStep(sql, ctx, step, { immediate });
     if (!result.ok) return { ok: false, reason: result.reason, sent, current: step.Id, finished: false };
     if (result.sent) sent.push(step.Id);
     reason = undefined;
     // A completed message step lets the loop move on to the next step; anything else waits for the participant.
-    if (step.StepType !== 'MESSAGE') return { ok: true, sent, current: step.Id, finished: false };
+    if (step.StepType !== 'MESSAGE') return { ok: true, sent, current: step.Id, finished: false, openUrl: result.openUrl ?? null };
   }
   return { ok: true, sent, current: null, finished: false };
 }

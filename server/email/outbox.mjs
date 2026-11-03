@@ -16,9 +16,12 @@ const QUOTA_ERROR = /too many times|quota|limit exceeded|rate limit/i;
 
 /** Writes one message to the queue. Returns its id. */
 export async function enqueueMail(sql, { researchId = null, participantGuid = null, stepId = null, to, subject, html, fromName = null }) {
+  // The research may send through its own relay (Research.MailRelayKey); the key travels with the message.
+  const relay = researchId != null ? await sql`SELECT "MailRelayKey" FROM "Research" WHERE "Id" = ${researchId}` : [];
+  const relayKey = relay[0]?.MailRelayKey ?? null;
   const rows = await sql`
-    INSERT INTO "EmailOutbox" ("ResearchId","ParticipantGuid","StepId","ToEmail","Subject","Html","FromName")
-    VALUES (${researchId}, ${participantGuid}, ${stepId}, ${to}, ${subject}, ${html}, ${fromName})
+    INSERT INTO "EmailOutbox" ("ResearchId","ParticipantGuid","StepId","ToEmail","Subject","Html","FromName","RelayKey")
+    VALUES (${researchId}, ${participantGuid}, ${stepId}, ${to}, ${subject}, ${html}, ${fromName}, ${relayKey})
     RETURNING "Id"
   `;
   return rows[0].Id;
@@ -41,7 +44,7 @@ async function claim(sql, n) {
          OR ("Status" = 'SENDING' AND "ClaimedAt" < NOW() - make_interval(secs => ${STUCK_AFTER_MS / 1000}))
       ORDER BY "Id" LIMIT ${n} FOR UPDATE SKIP LOCKED
     )
-    RETURNING o."Id", o."ToEmail", o."Subject", o."Html", o."FromName", o."Attempts"
+    RETURNING o."Id", o."ToEmail", o."Subject", o."Html", o."FromName", o."RelayKey", o."Attempts"
   `;
 }
 
@@ -66,7 +69,7 @@ export async function drainOutbox(sql, { budgetMs = 40_000 } = {}) {
         continue;
       }
       try {
-        await sendMail({ to: m.ToEmail, subject: m.Subject, html: m.Html, fromName: m.FromName ?? undefined });
+        await sendMail({ to: m.ToEmail, subject: m.Subject, html: m.Html, fromName: m.FromName ?? undefined, relayKey: m.RelayKey ?? undefined });
         await sql`UPDATE "EmailOutbox" SET "Status" = 'SENT', "SentAt" = NOW(), "ClaimedAt" = NULL, "LastError" = NULL WHERE "Id" = ${m.Id}`;
         result.sent++;
         used++;

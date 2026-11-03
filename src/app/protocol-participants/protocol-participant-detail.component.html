@@ -58,6 +58,7 @@
               <span class="tl-title">{{ titleOf(s) }}</span>
               <span class="tl-type">{{ 'PROTOCOL.TYPE_' + s.stepType | translate }}</span>
               <span [class]="'tl-status tl-status--' + s.status">{{ 'PROTOCOL_PROGRESS.STATUS_' + s.status | translate }}</span>
+              @if (s.activity && s.activity !== 'SUBMITTED') { <span class="tl-type">{{ 'PROTOCOL_PROGRESS.ACTIVITY_' + s.activity | translate }}</span> }
             </div>
 
             <div class="tl-times">

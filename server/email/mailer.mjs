@@ -24,14 +24,28 @@ const RELAY_RETRY_DELAY_MS = 1500;
 
 // ── Apps Script relay (HTTPS) ───────────────────────────────────────────────
 
-async function sendViaRelay({ to, subject, html, fromName }) {
-  const body = JSON.stringify({ secret: process.env.MAIL_RELAY_SECRET, to, subject, html, fromName });
+/**
+ * Relay address and secret for a message. A research can use its own relay (another Google account, so the mail comes from
+ * that address): its key picks MAIL_RELAY_URL_<KEY> / MAIL_RELAY_SECRET_<KEY>. A key whose variables are missing is an error,
+ * never a silent fall back to the default sender (that would send the mail from an address the researcher did not choose).
+ */
+function relayFor(relayKey) {
+  if (!relayKey) return { url: process.env.MAIL_RELAY_URL, secret: process.env.MAIL_RELAY_SECRET };
+  const suffix = String(relayKey).toUpperCase().replace(/[^A-Z0-9]/g, '_');
+  const url = process.env['MAIL_RELAY_URL_' + suffix];
+  const secret = process.env['MAIL_RELAY_SECRET_' + suffix];
+  if (!url || !secret) throw new Error('Mail relay "' + relayKey + '" is not configured (MAIL_RELAY_URL_' + suffix + ' / MAIL_RELAY_SECRET_' + suffix + ').');
+  return { url, secret };
+}
+
+async function sendViaRelay({ to, subject, html, fromName, relay }) {
+  const body = JSON.stringify({ secret: relay.secret, to, subject, html, fromName });
   let lastError;
   for (let attempt = 1; attempt <= RELAY_ATTEMPTS; attempt++) {
     // Apps Script answers a POST with a 302 to script.googleusercontent.com carrying the result;
     // fetch follows it (as a GET) by default, which is exactly how Apps Script web apps expect to
     // be called. The script always answers 200, so success is read from the JSON body.
-    const res = await fetch(process.env.MAIL_RELAY_URL, {
+    const res = await fetch(relay.url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
@@ -82,14 +96,18 @@ function getSmtpTransporter() {
  * display-name portion of `from` can change, never the actual address. Defaults to "BeyondAI
  * Research Group", so every pre-existing caller is unaffected.
  */
-export async function sendMail({ to, subject, html, fromName }) {
+export async function sendMail({ to, subject, html, fromName, relayKey }) {
   // Strip quotes/CR/LF — fromName can come from researcher-supplied free text
   // (Research.EmailSenderName), so this is header-injection/format defense, not just cosmetic.
   const cleaned = fromName?.replace(/["\r\n]/g, '').trim();
   const displayName = cleaned || DEFAULT_FROM_NAME;
 
+  if (relayKey) {
+    await sendViaRelay({ to, subject, html, fromName: displayName, relay: relayFor(relayKey) });
+    return;
+  }
   if (process.env.MAIL_RELAY_URL && process.env.MAIL_RELAY_SECRET) {
-    await sendViaRelay({ to, subject, html, fromName: displayName });
+    await sendViaRelay({ to, subject, html, fromName: displayName, relay: relayFor(null) });
     return;
   }
 

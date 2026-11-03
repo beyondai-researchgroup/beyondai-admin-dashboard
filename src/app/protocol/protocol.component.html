@@ -75,6 +75,14 @@
                     </span>
                   }
                 </div>
+                @if (followsSheets(i)) {
+                  <label class="toggle-switch intro-toggle">
+                    <input type="checkbox" [checked]="step.config.openImmediately === true" [disabled]="isLocked(step)" (change)="setOpenImmediately(i, $any($event.target).checked)" />
+                    <span class="toggle-track"></span>
+                    <span class="toggle-label">{{ 'PROTOCOL.OPEN_IMMEDIATELY' | translate }}</span>
+                  </label>
+                  <p class="field-hint">{{ 'PROTOCOL.OPEN_IMMEDIATELY_HINT' | translate }}</p>
+                }
               }
               @case ('EXPERIMENT') {
                 <div class="field-group">

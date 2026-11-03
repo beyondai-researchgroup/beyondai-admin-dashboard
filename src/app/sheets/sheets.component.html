@@ -57,6 +57,7 @@
           <strong>{{ 'SHEETS.WINDOW_TITLE' | translate }}</strong>
           <span class="muted">{{ 'SHEETS.WINDOW_HINT' | translate }}</span>
           <span class="muted">{{ 'SHEETS.TIMER_HINT' | translate }}</span>
+          <span class="muted">{{ 'SHEETS.MIN_SUBMIT_HINT' | translate }}</span>
         </div>
         <div class="window-fields">
           <label class="window-field">
@@ -70,6 +71,10 @@
           <label class="window-field window-field--timer">
             <span class="field-label">{{ 'SHEETS.TIMER_LABEL' | translate }}</span>
             <input type="number" min="1" max="480" step="1" class="text-input" [value]="timerInput()" [disabled]="!o.canWrite" [placeholder]="'SHEETS.TIMER_PLACEHOLDER' | translate" (input)="timerInput.set($any($event.target).value)" />
+          </label>
+          <label class="window-field window-field--timer">
+            <span class="field-label">{{ 'SHEETS.MIN_SUBMIT_LABEL' | translate }}</span>
+            <input type="number" min="1" max="479" step="1" class="text-input" [value]="minSubmitInput()" [disabled]="!o.canWrite" [placeholder]="'SHEETS.MIN_SUBMIT_PLACEHOLDER' | translate" (input)="minSubmitInput.set($any($event.target).value)" />
           </label>
           @if (o.canWrite) {
             <button type="button" class="btn-primary form-submit" [disabled]="windowSaving() || !windowDirty()" (click)="saveWindow()">{{ (windowSaving() ? 'SHEETS.SENDING' : 'SHEETS.WINDOW_SAVE') | translate }}</button>

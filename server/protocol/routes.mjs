@@ -111,6 +111,8 @@ function normalizeStep(raw) {
     const qid = Number(raw.questionnaireId);
     if (!Number.isInteger(qid) || qid <= 0) return { error: 'A questionnaire step needs a questionnaireId' };
     step.questionnaireId = qid;
+    // "Open right after the table is handed in": the questionnaire opens on the hand-in page instead of arriving by e-mail.
+    if (raw.config && raw.config.openImmediately === true) step.config = { openImmediately: true };
   } else if (raw.questionnaireId != null) {
     return { error: 'Only a questionnaire step can reference a questionnaire' };
   }
@@ -259,6 +261,16 @@ router.put('/:researchId', async (req, res) => {
       const own = await sql`SELECT "Id" FROM "Questionnaire" WHERE "ResearchId" = ${researchId} AND "Id" = ANY(${qIds})`;
       if (own.length !== qIds.length) {
         res.status(400).json({ error: 'Unknown questionnaire for this research' });
+        return;
+      }
+    }
+
+    // "Open immediately" only makes sense for a questionnaire that comes right after the Sheets task and is delivered automatically.
+    for (let i = 0; i < normalized.length; i++) {
+      if (normalized[i].config?.openImmediately !== true) continue;
+      const prev = normalized[i - 1];
+      if (!prev || prev.stepType !== 'EXPERIMENT' || prev.config?.taskKind !== 'SHEETS' || normalized[i].delivery !== 'AUTO') {
+        res.status(400).json({ error: 'OPEN_IMMEDIATELY_INVALID' });
         return;
       }
     }

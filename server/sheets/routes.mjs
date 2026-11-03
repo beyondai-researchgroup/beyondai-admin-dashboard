@@ -56,7 +56,7 @@ function requireWrite(req, res, researchId) {
 }
 
 async function loadResearch(sql, researchId) {
-  const rows = await sql`SELECT "Id","Name","UsesSheets","StudyDisplayName","EmailSenderName","SheetsTimerMinutes","ShowBeyondAiBranding" FROM "Research" WHERE "Id" = ${researchId} LIMIT 1`;
+  const rows = await sql`SELECT "Id","Name","UsesSheets","StudyDisplayName","EmailSenderName","SheetsTimerMinutes","SheetsMinSubmitMinutes","ShowBeyondAiBranding","MailRelayKey" FROM "Research" WHERE "Id" = ${researchId} LIMIT 1`;
   return rows[0] ?? null;
 }
 
@@ -115,7 +115,7 @@ async function emailLink(research, participant, url, window) {
   const branding = resolveBranding({ showBranding: research.ShowBeyondAiBranding, emailSenderName: research.EmailSenderName, studyDisplayName: research.StudyDisplayName, name: research.Name });
   const senderName = branding.senderName ?? research.Name;
   const { subject, html } = buildProtocolStepEmail(lang, { url, message: null, senderName, hideContact: branding.hideContact, window });
-  await sendMail({ to: participant.Email, subject, html, fromName: senderName });
+  await sendMail({ to: participant.Email, subject, html, fromName: senderName, relayKey: research.MailRelayKey ?? undefined });
 }
 
 // ── overview: templates, and every participant with the template they get, link and entry status ─────
@@ -132,6 +132,8 @@ router.get('/:researchId', async (req, res) => {
       window: { opensAt: win.opensAt?.toISOString() ?? null, closesAt: win.closesAt?.toISOString() ?? null },
       // The countdown (minutes) that runs from the moment a participant presses Start; null = none.
       timerMinutes: research.SheetsTimerMinutes ?? null,
+      // The earliest the participant may hand in, counted from Start (null = any time).
+      minSubmitMinutes: research.SheetsMinSubmitMinutes ?? null,
     };
     const workbooks = await sql`
       SELECT w."Id", w."Label", w."Title", w."Version", w."UpdatedAt", w."GroupId", w."ResearchTaskId", w."Rules", w."InstructionsSr", w."InstructionsEn",
@@ -230,10 +232,21 @@ router.put('/:researchId/window', async (req, res) => {
     timerMinutes = Number(req.body.timerMinutes);
     if (!Number.isInteger(timerMinutes) || timerMinutes < 1 || timerMinutes > 480) { res.status(400).json({ error: 'INVALID_TIMER' }); return; }
   }
+  const hasMin = req.body && Object.prototype.hasOwnProperty.call(req.body, 'minSubmitMinutes');
+  let minSubmitMinutes = null;
+  if (hasMin && req.body.minSubmitMinutes != null && req.body.minSubmitMinutes !== '') {
+    minSubmitMinutes = Number(req.body.minSubmitMinutes);
+    if (!Number.isInteger(minSubmitMinutes) || minSubmitMinutes < 1 || minSubmitMinutes > 479) { res.status(400).json({ error: 'INVALID_MIN_SUBMIT' }); return; }
+  }
   try {
     const sql = getDb();
     const research = await loadResearch(sql, researchId);
     if (!research) { res.status(404).json({ error: 'Research not found' }); return; }
+    // The hand-in cannot open later than the countdown ends, or the participant could never hand in by hand.
+    const effTimer = hasTimer ? timerMinutes : (research.SheetsTimerMinutes ?? null);
+    const effMin = hasMin ? minSubmitMinutes : (research.SheetsMinSubmitMinutes ?? null);
+    if (effMin != null && effTimer != null && effMin >= effTimer) { res.status(400).json({ error: 'MIN_SUBMIT_AFTER_TIMER' }); return; }
+    if (hasMin) await sql`UPDATE "Research" SET "SheetsMinSubmitMinutes" = ${minSubmitMinutes} WHERE "Id" = ${researchId}`;
     await sql`UPDATE "Research" SET "SheetsOpensAt" = ${opensAt?.toISOString() ?? null}, "SheetsClosesAt" = ${closesAt?.toISOString() ?? null} WHERE "Id" = ${researchId}`;
     if (hasTimer) await sql`UPDATE "Research" SET "SheetsTimerMinutes" = ${timerMinutes} WHERE "Id" = ${researchId}`;
     // A link already sent must not run out before the table closes.
@@ -243,7 +256,7 @@ router.put('/:researchId/window', async (req, res) => {
         WHERE l."WorkbookId" IN (SELECT "Id" FROM "SheetWorkbook" WHERE "ResearchId" = ${researchId}) AND l."ExpiresAt" < ${closesAt.toISOString()}
       `;
     }
-    res.json({ ok: true, opensAt: opensAt?.toISOString() ?? null, closesAt: closesAt?.toISOString() ?? null, ...(hasTimer ? { timerMinutes } : {}) });
+    res.json({ ok: true, opensAt: opensAt?.toISOString() ?? null, closesAt: closesAt?.toISOString() ?? null, ...(hasTimer ? { timerMinutes } : {}), ...(hasMin ? { minSubmitMinutes } : {}) });
   } catch (err) {
     console.error('[sheets] window error:', err);
     res.status(500).json({ error: 'Database error' });

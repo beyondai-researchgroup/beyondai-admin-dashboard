@@ -380,6 +380,8 @@ export interface SheetsOverview {
   window?: { opensAt: string | null; closesAt: string | null };
   /** Minutes a participant has from pressing Start (null = no countdown). */
   timerMinutes?: number | null;
+  /** The earliest the participant may hand in, in minutes from Start (null = any time). */
+  minSubmitMinutes?: number | null;
   participants: SheetsParticipantRow[];
 }
 export interface SheetsEntryView {
@@ -1545,7 +1547,7 @@ export class AdminApiService {
   }
 
   /** Authenticated fetch+blob download of the Excel export. */
-  async saveSheetsWindow(researchId: number, body: { opensAt: string | null; closesAt: string | null; timerMinutes?: number | null }): Promise<{ ok: true } | { ok: false; error: string }> {
+  async saveSheetsWindow(researchId: number, body: { opensAt: string | null; closesAt: string | null; timerMinutes?: number | null; minSubmitMinutes?: number | null }): Promise<{ ok: true } | { ok: false; error: string }> {
     try {
       await this.req(this.http.put<{ ok: true }>(`/api/admin/sheets/${researchId}/window`, body));
       return { ok: true };
@@ -2444,8 +2446,13 @@ export interface RandomizeResult {
 
 export type ProtocolProgressStatus = 'NOT_REACHED' | 'PENDING' | 'SCHEDULED' | 'SENT' | 'COMPLETED' | 'SKIPPED';
 
+/** What a participant is doing in a Sheets task (only on that step's cell). */
+export type SheetsActivity = 'NOT_OPENED' | 'STARTED' | 'WORKING' | 'SUBMITTED' | 'TIMED_OUT';
+
 export interface ProtocolCell {
   status: ProtocolProgressStatus;
+  activity?: SheetsActivity | null;
+  activityAt?: string | null;
   scheduledFor: string | null;
   sentAt: string | null;
   completedAt: string | null;
@@ -2504,6 +2511,8 @@ export interface ProtocolTimelineStep {
   sentAt: string | null;
   completedAt: string | null;
   completedBy: string | null;
+  activity?: SheetsActivity | null;
+  activityAt?: string | null;
   linkUrl: string | null;
   linkExpired: boolean;
 }
@@ -2558,6 +2567,8 @@ export interface ProtocolStepConfig {
   defaultMode?: ReviewMode;
   modeByGroup?: { groupId: number; mode: ReviewMode }[];
   includeIntro?: boolean;
+  /** Questionnaire right after the Sheets task: opens on the hand-in page instead of arriving by e-mail. */
+  openImmediately?: boolean;
   bodySr?: string;
   bodyEn?: string;
 }

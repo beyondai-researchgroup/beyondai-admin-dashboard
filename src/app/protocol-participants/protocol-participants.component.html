@@ -265,7 +265,7 @@
               }
               @for (s of m.steps; track s.id) {
                 <td class="cell-col">
-                  <span class="cell" [class]="'cell cell--' + statusOf(p, s.id)" [attr.title]="cellTitle(p, s.id)">{{ statusIcon(statusOf(p, s.id)) }}</span>
+                  <span class="cell" [class]="cellClass(p, s.id)" [attr.title]="cellTitle(p, s.id)">{{ cellIcon(p, s.id) }}</span>
                 </td>
               }
               <td class="action-col">
@@ -282,6 +282,10 @@
     <div class="legend">
       @for (st of ['COMPLETED', 'SENT', 'SCHEDULED', 'PENDING', 'SKIPPED', 'NOT_REACHED']; track st) {
         <span class="legend-item"><span [class]="'cell cell--' + st">{{ statusIcon($any(st)) }}</span> {{ 'PROTOCOL_PROGRESS.STATUS_' + st | translate }}</span>
+      }
+      @if (hasSheetsStep()) {
+        <span class="legend-item"><span class="cell cell--SENT cell--act-STARTED">▸</span> {{ 'PROTOCOL_PROGRESS.ACTIVITY_STARTED' | translate }}</span>
+        <span class="legend-item"><span class="cell cell--SENT cell--act-WORKING">✎</span> {{ 'PROTOCOL_PROGRESS.ACTIVITY_WORKING' | translate }}</span>
       }
     </div>
   }

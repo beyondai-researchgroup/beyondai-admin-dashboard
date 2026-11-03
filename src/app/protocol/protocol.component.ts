@@ -316,6 +316,20 @@ export class ProtocolComponent implements OnDestroy {
     this.markDirty();
   }
 
+  /** A questionnaire placed right after the Sheets task and delivered automatically can open on the hand-in page. */
+  followsSheets(index: number): boolean {
+    const arr = this.steps();
+    const prev = arr[index - 1];
+    return !!prev && prev.stepType === 'EXPERIMENT' && prev.config.taskKind === 'SHEETS' && arr[index]?.delivery === 'AUTO';
+  }
+
+  setOpenImmediately(index: number, checked: boolean): void {
+    const arr = [...this.steps()];
+    arr[index] = { ...arr[index], config: { ...arr[index].config, openImmediately: checked } };
+    this.steps.set(arr);
+    this.markDirty();
+  }
+
   patchConfig(index: number, key: 'url' | 'bodySr' | 'bodyEn', value: string): void {
     const arr = [...this.steps()];
     arr[index] = { ...arr[index], config: { ...arr[index].config, [key]: value } };
@@ -425,13 +439,14 @@ export class ProtocolComponent implements OnDestroy {
     this.errorKey.set(null);
 
     const snapshot = this.steps();
-    const payload: ProtocolStepInput[] = snapshot.map((s) => ({
+    const payload: ProtocolStepInput[] = snapshot.map((s, idx) => ({
       id: s.id,
       stepType: s.stepType,
       titleSr: s.titleSr.trim(),
       titleEn: s.titleEn.trim(),
       questionnaireId: s.stepType === 'QUESTIONNAIRE' ? s.questionnaireId : null,
-      config: s.config,
+      // The "open immediately" switch only counts while the step still follows the Sheets task (moving it away drops the switch).
+      config: s.stepType === 'QUESTIONNAIRE' && s.config.openImmediately && !this.followsSheets(idx) ? {} : s.config,
       delivery: s.delivery,
       delayDays: s.delivery === 'AFTER_DELAY' ? s.delayDays : null,
       emailMessageSr: s.emailMessageSr?.trim() || null,
@@ -456,6 +471,8 @@ export class ProtocolComponent implements OnDestroy {
       this.errorKey.set(result.reason === 'ORDER_FROZEN' ? 'PROTOCOL.ERR_ORDER_FROZEN' : 'PROTOCOL.ERR_STEP_HAS_PROGRESS');
     } else if (result.error === 'SUPERADMIN_ONLY_TASK_KIND') {
       this.errorKey.set('PROTOCOL.ERR_SUPERADMIN_ONLY');
+    } else if (result.error === 'OPEN_IMMEDIATELY_INVALID') {
+      this.errorKey.set('PROTOCOL.ERR_OPEN_IMMEDIATELY');
     } else if (result.error === 'DUPLICATE_STEP_TYPE') {
       this.errorKey.set('PROTOCOL.ERR_DUPLICATE');
       this.errorDetail.set(result.stepType ? this.translate.instant('PROTOCOL.TYPE_' + result.stepType) : '');

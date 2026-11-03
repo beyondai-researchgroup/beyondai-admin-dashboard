@@ -85,6 +85,32 @@ async function findParticipant(sql, researchId, participantId) {
   return rows[0] ?? null;
 }
 
+/**
+ * What each participant is doing in their Sheets task: the link exists (NOT_OPENED), they pressed Start (STARTED), they have rows in the table
+ * (WORKING), they handed in (SUBMITTED) or the time ran out (TIMED_OUT). Keyed by participant guid.
+ */
+async function sheetActivityByGuid(sql, researchId) {
+  const rows = await sql`
+    SELECT l."ParticipantGuid", MAX(l."RulesAcknowledgedAt") AS "StartedAt",
+           COALESCE(bool_or(e."Status" = 'SUBMITTED'), FALSE) AS "Submitted",
+           COALESCE(bool_or(e."IsTimedOut"), FALSE) AS "TimedOut",
+           COALESCE(bool_or(e."Id" IS NOT NULL AND e."Rows"::text NOT IN ('{}', 'null')), FALSE) AS "HasRows",
+           MAX(e."UpdatedAt") AS "UpdatedAt"
+    FROM "SheetAccessLink" l
+    JOIN "SheetWorkbook" w ON w."Id" = l."WorkbookId"
+    LEFT JOIN "SheetEntry" e ON e."WorkbookId" = l."WorkbookId" AND e."ParticipantGuid" = l."ParticipantGuid"
+    WHERE w."ResearchId" = ${researchId}
+    GROUP BY l."ParticipantGuid"
+  `;
+  const map = new Map();
+  for (const r of rows) {
+    const activity = r.Submitted ? (r.TimedOut ? 'TIMED_OUT' : 'SUBMITTED') : r.HasRows ? 'WORKING' : r.StartedAt ? 'STARTED' : 'NOT_OPENED';
+    map.set(r.ParticipantGuid, { activity, activityAt: r.UpdatedAt ?? r.StartedAt ?? null });
+  }
+  return map;
+}
+const isSheetsStep = (s) => s.StepType === 'EXPERIMENT' && s.Config?.taskKind === 'SHEETS';
+
 const mapEngine = (r) => ({
   ok: r.ok, reason: r.reason ?? null, sentStepIds: r.sent ?? [], currentStepId: r.current ?? null, finished: !!r.finished,
 });
@@ -96,8 +122,10 @@ router.get('/:researchId/participants', async (req, res) => {
     if (!research) return;
     const sql = getDb();
     const steps = await sql`
-      SELECT "Id","StepType","TitleSr","TitleEn","Delivery" FROM "ResearchProtocolStep" WHERE "ResearchId" = ${research.Id} ORDER BY "SortOrder","Id"
+      SELECT "Id","StepType","TitleSr","TitleEn","Delivery","Config" FROM "ResearchProtocolStep" WHERE "ResearchId" = ${research.Id} ORDER BY "SortOrder","Id"
     `;
+    const sheetSteps = steps.filter(isSheetsStep);
+    const activity = sheetSteps.length ? await sheetActivityByGuid(sql, research.Id) : new Map();
     const participants = await sql`
       SELECT p."Guid", p."ParticipantId", p."ParticipantCode", p."Email", p."Language", p."GroupId", g."Name" AS "GroupName",
              p."ResearchTaskId", t."Name" AS "TaskName", p."GroupAssignedBy", p."TaskAssignedBy",
@@ -142,6 +170,13 @@ router.get('/:researchId/participants', async (req, res) => {
       steps: steps.map((s) => ({ id: s.Id, stepType: s.StepType, titleSr: s.TitleSr, titleEn: s.TitleEn, delivery: s.Delivery })),
       participants: participants.map((p) => {
         const statuses = byGuid.get(p.Guid) ?? {};
+        const act = activity.get(p.Guid);
+        if (act) {
+          for (const s of sheetSteps) {
+            const cell = statuses[s.Id];
+            if (cell && (cell.status === 'SENT' || cell.status === 'COMPLETED')) { cell.activity = act.activity; cell.activityAt = act.activityAt; }
+          }
+        }
         const started = Object.keys(statuses).length > 0;
         const finished = started && steps.length > 0 && steps.every((s) => ['COMPLETED', 'SKIPPED'].includes(statuses[s.Id]?.status));
         return {
@@ -188,6 +223,7 @@ router.get('/:researchId/participants/:participantId', async (req, res) => {
       WHERE l."ParticipantGuid" = ${p.Guid} AND w."ResearchId" = ${research.Id} ORDER BY l."CreatedAt" DESC LIMIT 1
     `)[0] ?? null;
     const progress = new Map(rows.map((r) => [r.StepId, r]));
+    const sheetActivity = steps.some(isSheetsStep) ? await sheetActivityByGuid(sql, research.Id) : new Map();
     const stepLinkById = new Map(stepLinks.map((l) => [l.StepId, l]));
     const moduleLinkByType = new Map(moduleLinks.map((l) => [l.SurveyType, l]));
     const u = urls();
@@ -237,7 +273,9 @@ router.get('/:researchId/participants/:participantId', async (req, res) => {
       steps: steps.map((s) => {
         const r = progress.get(s.Id);
         const status = r?.Status ?? 'NOT_REACHED';
+        const act = isSheetsStep(s) && (status === 'SENT' || status === 'COMPLETED') ? sheetActivity.get(p.Guid) : null;
         return {
+          activity: act?.activity ?? null, activityAt: act?.activityAt ?? null,
           id: s.Id, stepType: s.StepType, titleSr: s.TitleSr, titleEn: s.TitleEn, delivery: s.Delivery, delayDays: s.DelayDays,
           status, scheduledFor: r?.ScheduledFor ?? null, sentAt: r?.SentAt ?? null,
           completedAt: r?.CompletedAt ?? null, completedBy: r?.CompletedBy ?? null,

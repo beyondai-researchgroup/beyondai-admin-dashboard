@@ -33,9 +33,10 @@ router.post('/advance', async (req, res) => {
     return;
   }
   try {
-    const r = await advanceParticipant(getDb(), guid.toLowerCase());
+    // immediate: the caller is the page a participant just handed in on and can take them to the next step at once.
+    const r = await advanceParticipant(getDb(), guid.toLowerCase(), { immediate: req.body?.immediate === true });
     // A CLASSIC research (or an unknown participant) is not an error for the caller: nothing to do.
-    res.json({ ok: r.ok, reason: r.reason ?? null, finished: !!r.finished });
+    res.json({ ok: r.ok, reason: r.reason ?? null, finished: !!r.finished, openUrl: r.openUrl ?? null });
   } catch (err) {
     console.error('[protocol-engine] advance error:', err);
     res.status(500).json({ error: 'Server error' });

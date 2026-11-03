@@ -71,6 +71,18 @@
     color: #c98500;
   }
 
+  &--act-STARTED {
+    background: rgba(57, 135, 229, 0.18);
+    border-color: #3987e5;
+    color: #3987e5;
+  }
+
+  &--act-WORKING {
+    background: rgba(var(--color-accent-rgb), 0.18);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
   &--SCHEDULED {
     background: rgba(57, 135, 229, 0.18);
     border-color: #3987e5;
