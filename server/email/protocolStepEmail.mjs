@@ -19,9 +19,9 @@ const COPY = {
     expiry:
       'Napomena: link važi 7 dana od trenutka slanja ovog mejla. Ako istekne pre nego što završite, javite se istraživaču kako bi Vam poslao novi.',
     footer: 'Za sva pitanja, kontaktirajte nas na',
-    windowBoth: 'Napomena: tabela se otvara {opens}, a dostupna je do {closes}. Link možete otvoriti i ranije, ali tabela počinje da radi tek kada nastupi to vreme.',
-    windowOpens: 'Napomena: tabela se otvara {opens}. Link možete otvoriti i ranije, ali tabela počinje da radi tek kada nastupi to vreme.',
-    windowCloses: 'Napomena: tabela je dostupna do {closes}.',
+    windowBoth: 'Napomena: zadatak se otvara {opens}, a dostupan je do {closes}. Link možete otvoriti i ranije, ali zadatak počinje da radi tek kada nastupi to vreme.',
+    windowOpens: 'Napomena: zadatak se otvara {opens}. Link možete otvoriti i ranije, ali zadatak počinje da radi tek kada nastupi to vreme.',
+    windowCloses: 'Napomena: zadatak je dostupan do {closes}.',
   },
   en: {
     subjectStep: 'Next step in the research',
@@ -34,9 +34,9 @@ const COPY = {
     expiry:
       'Note: the link is valid for 7 days from when this email was sent. If it expires before you finish, contact the researcher for a new one.',
     footer: 'For any questions, contact us at',
-    windowBoth: 'Note: the table opens {opens} and is available until {closes}. You can open the link earlier, but the table only starts working once that time comes.',
-    windowOpens: 'Note: the table opens {opens}. You can open the link earlier, but the table only starts working once that time comes.',
-    windowCloses: 'Note: the table is available until {closes}.',
+    windowBoth: 'Note: the task opens {opens} and is available until {closes}. You can open the link earlier, but the task only starts working once that time comes.',
+    windowOpens: 'Note: the task opens {opens}. You can open the link earlier, but the task only starts working once that time comes.',
+    windowCloses: 'Note: the task is available until {closes}.',
   },
 };
 
