@@ -293,9 +293,11 @@
   "IMPORT": {
     "TITLE": "Uvoz učesnika",
     "HINT": "Otpremite Excel (.xlsx) fajl za odabrano istraživanje - list \"Participants\" za nove učesnike, list \"Tasks\" za dodelu AI/Report sesija i PR-ova. Uvodna (Intro) sesija se dodaje automatski. Možete popuniti samo jedan list, ili oba u istom fajlu.",
+    "HINT_SIMPLE": "Otpremite Excel (.xlsx) fajl sa listom \"Participants\": jedan red je jedan učesnik (ParticipantId, a po želji Email, Language, Group, ResearchTask). Za ovo istraživanje nije potrebno ništa drugo: nema PR-ova ni dodele sesija, a koraci se pokreću iz protokola.",
     "DOWNLOAD_TEMPLATE": "Preuzmi Excel template",
     "DROPZONE_TITLE": "Prevucite Excel fajl ovde ili kliknite da izaberete",
     "DROPZONE_SUBTITLE": ".xlsx ili .xls, listovi \"Participants\" i/ili \"Tasks\"",
+    "DROPZONE_SUBTITLE_SIMPLE": ".xlsx ili .xls, list \"Participants\"",
     "REMOVE_FILE": "Ukloni fajl",
     "PARSING": "Čitam fajl…",
     "PARSE_FAILED": "Fajl nije moguće pročitati. Proverite da li je validan Excel (.xlsx) fajl.",

@@ -40,6 +40,26 @@ const COPY = {
   },
 };
 
+/**
+ * What the mail says for a step the participant can recognise by name. The consent, the task and the researcher's own questionnaires are
+ * named plainly; every other step (REI-40, Big Five, NASA-TLX, an external link) stays on the generic wording above, because naming
+ * a psychological test in advance would let the participant look it up.
+ */
+const KIND_COPY = {
+  sr: {
+    CONSENT: { subject: 'Informisani pristanak za učešće u istraživanju', preheader: 'Vaš lični link do informisanog pristanka.', heading: 'Informisani pristanak', intro: 'Molimo Vas da pročitate informacije o istraživanju i date svoj informisani pristanak pomoću dugmeta ispod.', button: 'Otvori informisani pristanak' },
+    TASK: { subject: 'Link do Vašeg zadatka', preheader: 'Vaš lični link do zadatka.', heading: 'Vaš zadatak', intro: 'Zadatak možete započeti pomoću dugmeta ispod.', button: 'Otvori zadatak' },
+    QUESTIONNAIRE: { subject: 'Upitnik u okviru istraživanja', preheader: 'Vaš lični link do upitnika.', heading: 'Upitnik', intro: 'Molimo Vas da popunite upitnik pomoću dugmeta ispod.', button: 'Otvori upitnik' },
+    DEMOGRAPHIC: { subject: 'Demografski upitnik', preheader: 'Vaš lični link do demografskog upitnika.', heading: 'Demografski upitnik', intro: 'Molimo Vas da popunite demografski upitnik pomoću dugmeta ispod.', button: 'Otvori upitnik' },
+  },
+  en: {
+    CONSENT: { subject: 'Informed consent to take part in the research', preheader: 'Your personal link to the informed consent.', heading: 'Informed consent', intro: 'Please read the information about the research and give your informed consent using the button below.', button: 'Open the informed consent' },
+    TASK: { subject: 'The link to your task', preheader: 'Your personal link to the task.', heading: 'Your task', intro: 'You can start the task using the button below.', button: 'Open the task' },
+    QUESTIONNAIRE: { subject: 'A questionnaire for the research', preheader: 'Your personal link to the questionnaire.', heading: 'Questionnaire', intro: 'Please fill in the questionnaire using the button below.', button: 'Open the questionnaire' },
+    DEMOGRAPHIC: { subject: 'Demographic questionnaire', preheader: 'Your personal link to the demographic questionnaire.', heading: 'Demographic questionnaire', intro: 'Please fill in the demographic questionnaire using the button below.', button: 'Open the questionnaire' },
+  },
+};
+
 function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -67,8 +87,13 @@ function noteFor(t, lang, window) {
  *   `url` present = a "next step" email with a button; absent = a plain message email.
  * @returns {{ subject: string, html: string }}
  */
-export function buildProtocolStepEmail(lang, { url, message, senderName, hideContact = false, window = null }) {
-  const t = COPY[lang] ?? COPY.sr;
+export function buildProtocolStepEmail(lang, { url, message, senderName, hideContact = false, window = null, kind = null }) {
+  const base = COPY[lang] ?? COPY.sr;
+  const named = url ? (KIND_COPY[lang] ?? KIND_COPY.sr)[kind] : null;
+  // The named wording replaces the generic one for this step only (subject, preheader, heading, intro and the button).
+  const t = named
+    ? { ...base, subjectStep: named.subject, preheaderStep: named.preheader, headingStep: named.heading, introStep: named.intro, buttonText: named.button }
+    : base;
   const brand = escapeHtml(senderName?.trim() || DEFAULT_SENDER_NAME);
   const hasButton = !!url;
   const messageHtml = message && message.trim()

@@ -242,7 +242,10 @@ async function emailStep(sql, ctx, step, url, window = null) {
     ? (lang === 'en' ? step.Config?.bodyEn : step.Config?.bodySr)
     : message;
   const branding = resolveBranding({ showBranding: research.ShowBeyondAiBranding, emailSenderName: research.EmailSenderName, studyDisplayName: research.StudyDisplayName, name: research.Name });
+  // Consent, the task, the researcher's questionnaires and the demographic form are named in the mail; the rest stay generic (anti-priming).
+  const kind = { CONSENT: 'CONSENT', EXPERIMENT: 'TASK', QUESTIONNAIRE: 'QUESTIONNAIRE', DEMOGRAPHIC: 'DEMOGRAPHIC' }[step.StepType] ?? null;
   const { subject, html } = buildProtocolStepEmail(lang, {
+    kind,
     url: step.StepType === 'MESSAGE' ? null : url,
     message: body,
     senderName: branding.senderName ?? research.Name,

@@ -293,9 +293,11 @@
   "IMPORT": {
     "TITLE": "Import participants",
     "HINT": "Upload an Excel (.xlsx) file for the selected research - a \"Participants\" sheet for new participants, a \"Tasks\" sheet for AI/Report session + PR assignment. The Intro session is added automatically. You can fill in just one sheet, or both in the same file.",
+    "HINT_SIMPLE": "Upload an Excel (.xlsx) file with a \"Participants\" sheet: one row per participant (ParticipantId, and optionally Email, Language, Group, ResearchTask). Nothing else is needed for this research: no PRs and no session assignment, the steps are started from the protocol.",
     "DOWNLOAD_TEMPLATE": "Download Excel template",
     "DROPZONE_TITLE": "Drag an Excel file here or click to browse",
     "DROPZONE_SUBTITLE": ".xlsx or .xls, \"Participants\" and/or \"Tasks\" sheets",
+    "DROPZONE_SUBTITLE_SIMPLE": ".xlsx or .xls, \"Participants\" sheet",
     "REMOVE_FILE": "Remove file",
     "PARSING": "Reading file…",
     "PARSE_FAILED": "Couldn't read the file. Check that it's a valid Excel (.xlsx) file.",

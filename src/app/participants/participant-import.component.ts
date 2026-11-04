@@ -35,6 +35,8 @@ export class ParticipantImportComponent {
   // pattern TaskConfigComponent itself uses.
   readonly taskType = signal<TaskType>('PR_REVIEW');
   readonly isPrReview = computed(() => this.taskType() === 'PR_REVIEW');
+  /** Only a classic PR-review research has the Tasks sheet (session + PR); a protocol research imports participants only. */
+  readonly usesTasksSheet = computed(() => !this.studyConfigStore.isProtocol() && this.taskType() === 'PR_REVIEW');
 
   constructor() {
     toObservable(this.scope.selectedResearchId).subscribe(async (researchId) => {

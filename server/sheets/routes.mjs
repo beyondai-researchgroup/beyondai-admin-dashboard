@@ -106,7 +106,7 @@ async function queueLink(sql, research, participant, url, window) {
   const lang = participant.Language === 'en' ? 'en' : 'sr';
   const branding = resolveBranding({ showBranding: research.ShowBeyondAiBranding, emailSenderName: research.EmailSenderName, studyDisplayName: research.StudyDisplayName, name: research.Name });
   const senderName = branding.senderName ?? research.Name;
-  const { subject, html } = buildProtocolStepEmail(lang, { url, message: null, senderName, hideContact: branding.hideContact, window });
+  const { subject, html } = buildProtocolStepEmail(lang, { url, message: null, senderName, hideContact: branding.hideContact, window, kind: 'TASK' });
   await enqueueMail(sql, { researchId: research.Id, participantGuid: participant.Guid, to: participant.Email, subject, html, fromName: senderName });
 }
 
@@ -114,7 +114,7 @@ async function emailLink(research, participant, url, window) {
   const lang = participant.Language === 'en' ? 'en' : 'sr';
   const branding = resolveBranding({ showBranding: research.ShowBeyondAiBranding, emailSenderName: research.EmailSenderName, studyDisplayName: research.StudyDisplayName, name: research.Name });
   const senderName = branding.senderName ?? research.Name;
-  const { subject, html } = buildProtocolStepEmail(lang, { url, message: null, senderName, hideContact: branding.hideContact, window });
+  const { subject, html } = buildProtocolStepEmail(lang, { url, message: null, senderName, hideContact: branding.hideContact, window, kind: 'TASK' });
   await sendMail({ to: participant.Email, subject, html, fromName: senderName, relayKey: research.MailRelayKey ?? undefined });
 }
 
