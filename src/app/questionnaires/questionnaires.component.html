@@ -254,6 +254,9 @@
                   <input type="number" class="text-input pv-number" />
                 }
               }
+              @if (pOtherOpen(item)) {
+                <input type="text" class="text-input" maxlength="500" [placeholder]="'QUESTIONNAIRES.PREVIEW_OTHER_PLACEHOLDER' | translate" />
+              }
             </div>
           }
         }

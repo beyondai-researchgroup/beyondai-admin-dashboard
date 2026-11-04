@@ -1073,6 +1073,7 @@
     "HEADING_SR_LABEL": "Naslov (srpski)",
     "HEADING_EN_LABEL": "Naslov (engleski)",
     "PREVIEW": "Pregled",
+    "PREVIEW_OTHER_PLACEHOLDER": "Navedite…",
     "PREVIEW_CLOSE": "Zatvori",
     "PREVIEW_NOTE": "Ovako upitnik vidi ispitanik (uključujući izmene koje još niste sačuvali). Odgovori ovde se ne čuvaju.",
     "ADD_ITEM": "+ Dodaj stavku",

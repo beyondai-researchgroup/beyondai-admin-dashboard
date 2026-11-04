@@ -1073,6 +1073,7 @@
     "HEADING_SR_LABEL": "Heading (Serbian)",
     "HEADING_EN_LABEL": "Heading (English)",
     "PREVIEW": "Preview",
+    "PREVIEW_OTHER_PLACEHOLDER": "Please specify…",
     "PREVIEW_CLOSE": "Close",
     "PREVIEW_NOTE": "This is how a participant sees the questionnaire (including edits you have not saved yet). Answers here are not stored.",
     "ADD_ITEM": "+ Add item",

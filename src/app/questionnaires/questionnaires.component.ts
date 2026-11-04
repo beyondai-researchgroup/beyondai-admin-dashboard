@@ -284,6 +284,13 @@ export class QuestionnairesComponent {
     });
   }
 
+  /** True while an option marked "Polje za upis" is picked: the participant would then get a text field. */
+  pOtherOpen(item: ItemVm): boolean {
+    const p = this.previewPicks()[item.localKey];
+    const picked = Array.isArray(p) ? p : p === undefined ? [] : [p];
+    return picked.some((i) => item.options[i]?.isOther === true);
+  }
+
   isPicked(localKey: number, value: number): boolean {
     const p = this.previewPicks()[localKey];
     return Array.isArray(p) ? p.includes(value) : p === value;
