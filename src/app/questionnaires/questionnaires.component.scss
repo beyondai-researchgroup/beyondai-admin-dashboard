@@ -216,7 +216,9 @@
 .pv-card { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-input); }
 .pv-question { font-size: 15px; font-weight: 600; color: var(--color-text); }
 .pv-req { color: var(--color-error); }
-.pv-likert, .pv-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv-likert { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv-options { display: flex; flex-direction: column; gap: 8px; }
+.pv-options .pv-btn { width: 100%; text-align: left; }
 .pv-btn {
   padding: 9px 16px; border-radius: var(--radius-tag); border: 1px solid var(--color-border);
   background: var(--color-surface-alt); color: var(--color-text); font-family: var(--font-body); font-size: 13.5px; font-weight: 500; cursor: pointer;
