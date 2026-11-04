@@ -73,6 +73,19 @@
           </div>
 
           <div class="item-fields">
+            @if (item.itemType === 'HEADING') {
+              <span class="heading-badge">{{ 'QUESTIONNAIRES.HEADING_BADGE' | translate }}</span>
+              <div class="field-row">
+                <div class="field-group">
+                  <label class="field-label">{{ 'QUESTIONNAIRES.HEADING_SR_LABEL' | translate }}</label>
+                  <input type="text" class="text-input" maxlength="500" [ngModel]="item.promptSr" (ngModelChange)="patch(i, { promptSr: $event })" />
+                </div>
+                <div class="field-group">
+                  <label class="field-label">{{ 'QUESTIONNAIRES.HEADING_EN_LABEL' | translate }}</label>
+                  <input type="text" class="text-input" maxlength="500" [ngModel]="item.promptEn" (ngModelChange)="patch(i, { promptEn: $event })" />
+                </div>
+              </div>
+            } @else {
             <div class="item-top">
               <div class="field-group item-type">
                 <label class="field-label">{{ 'QUESTIONNAIRES.TYPE_LABEL' | translate }}</label>
@@ -156,6 +169,7 @@
                 <button type="button" class="btn-ghost btn-ghost--small add-option-btn" (click)="addOption(i)">{{ 'QUESTIONNAIRES.ADD_OPTION' | translate }}</button>
               </div>
             }
+            }
           </div>
 
           <button type="button" class="btn-ghost remove-item-btn" [disabled]="!canRemoveItem(item)" (click)="removeItem(i)">
@@ -165,9 +179,13 @@
       }
     </div>
 
-    <button type="button" class="btn-ghost add-item-btn" (click)="addItem()">{{ 'QUESTIONNAIRES.ADD_ITEM' | translate }}</button>
+    <div class="add-row">
+      <button type="button" class="btn-ghost add-item-btn" (click)="addItem()">{{ 'QUESTIONNAIRES.ADD_ITEM' | translate }}</button>
+      <button type="button" class="btn-ghost add-item-btn" (click)="addHeading()">{{ 'QUESTIONNAIRES.ADD_HEADING' | translate }}</button>
+    </div>
 
     <div class="form-actions">
+      <button type="button" class="btn-ghost" (click)="openPreview()">{{ 'QUESTIONNAIRES.PREVIEW' | translate }}</button>
       <button type="button" class="btn-primary form-submit" [disabled]="saving()" (click)="submit()">
         @if (saving()) {
           {{ 'QUESTIONNAIRES.SAVING' | translate }}
@@ -181,6 +199,65 @@
       @if (errorKey(); as key) {
         <span class="field-error">{{ key | translate }}</span>
       }
+    </div>
+  </div>
+}
+
+@if (previewOpen()) {
+  <div class="pv-backdrop" (click)="closePreview()">
+    <div class="pv-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <div class="pv-bar">
+        <span class="pv-note">{{ 'QUESTIONNAIRES.PREVIEW_NOTE' | translate }}</span>
+        <div class="pv-lang">
+          <button type="button" class="btn-ghost btn-ghost--small" [class.pv-lang--on]="previewLang() === 'sr'" (click)="previewLang.set('sr')">SR</button>
+          <button type="button" class="btn-ghost btn-ghost--small" [class.pv-lang--on]="previewLang() === 'en'" (click)="previewLang.set('en')">EN</button>
+        </div>
+        <button type="button" class="btn-ghost btn-ghost--small" (click)="closePreview()">{{ 'QUESTIONNAIRES.PREVIEW_CLOSE' | translate }}</button>
+      </div>
+      <div class="pv-body">
+        <h2 class="pv-title">{{ previewTitle() }}</h2>
+        @for (item of items(); track item.localKey) {
+          @if (item.itemType === 'HEADING') {
+            <h3 class="pv-section">{{ pText(item) }}</h3>
+          } @else {
+            <div class="pv-card">
+              <span class="pv-question">{{ pText(item) }}@if (item.required) { <span class="pv-req"> *</span> }</span>
+              @switch (item.itemType) {
+                @case ('LIKERT') {
+                  <div class="pv-likert">
+                    @for (n of pPoints(item); track n) {
+                      <button type="button" class="pv-btn pv-btn--num" [class.pv-btn--on]="isPicked(item.localKey, n)" (click)="pickOne(item.localKey, n)">{{ n }}</button>
+                    }
+                  </div>
+                  @if (pEnd(item, 'min') || pEnd(item, 'max')) {
+                    <div class="pv-ends"><span>{{ pEnd(item, 'min') }}</span><span>{{ pEnd(item, 'max') }}</span></div>
+                  }
+                }
+                @case ('SINGLE_CHOICE') {
+                  <div class="pv-options">
+                    @for (o of item.options; track $index) {
+                      <button type="button" class="pv-btn" [class.pv-btn--on]="isPicked(item.localKey, $index)" (click)="pickOne(item.localKey, $index)">{{ pOption(o) }}</button>
+                    }
+                  </div>
+                }
+                @case ('MULTI_CHOICE') {
+                  <div class="pv-options">
+                    @for (o of item.options; track $index) {
+                      <button type="button" class="pv-btn" [class.pv-btn--on]="isPicked(item.localKey, $index)" (click)="pickMulti(item.localKey, $index)">{{ pOption(o) }}</button>
+                    }
+                  </div>
+                }
+                @case ('TEXT') {
+                  <textarea class="text-input" rows="3"></textarea>
+                }
+                @case ('NUMBER') {
+                  <input type="number" class="text-input pv-number" />
+                }
+              }
+            </div>
+          }
+        }
+      </div>
     </div>
   </div>
 }

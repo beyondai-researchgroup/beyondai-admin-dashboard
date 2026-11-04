@@ -100,7 +100,7 @@ export class QuestionnairesComponent {
       scaleLabels: null,
       subscale: null,
       reverseScored: false,
-      required: true,
+      required: type !== 'HEADING',
     };
   }
 
@@ -162,14 +162,20 @@ export class QuestionnairesComponent {
     this.saved.set(false);
   }
 
+  /** A small section title between questions (participants see it, it takes no answer). */
+  addHeading(): void {
+    this.items.set([...this.items(), this.blankItem('HEADING')]);
+    this.saved.set(false);
+  }
+
   removeItem(index: number): void {
-    if (this.locked() && this.items()[index].itemKey) return;
+    if (!this.canRemoveItem(this.items()[index])) return;
     this.items.set(this.items().filter((_, i) => i !== index));
     this.saved.set(false);
   }
 
   canRemoveItem(item: ItemVm): boolean {
-    return !(this.locked() && item.itemKey);
+    return item.itemType === 'HEADING' || !(this.locked() && item.itemKey);
   }
 
   /** A saved item of an answered questionnaire keeps its type and scale. */
@@ -224,6 +230,63 @@ export class QuestionnairesComponent {
   patchOption(index: number, optionIndex: number, changes: Partial<{ labelSr: string; labelEn: string; isOther: boolean }>): void {
     const cur = this.items()[index];
     this.patch(index, { options: cur.options.map((o, i) => (i === optionIndex ? { ...o, ...changes } : o)) });
+  }
+
+  // ── preview (what a participant would see, built from the current unsaved edits) ─────────────────
+
+  readonly previewOpen = signal(false);
+  readonly previewLang = signal<'sr' | 'en'>('sr');
+  /** Picks made inside the preview only, so the buttons feel real; never sent anywhere. */
+  readonly previewPicks = signal<Record<number, number | number[]>>({});
+
+  openPreview(): void {
+    this.previewLang.set((this.translate.currentLang || 'sr') === 'en' ? 'en' : 'sr');
+    this.previewPicks.set({});
+    this.previewOpen.set(true);
+  }
+
+  closePreview(): void {
+    this.previewOpen.set(false);
+  }
+
+  previewTitle(): string {
+    return (this.previewLang() === 'sr' ? this.titleSr() : this.titleEn()).trim();
+  }
+
+  pText(item: { promptSr: string; promptEn: string }): string {
+    return (this.previewLang() === 'sr' ? item.promptSr : item.promptEn).trim();
+  }
+
+  pOption(o: { labelSr: string; labelEn: string }): string {
+    return (this.previewLang() === 'sr' ? o.labelSr : o.labelEn).trim();
+  }
+
+  pPoints(item: ItemVm): number[] {
+    const n = Number.isInteger(item.scalePoints) && item.scalePoints! >= 2 && item.scalePoints! <= 10 ? item.scalePoints! : 5;
+    return Array.from({ length: n }, (_, i) => i + 1);
+  }
+
+  pEnd(item: ItemVm, side: 'min' | 'max'): string {
+    const l = item.scaleLabels;
+    if (!l) return '';
+    const v = this.previewLang() === 'sr' ? (side === 'min' ? l.minSr : l.maxSr) : (side === 'min' ? l.minEn : l.maxEn);
+    return (v ?? '').trim();
+  }
+
+  pickOne(localKey: number, value: number): void {
+    this.previewPicks.update((m) => ({ ...m, [localKey]: value }));
+  }
+
+  pickMulti(localKey: number, value: number): void {
+    this.previewPicks.update((m) => {
+      const cur = Array.isArray(m[localKey]) ? (m[localKey] as number[]) : [];
+      return { ...m, [localKey]: cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value] };
+    });
+  }
+
+  isPicked(localKey: number, value: number): boolean {
+    const p = this.previewPicks()[localKey];
+    return Array.isArray(p) ? p.includes(value) : p === value;
   }
 
   isChoice(item: ItemVm): boolean {

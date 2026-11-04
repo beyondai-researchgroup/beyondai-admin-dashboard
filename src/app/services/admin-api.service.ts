@@ -2569,6 +2569,8 @@ export interface ProtocolStepConfig {
   includeIntro?: boolean;
   /** Questionnaire step only: a group's own questionnaire; groups not listed get the step's default one. */
   questionnaireByGroup?: { groupId: number; questionnaireId: number }[];
+  /** Questionnaire step: "a different questionnaire per group" is switched on (the step's own questionnaire is then only the fallback). */
+  byGroup?: boolean;
   /** Questionnaire right after the Sheets task: opens on the hand-in page instead of arriving by e-mail. */
   openImmediately?: boolean;
   bodySr?: string;
@@ -2604,7 +2606,8 @@ export type ProtocolSaveResult =
 
 // ── Questionnaire types ───────────────────────────────────────────────────────────────────────
 
-export type QuestionnaireItemType = 'LIKERT' | 'SINGLE_CHOICE' | 'MULTI_CHOICE' | 'TEXT' | 'NUMBER';
+/** HEADING is a section title (carried in promptSr/promptEn); it takes no answer. */
+export type QuestionnaireItemType = 'LIKERT' | 'SINGLE_CHOICE' | 'MULTI_CHOICE' | 'TEXT' | 'NUMBER' | 'HEADING';
 
 export interface QuestionnaireOption {
   /** Stable uuid, assigned by the server; absent on a brand-new option. */

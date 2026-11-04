@@ -23,7 +23,8 @@ const MAX_SUBSCALE = 100;
 const MAX_ITEMS = 100;
 const MIN_OPTIONS = 2;
 const MAX_OPTIONS = 20;
-const ITEM_TYPES = ['LIKERT', 'SINGLE_CHOICE', 'MULTI_CHOICE', 'TEXT', 'NUMBER'];
+// HEADING is a section title inside the questionnaire: it carries a title in promptSr/promptEn and takes no answer.
+const ITEM_TYPES = ['LIKERT', 'SINGLE_CHOICE', 'MULTI_CHOICE', 'TEXT', 'NUMBER', 'HEADING'];
 const CHOICE_TYPES = ['SINGLE_CHOICE', 'MULTI_CHOICE'];
 const WRITE_ROLES = ['OWNER', 'COLLABORATOR'];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -72,7 +73,7 @@ function normalizeItem(raw) {
     scaleLabels: null,
     subscale: raw.subscale && raw.subscale.trim() ? raw.subscale.trim() : null,
     reverseScored: false,
-    required: raw.required !== false,
+    required: raw.itemType === 'HEADING' ? false : raw.required !== false,
   };
 
   if (raw.itemType === 'LIKERT') {
@@ -180,7 +181,7 @@ router.get('/:researchId', async (req, res) => {
     const sql = getDb();
     const rows = await sql`
       SELECT q."Id", q."TitleSr", q."TitleEn", q."CreatedAt",
-             (SELECT COUNT(*)::int FROM "QuestionnaireItem" i WHERE i."QuestionnaireId" = q."Id") AS "ItemCount",
+             (SELECT COUNT(*)::int FROM "QuestionnaireItem" i WHERE i."QuestionnaireId" = q."Id" AND i."ItemType" <> 'HEADING') AS "ItemCount",
              (SELECT COUNT(*)::int FROM "QuestionnaireResponse" r WHERE r."QuestionnaireId" = q."Id") AS "ResponseCount",
              (SELECT COUNT(*)::int FROM "ResearchProtocolStep" s WHERE (s."QuestionnaireId" = q."Id" OR s."Config" @> jsonb_build_object('questionnaireByGroup', jsonb_build_array(jsonb_build_object('questionnaireId', q."Id"))))) AS "StepCount"
       FROM "Questionnaire" q WHERE q."ResearchId" = ${researchId} ORDER BY q."CreatedAt", q."Id"
@@ -302,7 +303,8 @@ router.put('/:researchId/:questionnaireId', async (req, res) => {
     if (locked) {
       const keptKeys = new Set(v.items.filter((i) => i.itemKey).map((i) => i.itemKey));
       for (const e of existing) {
-        if (!keptKeys.has(e.ItemKey)) {
+        // A heading never holds an answer, so it can always be removed.
+        if (!keptKeys.has(e.ItemKey) && e.ItemType !== 'HEADING') {
           res.status(409).json({ error: 'ITEM_HAS_ANSWERS', itemKey: e.ItemKey });
           return;
         }

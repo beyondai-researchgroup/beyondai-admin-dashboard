@@ -62,7 +62,7 @@ async function loadQuestionnaire(sql, researchId, questionnaireId) {
   if (!qs.length) return null;
   const items = await sql`
     SELECT "ItemKey","ItemType","PromptSr","PromptEn","Options","ScalePoints","Subscale","ReverseScored"
-    FROM "QuestionnaireItem" WHERE "QuestionnaireId" = ${questionnaireId} ORDER BY "SortOrder"
+    FROM "QuestionnaireItem" WHERE "QuestionnaireId" = ${questionnaireId} AND "ItemType" <> 'HEADING' ORDER BY "SortOrder"
   `;
   return { id: qs[0].Id, titleSr: qs[0].TitleSr, titleEn: qs[0].TitleEn, items: items.map(mapItem) };
 }

@@ -182,14 +182,37 @@ export class ProtocolComponent implements OnDestroy {
     return [{ value: '', label: this.translate.instant('PROTOCOL.QUESTIONNAIRE_DEFAULT') }, ...this.questionnaireOptions()];
   });
 
-  groupQuestionnaire(step: StepVm, groupId: number | undefined): number | '' {
-    return step.config.questionnaireByGroup?.find((m) => m.groupId === groupId)?.questionnaireId ?? '';
+  /** "A different questionnaire per group" is on (also for a choice saved before the switch existed). */
+  byGroupMode(step: StepVm): boolean {
+    return step.config.byGroup === true || (step.config.questionnaireByGroup?.length ?? 0) > 0;
+  }
+
+  /** The questionnaire a group gets: its own choice, else the step's questionnaire. */
+  groupQuestionnaire(step: StepVm, groupId: number | undefined): number | null {
+    return step.config.questionnaireByGroup?.find((m) => m.groupId === groupId)?.questionnaireId ?? step.questionnaireId;
+  }
+
+  /** Switching on starts every group on the questionnaire already chosen; switching off goes back to the single questionnaire. */
+  setByGroup(index: number, on: boolean): void {
+    const step = this.steps()[index];
+    if (!on) {
+      this.setReviewConfig(index, { byGroup: undefined, questionnaireByGroup: undefined });
+      return;
+    }
+    const current = step.questionnaireId;
+    if (current == null) return;
+    this.setReviewConfig(index, { byGroup: true, questionnaireByGroup: this.groups().map((g) => ({ groupId: g.id!, questionnaireId: current })) });
   }
 
   setGroupQuestionnaire(index: number, groupId: number | undefined, value: string | number): void {
     if (groupId == null) return;
-    const rest = (this.steps()[index].config.questionnaireByGroup ?? []).filter((m) => m.groupId !== groupId);
-    this.setReviewConfig(index, { questionnaireByGroup: value === '' ? rest : [...rest, { groupId, questionnaireId: Number(value) }] });
+    const step = this.steps()[index];
+    const next = this.groups().map((g) => ({
+      groupId: g.id!,
+      questionnaireId: g.id === groupId ? Number(value) : (this.groupQuestionnaire(step, g.id) ?? Number(value)),
+    }));
+    // The step's own questionnaire follows the first group's, so it never names a questionnaire nobody gets.
+    this.patch(index, { questionnaireId: next[0]?.questionnaireId ?? step.questionnaireId, config: { ...step.config, byGroup: true, questionnaireByGroup: next } });
   }
 
   onTaskKindChange(index: number, value: string | number): void {

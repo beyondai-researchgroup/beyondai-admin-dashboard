@@ -124,9 +124,11 @@ function normalizeStep(raw) {
       if (!Number.isInteger(gid) || gid <= 0 || !Number.isInteger(qid2) || qid2 <= 0) return { error: 'Invalid questionnaireByGroup entry' };
       if (seenGroups.has(gid)) return { error: 'Duplicate group in questionnaireByGroup' };
       seenGroups.add(gid);
-      if (qid2 !== qid) questionnaireByGroup.push({ groupId: gid, questionnaireId: qid2 });
+      // With the explicit per-group switch every group keeps its own entry; without it an entry equal to the default is redundant.
+      if (raw.config?.byGroup === true || qid2 !== qid) questionnaireByGroup.push({ groupId: gid, questionnaireId: qid2 });
     }
     questionnaireByGroup.sort((a, b) => a.groupId - b.groupId);
+    if (raw.config?.byGroup === true) step.config = { ...step.config, byGroup: true };
     if (questionnaireByGroup.length) step.config = { ...step.config, questionnaireByGroup };
   } else if (raw.questionnaireId != null) {
     return { error: 'Only a questionnaire step can reference a questionnaire' };

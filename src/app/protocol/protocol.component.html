@@ -59,39 +59,50 @@
 
             @switch (step.stepType) {
               @case ('QUESTIONNAIRE') {
-                <div class="field-group">
-                  <label class="field-label">{{ 'PROTOCOL.QUESTIONNAIRE_LABEL' | translate }}</label>
-                  @if (questionnaireOptions().length) {
-                    <app-select
-                      [options]="questionnaireOptions()"
-                      [value]="step.questionnaireId"
-                      [disabled]="isLocked(step)"
-                      (valueChange)="onQuestionnaireChange(i, $event)"
-                    ></app-select>
-                  } @else {
+                @if (!questionnaireOptions().length) {
+                  <div class="field-group">
+                    <label class="field-label">{{ 'PROTOCOL.QUESTIONNAIRE_LABEL' | translate }}</label>
                     <span class="field-hint">
                       {{ 'PROTOCOL.NO_QUESTIONNAIRES' | translate }}
                       <a [routerLink]="'/questionnaires'">{{ 'PROTOCOL.GO_QUESTIONNAIRES' | translate }}</a>
                     </span>
-                  }
-                </div>
-                @if (groups().length && questionnaireOptions().length > 1) {
-                  <div class="field-group">
-                    <label class="field-label">{{ 'PROTOCOL.QUESTIONNAIRE_BY_GROUP' | translate }}</label>
-                    @for (g of groups(); track g.id) {
-                      <div class="group-mode-row">
-                        <span class="group-mode-name">{{ g.name }}</span>
-                        <app-select
-                          class="group-mode-select"
-                          [options]="groupQuestionnaireOptions()"
-                          [value]="groupQuestionnaire(step, g.id)"
-                          [disabled]="isLocked(step)"
-                          (valueChange)="setGroupQuestionnaire(i, g.id, $event)"
-                        ></app-select>
-                      </div>
-                    }
-                    <span class="field-hint">{{ 'PROTOCOL.QUESTIONNAIRE_BY_GROUP_HINT' | translate }}</span>
                   </div>
+                } @else {
+                  @if (groups().length && questionnaireOptions().length > 1) {
+                    <label class="toggle-switch intro-toggle">
+                      <input type="checkbox" [checked]="byGroupMode(step)" [disabled]="isLocked(step) || step.questionnaireId == null" (change)="setByGroup(i, $any($event.target).checked)" />
+                      <span class="toggle-track"></span>
+                      <span class="toggle-label">{{ 'PROTOCOL.QUESTIONNAIRE_BY_GROUP_TOGGLE' | translate }}</span>
+                    </label>
+                  }
+                  @if (byGroupMode(step)) {
+                    <div class="field-group">
+                      <label class="field-label">{{ 'PROTOCOL.QUESTIONNAIRE_BY_GROUP' | translate }}</label>
+                      @for (g of groups(); track g.id) {
+                        <div class="group-mode-row">
+                          <span class="group-mode-name">{{ g.name }}</span>
+                          <app-select
+                            class="group-mode-select"
+                            [options]="questionnaireOptions()"
+                            [value]="groupQuestionnaire(step, g.id)"
+                            [disabled]="isLocked(step)"
+                            (valueChange)="setGroupQuestionnaire(i, g.id, $event)"
+                          ></app-select>
+                        </div>
+                      }
+                      <span class="field-hint">{{ 'PROTOCOL.QUESTIONNAIRE_BY_GROUP_HINT' | translate }}</span>
+                    </div>
+                  } @else {
+                    <div class="field-group">
+                      <label class="field-label">{{ 'PROTOCOL.QUESTIONNAIRE_LABEL' | translate }}</label>
+                      <app-select
+                        [options]="questionnaireOptions()"
+                        [value]="step.questionnaireId"
+                        [disabled]="isLocked(step)"
+                        (valueChange)="onQuestionnaireChange(i, $event)"
+                      ></app-select>
+                    </div>
+                  }
                 }
                 @if (followsSheets(i)) {
                   <label class="toggle-switch intro-toggle">
