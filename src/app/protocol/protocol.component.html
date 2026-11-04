@@ -75,6 +75,24 @@
                     </span>
                   }
                 </div>
+                @if (groups().length && questionnaireOptions().length > 1) {
+                  <div class="field-group">
+                    <label class="field-label">{{ 'PROTOCOL.QUESTIONNAIRE_BY_GROUP' | translate }}</label>
+                    @for (g of groups(); track g.id) {
+                      <div class="group-mode-row">
+                        <span class="group-mode-name">{{ g.name }}</span>
+                        <app-select
+                          class="group-mode-select"
+                          [options]="groupQuestionnaireOptions()"
+                          [value]="groupQuestionnaire(step, g.id)"
+                          [disabled]="isLocked(step)"
+                          (valueChange)="setGroupQuestionnaire(i, g.id, $event)"
+                        ></app-select>
+                      </div>
+                    }
+                    <span class="field-hint">{{ 'PROTOCOL.QUESTIONNAIRE_BY_GROUP_HINT' | translate }}</span>
+                  </div>
+                }
                 @if (followsSheets(i)) {
                   <label class="toggle-switch intro-toggle">
                     <input type="checkbox" [checked]="step.config.openImmediately === true" [disabled]="isLocked(step)" (change)="setOpenImmediately(i, $any($event.target).checked)" />

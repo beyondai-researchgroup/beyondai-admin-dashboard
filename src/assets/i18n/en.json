@@ -1005,6 +1005,9 @@
       "REPORT": "Documentation (Report)",
       "HYBRID": "Hybrid (documentation + AI)"
     },
+    "QUESTIONNAIRE_DEFAULT": "Same as the default",
+    "QUESTIONNAIRE_BY_GROUP": "Questionnaire per group (optional)",
+    "QUESTIONNAIRE_BY_GROUP_HINT": "The questionnaire above is the default; every group without its own choice here gets it. The choice stays editable until the first participant receives this step, then it is locked. Each questionnaire has its own results page with a Group column.",
     "REVIEW_MODE_DEFAULT": "Same as the default",
     "REVIEW_MODE_HINT": {
       "AI": "The participant talks to an AI assistant about the pull request.",

@@ -182,7 +182,7 @@ router.get('/:researchId', async (req, res) => {
       SELECT q."Id", q."TitleSr", q."TitleEn", q."CreatedAt",
              (SELECT COUNT(*)::int FROM "QuestionnaireItem" i WHERE i."QuestionnaireId" = q."Id") AS "ItemCount",
              (SELECT COUNT(*)::int FROM "QuestionnaireResponse" r WHERE r."QuestionnaireId" = q."Id") AS "ResponseCount",
-             (SELECT COUNT(*)::int FROM "ResearchProtocolStep" s WHERE s."QuestionnaireId" = q."Id") AS "StepCount"
+             (SELECT COUNT(*)::int FROM "ResearchProtocolStep" s WHERE (s."QuestionnaireId" = q."Id" OR s."Config" @> jsonb_build_object('questionnaireByGroup', jsonb_build_array(jsonb_build_object('questionnaireId', q."Id"))))) AS "StepCount"
       FROM "Questionnaire" q WHERE q."ResearchId" = ${researchId} ORDER BY q."CreatedAt", q."Id"
     `;
     res.json({
@@ -219,7 +219,8 @@ router.get('/:researchId/:questionnaireId', async (req, res) => {
     `;
     const counts = await sql`
       SELECT (SELECT COUNT(*)::int FROM "QuestionnaireResponse" WHERE "QuestionnaireId" = ${questionnaireId}) AS "ResponseCount",
-             (SELECT COUNT(*)::int FROM "ResearchProtocolStep" WHERE "QuestionnaireId" = ${questionnaireId}) AS "StepCount"
+             (SELECT COUNT(*)::int FROM "ResearchProtocolStep" s WHERE s."ResearchId" = ${researchId} AND (s."QuestionnaireId" = ${questionnaireId}
+               OR s."Config" @> jsonb_build_object('questionnaireByGroup', jsonb_build_array(jsonb_build_object('questionnaireId', ${questionnaireId}::int))))) AS "StepCount"
     `;
     res.json({
       id: q.Id, titleSr: q.TitleSr, titleEn: q.TitleEn, createdAt: q.CreatedAt,
@@ -412,7 +413,11 @@ router.delete('/:researchId/:questionnaireId', async (req, res) => {
       res.status(404).json({ error: 'Questionnaire not found' });
       return;
     }
-    const used = await sql`SELECT 1 FROM "ResearchProtocolStep" WHERE "QuestionnaireId" = ${questionnaireId} LIMIT 1`;
+    const used = await sql`
+      SELECT 1 FROM "ResearchProtocolStep" s
+      WHERE s."ResearchId" = ${researchId} AND (s."QuestionnaireId" = ${questionnaireId}
+        OR s."Config" @> jsonb_build_object('questionnaireByGroup', jsonb_build_array(jsonb_build_object('questionnaireId', ${questionnaireId}::int))))
+      LIMIT 1`;
     if (used.length) {
       res.status(409).json({ error: 'QUESTIONNAIRE_IN_USE' });
       return;

@@ -113,6 +113,21 @@ function normalizeStep(raw) {
     step.questionnaireId = qid;
     // "Open right after the table is handed in": the questionnaire opens on the hand-in page instead of arriving by e-mail.
     if (raw.config && raw.config.openImmediately === true) step.config = { openImmediately: true };
+    // A different questionnaire per participant group: the step's own questionnaireId is the default, a group listed
+    // here gets its own. Groups not listed (and people without a group) get the default.
+    const byGroup = Array.isArray(raw.config?.questionnaireByGroup) ? raw.config.questionnaireByGroup : [];
+    const seenGroups = new Set();
+    const questionnaireByGroup = [];
+    for (const m of byGroup) {
+      const gid = Number(m?.groupId);
+      const qid2 = Number(m?.questionnaireId);
+      if (!Number.isInteger(gid) || gid <= 0 || !Number.isInteger(qid2) || qid2 <= 0) return { error: 'Invalid questionnaireByGroup entry' };
+      if (seenGroups.has(gid)) return { error: 'Duplicate group in questionnaireByGroup' };
+      seenGroups.add(gid);
+      if (qid2 !== qid) questionnaireByGroup.push({ groupId: gid, questionnaireId: qid2 });
+    }
+    questionnaireByGroup.sort((a, b) => a.groupId - b.groupId);
+    if (questionnaireByGroup.length) step.config = { ...step.config, questionnaireByGroup };
   } else if (raw.questionnaireId != null) {
     return { error: 'Only a questionnaire step can reference a questionnaire' };
   }
@@ -256,7 +271,10 @@ router.put('/:researchId', async (req, res) => {
     }
 
     // Questionnaires must belong to this research.
-    const qIds = [...new Set(normalized.filter((s) => s.questionnaireId != null).map((s) => s.questionnaireId))];
+    const qIds = [...new Set(normalized.flatMap((s) => [
+      ...(s.questionnaireId != null ? [s.questionnaireId] : []),
+      ...(s.config?.questionnaireByGroup ?? []).map((m) => m.questionnaireId),
+    ]))];
     if (qIds.length) {
       const own = await sql`SELECT "Id" FROM "Questionnaire" WHERE "ResearchId" = ${researchId} AND "Id" = ANY(${qIds})`;
       if (own.length !== qIds.length) {
@@ -276,11 +294,14 @@ router.put('/:researchId', async (req, res) => {
     }
 
     // Group ids named in a code review step must be groups of this research.
-    const reviewGroupIds = [...new Set(normalized.filter((s) => s.config?.taskKind === 'CODE_REVIEW').flatMap((s) => s.config.modeByGroup.map((m) => m.groupId)))];
+    const reviewGroupIds = [...new Set([
+      ...normalized.filter((s) => s.config?.taskKind === 'CODE_REVIEW').flatMap((s) => s.config.modeByGroup.map((m) => m.groupId)),
+      ...normalized.flatMap((s) => (s.config?.questionnaireByGroup ?? []).map((m) => m.groupId)),
+    ])];
     if (reviewGroupIds.length) {
       const own = await sql`SELECT "Id" FROM "ResearchGroup" WHERE "ResearchId" = ${researchId} AND "Id" = ANY(${reviewGroupIds})`;
       if (own.length !== reviewGroupIds.length) {
-        res.status(400).json({ error: 'Unknown group in modeByGroup' });
+        res.status(400).json({ error: 'Unknown group in modeByGroup or questionnaireByGroup' });
         return;
       }
     }
@@ -313,7 +334,11 @@ router.put('/:researchId', async (req, res) => {
       const kindChanged = s.stepType === 'EXPERIMENT' && prev.StepType === 'EXPERIMENT'
         && (prev.Config?.taskKind !== s.config.taskKind
           || (s.config.taskKind === 'CODE_REVIEW' && JSON.stringify(prev.Config) !== JSON.stringify(s.config)));
-      if (isStarted(s.id) && (prev.StepType !== s.stepType || prev.QuestionnaireId !== s.questionnaireId || kindChanged)) {
+      // Same for a questionnaire step: once anyone received it, its default and per-group questionnaires are fixed
+      // (a link already sent resolves to the participant's questionnaire when opened, so it must not change underneath them).
+      const questionnaireChoiceChanged = s.stepType === 'QUESTIONNAIRE' && prev.StepType === 'QUESTIONNAIRE'
+        && JSON.stringify(prev.Config?.questionnaireByGroup ?? []) !== JSON.stringify(s.config?.questionnaireByGroup ?? []);
+      if (isStarted(s.id) && (prev.StepType !== s.stepType || prev.QuestionnaireId !== s.questionnaireId || kindChanged || questionnaireChoiceChanged)) {
         res.status(409).json({ error: 'PROTOCOL_LOCKED', reason: 'STEP_HAS_PROGRESS', stepId: s.id });
         return;
       }

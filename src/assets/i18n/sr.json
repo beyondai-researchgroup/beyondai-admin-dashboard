@@ -1005,6 +1005,9 @@
       "REPORT": "Dokumentacija (Report)",
       "HYBRID": "Hibridni (dokumentacija + AI)"
     },
+    "QUESTIONNAIRE_DEFAULT": "Isti kao podrazumevani",
+    "QUESTIONNAIRE_BY_GROUP": "Upitnik po grupi (opciono)",
+    "QUESTIONNAIRE_BY_GROUP_HINT": "Upitnik iznad je podrazumevani i dobijaju ga sve grupe kojima ovde nije izabran drugi. Izbor važi dok prvi ispitanik ne dobije ovaj korak; posle toga je zaključan. Rezultati svakog upitnika vide se posebno u Rezultatima, sa kolonom Grupa.",
     "REVIEW_MODE_DEFAULT": "Isti kao podrazumevani",
     "REVIEW_MODE_HINT": {
       "AI": "Učesnik vodi razgovor sa AI asistentom o pull requestu.",

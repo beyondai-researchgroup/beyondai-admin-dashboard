@@ -71,7 +71,10 @@ async function loadQuestionnaire(sql, researchId, questionnaireId) {
 async function loadSteps(sql, researchId, questionnaireId) {
   const rows = await sql`
     SELECT "Id","TitleSr","TitleEn","SortOrder" FROM "ResearchProtocolStep"
-    WHERE "ResearchId" = ${researchId} AND "QuestionnaireId" = ${questionnaireId} ORDER BY "SortOrder"
+    WHERE "ResearchId" = ${researchId}
+      AND ("QuestionnaireId" = ${questionnaireId}
+           OR "Config" @> jsonb_build_object('questionnaireByGroup', jsonb_build_array(jsonb_build_object('questionnaireId', ${questionnaireId}::int))))
+    ORDER BY "SortOrder"
   `;
   return rows.map((s) => ({ stepId: s.Id, titleSr: s.TitleSr, titleEn: s.TitleEn }));
 }
@@ -194,7 +197,7 @@ router.get('/:researchId', async (req, res) => {
              (SELECT COUNT(*)::int FROM "QuestionnaireResponse" r WHERE r."QuestionnaireId" = q."Id") AS "ResponseCount"
       FROM "Questionnaire" q
       WHERE q."ResearchId" = ${ids.researchId}
-        AND EXISTS (SELECT 1 FROM "ResearchProtocolStep" s WHERE s."QuestionnaireId" = q."Id")
+        AND EXISTS (SELECT 1 FROM "ResearchProtocolStep" s WHERE (s."QuestionnaireId" = q."Id" OR s."Config" @> jsonb_build_object('questionnaireByGroup', jsonb_build_array(jsonb_build_object('questionnaireId', q."Id")))))
       ORDER BY q."CreatedAt", q."Id"
     `;
     res.json({ questionnaires: rows.map((r) => ({ id: r.Id, titleSr: r.TitleSr, titleEn: r.TitleEn, responseCount: r.ResponseCount })) });

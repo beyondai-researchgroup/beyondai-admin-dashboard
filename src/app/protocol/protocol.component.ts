@@ -176,6 +176,22 @@ export class ProtocolComponent implements OnDestroy {
     this.setReviewConfig(index, { modeByGroup: value === '' ? rest : [...rest, { groupId, mode: String(value) as ReviewMode }] });
   }
 
+  /** Per-group questionnaire choices: "same as the default" plus every questionnaire of the research. */
+  readonly groupQuestionnaireOptions = computed<SelectOption[]>(() => {
+    this.lang();
+    return [{ value: '', label: this.translate.instant('PROTOCOL.QUESTIONNAIRE_DEFAULT') }, ...this.questionnaireOptions()];
+  });
+
+  groupQuestionnaire(step: StepVm, groupId: number | undefined): number | '' {
+    return step.config.questionnaireByGroup?.find((m) => m.groupId === groupId)?.questionnaireId ?? '';
+  }
+
+  setGroupQuestionnaire(index: number, groupId: number | undefined, value: string | number): void {
+    if (groupId == null) return;
+    const rest = (this.steps()[index].config.questionnaireByGroup ?? []).filter((m) => m.groupId !== groupId);
+    this.setReviewConfig(index, { questionnaireByGroup: value === '' ? rest : [...rest, { groupId, questionnaireId: Number(value) }] });
+  }
+
   onTaskKindChange(index: number, value: string | number): void {
     const kind = String(value) as ProtocolTaskKind;
     const arr = [...this.steps()];
@@ -446,7 +462,7 @@ export class ProtocolComponent implements OnDestroy {
       titleEn: s.titleEn.trim(),
       questionnaireId: s.stepType === 'QUESTIONNAIRE' ? s.questionnaireId : null,
       // The "open immediately" switch only counts while the step still follows the Sheets task (moving it away drops the switch).
-      config: s.stepType === 'QUESTIONNAIRE' && s.config.openImmediately && !this.followsSheets(idx) ? {} : s.config,
+      config: s.stepType === 'QUESTIONNAIRE' && s.config.openImmediately && !this.followsSheets(idx) ? { ...s.config, openImmediately: false } : s.config,
       delivery: s.delivery,
       delayDays: s.delivery === 'AFTER_DELAY' ? s.delayDays : null,
       emailMessageSr: s.emailMessageSr?.trim() || null,

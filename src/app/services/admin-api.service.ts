@@ -2567,6 +2567,8 @@ export interface ProtocolStepConfig {
   defaultMode?: ReviewMode;
   modeByGroup?: { groupId: number; mode: ReviewMode }[];
   includeIntro?: boolean;
+  /** Questionnaire step only: a group's own questionnaire; groups not listed get the step's default one. */
+  questionnaireByGroup?: { groupId: number; questionnaireId: number }[];
   /** Questionnaire right after the Sheets task: opens on the hand-in page instead of arriving by e-mail. */
   openImmediately?: boolean;
   bodySr?: string;
