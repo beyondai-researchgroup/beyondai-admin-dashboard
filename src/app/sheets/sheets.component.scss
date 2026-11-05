@@ -41,3 +41,21 @@
 .window-fields { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
 .window-field { display: flex; flex-direction: column; gap: 6px; }
 .window-field input { min-width: 220px; }
+
+.zip-group { min-width: 190px; }
+
+// Download dialog for the ZIP of Excel files
+.zip-backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+.zip-modal { width: 100%; max-width: 520px; background: var(--color-surface); border: 1px solid var(--color-border-strong, var(--color-border)); border-radius: 12px; padding: 22px 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; gap: 16px; }
+.zip-title { margin: 0; font-size: 18px; }
+.zip-hint { margin: -6px 0 0; font-size: 13px; color: var(--color-muted); }
+.zip-langs { display: flex; flex-direction: column; gap: 8px; }
+.zip-lang { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-input); cursor: pointer; }
+.zip-lang input { margin-top: 3px; accent-color: var(--color-accent); }
+.zip-lang span { display: flex; flex-direction: column; gap: 2px; }
+.zip-lang small { color: var(--color-muted); font-size: 12.5px; }
+.zip-lang--on { border-color: var(--color-accent); }
+.zip-privacy { margin: 8px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--color-text-secondary); border-left: 3px solid var(--color-accent-dim, var(--color-border)); padding-left: 10px; }
+.zip-progress { margin: 0; font-size: 13px; color: var(--color-accent); }
+.zip-error { margin: 0; font-size: 13px; color: var(--color-error); }
+.zip-actions { display: flex; justify-content: flex-end; gap: 10px; }

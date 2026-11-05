@@ -63,6 +63,7 @@
 
             <div class="tl-times">
               @if (s.sentAt) { <span>{{ 'PROTOCOL_PROGRESS.SENT_AT' | translate }} {{ fmt(s.sentAt) }}</span> }
+              @if (s.startedAt) { <span>{{ 'PROTOCOL_PROGRESS.STARTED_AT' | translate }} {{ fmt(s.startedAt) }}</span> }
               @if (s.status === 'SCHEDULED' && s.scheduledFor) { <span>{{ 'PROTOCOL_PROGRESS.SCHEDULED_FOR' | translate }} {{ fmt(s.scheduledFor) }}</span> }
               @if (s.completedAt) {
                 <span>{{ 'PROTOCOL_PROGRESS.COMPLETED_AT' | translate }} {{ fmt(s.completedAt) }}

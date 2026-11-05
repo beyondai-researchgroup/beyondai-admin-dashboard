@@ -7,6 +7,8 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import { AdminApiService, ExperimentalSessionSummary } from '../services/admin-api.service';
 import { ScopeService } from '../services/scope.service';
 import { LoadingSpinnerComponent } from '../shared/loading-spinner/loading-spinner.component';
+import { SelectComponent, SelectOption } from '../shared/select/select.component';
+import { TranslateService } from '@ngx-translate/core';
 
 /**
  * List page for Experimental Sessions — a physical day/timeslot within a research (e.g. "3
@@ -19,7 +21,7 @@ import { LoadingSpinnerComponent } from '../shared/loading-spinner/loading-spinn
 @Component({
   selector: 'app-experimental-sessions-list',
   standalone: true,
-  imports: [TranslateModule, ReactiveFormsModule, DatePipe, LoadingSpinnerComponent],
+  imports: [TranslateModule, ReactiveFormsModule, DatePipe, LoadingSpinnerComponent, SelectComponent],
   templateUrl: './experimental-sessions-list.component.html',
   styleUrl: './experimental-sessions-list.component.scss',
 })
@@ -28,6 +30,11 @@ export class ExperimentalSessionsListComponent {
   private scope = inject(ScopeService);
   private router = inject(Router);
   private fb = inject(FormBuilder);
+  private translate = inject(TranslateService);
+
+  /** Optional group of a new session (the research's groups). */
+  readonly groupValue = signal<string>('');
+  readonly groupOptions = signal<SelectOption[]>([]);
 
   readonly dateFormat = 'dd.MM.yyyy.';
 
@@ -58,7 +65,14 @@ export class ExperimentalSessionsListComponent {
   openCreateModal(): void {
     this.form.setValue({ sessionDate: new Date().toISOString().slice(0, 10), label: '', notes: '' });
     this.createError.set(false);
+    this.groupValue.set('');
     this.showCreateModal.set(true);
+    const researchId = this.scope.selectedResearchId();
+    if (researchId != null) {
+      this.api.getResearchDesign(researchId)
+        .then((d) => this.groupOptions.set([{ value: '', label: this.translate.instant('EXPERIMENTAL_SESSIONS.GROUP_NONE') }, ...d.groups.filter((g) => g.id != null).map((g) => ({ value: String(g.id), label: g.name }))]))
+        .catch(() => this.groupOptions.set([]));
+    }
   }
 
   closeCreateModal(): void {
@@ -90,6 +104,7 @@ export class ExperimentalSessionsListComponent {
         sessionDate: this.form.value.sessionDate!,
         label: this.form.value.label?.trim() || null,
         notes: this.form.value.notes?.trim() || null,
+        ...(this.groupOptions().length > 1 && this.groupValue() !== '' ? { groupId: Number(this.groupValue()) } : {}),
       });
       this.showCreateModal.set(false);
       this.router.navigate(['/experimental-sessions', id]);

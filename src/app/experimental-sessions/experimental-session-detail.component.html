@@ -26,9 +26,16 @@
         <label class="field-label" for="label">{{ 'EXPERIMENTAL_SESSIONS.LABEL_LABEL' | translate }}</label>
         <input id="label" type="text" class="text-input" formControlName="label" />
       </div>
+      @if (groupOptions().length > 1) {
+        <div class="field-group">
+          <label class="field-label">{{ 'EXPERIMENTAL_SESSIONS.GROUP_LABEL' | translate }}</label>
+          <app-select [options]="groupOptions()" [value]="groupValue()" (valueChange)="groupValue.set('' + $event)"></app-select>
+          <span class="field-hint">{{ (s.groupFromLabel && s.groupId == null ? 'EXPERIMENTAL_SESSIONS.GROUP_FROM_LABEL_HINT' : 'EXPERIMENTAL_SESSIONS.GROUP_HINT') | translate }}</span>
+        </div>
+      }
       <div class="field-group">
         <label class="field-label" for="notes">{{ 'EXPERIMENTAL_SESSIONS.NOTES_LABEL' | translate }}</label>
-        <textarea id="notes" class="text-input" rows="3" formControlName="notes"></textarea>
+        <textarea id="notes" class="text-input notes-area" rows="6" maxlength="4000" formControlName="notes"></textarea>
       </div>
       <div class="form-actions">
         <button type="submit" class="btn-primary form-submit" [disabled]="saving()">
@@ -48,8 +55,12 @@
     </form>
   </div>
 
+  <app-session-work [sessionId]="s.id" [refreshKey]="refreshKey()"></app-session-work>
+
+  <app-session-checklist [sessionId]="s.id" [refreshKey]="refreshKey()"></app-session-checklist>
+
   @if (s.flowMode === 'PROTOCOL') {
-    <app-session-slots [experimentalSessionId]="s.id" [researchId]="s.researchId"></app-session-slots>
+    <app-session-slots [experimentalSessionId]="s.id" [researchId]="s.researchId" (slotsChanged)="bumpRefresh()"></app-session-slots>
   } @else {
     <h3 class="raw-heading">{{ 'EXPERIMENTAL_SESSIONS.PARTICIPANTS_HEADING' | translate }}</h3>
 

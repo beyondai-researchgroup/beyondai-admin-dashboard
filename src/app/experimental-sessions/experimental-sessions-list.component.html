@@ -34,8 +34,8 @@
           <tr class="data-table__row--clickable" tabindex="0" role="button" (click)="openSession(s.id)" (keydown.enter)="openSession(s.id)">
             <td>{{ s.sessionDate | date: dateFormat }}</td>
             <td>{{ s.label ?? '-' }}</td>
-            <td>{{ s.participantSessionCount + s.slotCount }}</td>
-            <td class="notes-preview">{{ s.notes ?? '-' }}</td>
+            <td>{{ s.memberCount ?? (s.participantSessionCount + s.slotCount) }}</td>
+            <td class="notes-preview" [attr.title]="s.notes ?? ''">{{ s.notes || '-' }}</td>
           </tr>
         }
       </tbody>
@@ -66,6 +66,12 @@
             [placeholder]="'EXPERIMENTAL_SESSIONS.LABEL_PLACEHOLDER' | translate"
           />
         </div>
+        @if (groupOptions().length > 1) {
+          <div class="field-group">
+            <label class="field-label">{{ 'EXPERIMENTAL_SESSIONS.GROUP_LABEL' | translate }}</label>
+            <app-select [options]="groupOptions()" [value]="groupValue()" (valueChange)="groupValue.set('' + $event)"></app-select>
+          </div>
+        }
         <div class="field-group">
           <label class="field-label" for="notes">{{ 'EXPERIMENTAL_SESSIONS.NOTES_LABEL' | translate }}</label>
           <textarea id="notes" class="text-input" rows="3" formControlName="notes"></textarea>

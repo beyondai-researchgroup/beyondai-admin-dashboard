@@ -378,6 +378,8 @@ export interface SheetsOverview {
   workbooks?: SheetsTemplateSummary[];
   /** When the tables open and close (ISO, UTC); null = no limit on that side. */
   window?: { opensAt: string | null; closesAt: string | null };
+  /** The research's participant groups (for the ZIP export per group). */
+  groups?: { id: number; name: string }[];
   /** Minutes a participant has from pressing Start (null = no countdown). */
   timerMinutes?: number | null;
   /** The earliest the participant may hand in, in minutes from Start (null = any time). */
@@ -764,6 +766,50 @@ export interface ExperimentalSessionSummary {
   participantSessionCount: number;
   /** Termini (slots) of a PROTOCOL research; 0 for a classic one. */
   slotCount: number;
+  /** The group the session was made for (null = none chosen). */
+  groupId?: number | null;
+  /** Participants of the session: who worked a task that day, attendees of its termini and assigned sessions. */
+  memberCount?: number;
+}
+
+/** A participant who worked a task on the session's day (read from the task itself). */
+export interface ExperimentalSessionWorkRow {
+  participantId: string;
+  code: string | null;
+  groupName: string | null;
+  taskName: string | null;
+  kind: 'SHEETS' | 'GENERIC_TASK';
+  startedAt: string;
+  submittedAt: string | null;
+  status: 'WORKING' | 'SUBMITTED' | 'TIMED_OUT';
+  durationMin: number | null;
+}
+
+export interface SessionChecklistItem {
+  id: number;
+  text: string;
+  done: boolean;
+  doneAt: string | null;
+  doneBy: string | null;
+  fromTemplate: boolean;
+}
+/** One termin of the session with its own checklist. */
+export interface SessionChecklistSlot {
+  slotId: number;
+  startTime: string;
+  durationMinutes: number;
+  kind: 'ONLINE' | 'IN_PERSON';
+  location: string | null;
+  audienceType: 'PARTICIPANT' | 'GROUP' | 'ALL';
+  groupName: string | null;
+  attendees: string[];
+  items: SessionChecklistItem[];
+  doneCount: number;
+}
+export interface SessionChecklist {
+  canWrite: boolean;
+  template: { id: number; text: string }[];
+  slots: SessionChecklistSlot[];
 }
 
 export interface ExperimentalSessionParticipantRow {
@@ -790,6 +836,11 @@ export interface ExperimentalSessionDetail {
   sessionDate: string;
   label: string | null;
   notes: string | null;
+  /** The group chosen on the session (null = none). */
+  groupId?: number | null;
+  /** The group whose participants it shows: the chosen one, else the group the session is named after. */
+  effectiveGroupId?: number | null;
+  groupFromLabel?: boolean;
   createdAt: string;
   participantSessions: ExperimentalSessionParticipantRow[];
 }
@@ -1573,6 +1624,29 @@ export class AdminApiService {
     URL.revokeObjectURL(url);
   }
 
+  /** ZIP with one Excel file per group x template (groupId null = every group). */
+  async exportSheetsZip(researchId: number, groupId: number | null, lang: 'sr' | 'en' = 'sr'): Promise<void> {
+    const token = this.auth.token();
+    const params = new URLSearchParams();
+    if (groupId != null) params.set('groupId', String(groupId));
+    if (lang !== 'sr') params.set('lang', lang);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`/api/admin/sheets/${researchId}/export-zip${qs}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error ?? `Export failed: ${res.status}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? `tabele-research-${researchId}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   getQuestionnaireResultsList(researchId: number): Promise<{ questionnaires: QuestionnaireResultsListItem[] }> {
     return this.req(this.http.get<{ questionnaires: QuestionnaireResultsListItem[] }>(`/api/admin/questionnaire-results/${researchId}`));
   }
@@ -1926,6 +2000,7 @@ export class AdminApiService {
     sessionDate: string;
     label: string | null;
     notes: string | null;
+    groupId?: number | null;
   }): Promise<{ id: number }> {
     return this.req(this.http.post<{ id: number }>('/api/admin/experimental-sessions', body));
   }
@@ -2009,9 +2084,33 @@ export class AdminApiService {
     );
   }
 
+  getExperimentalSessionWork(id: number): Promise<ExperimentalSessionWorkRow[]> {
+    return this.req(this.http.get<ExperimentalSessionWorkRow[]>(`/api/admin/experimental-sessions/${id}/work`));
+  }
+
+  getSessionChecklist(sessionId: number): Promise<SessionChecklist> {
+    return this.req(this.http.get<SessionChecklist>(`/api/admin/session-checklists/${sessionId}`));
+  }
+
+  saveSessionChecklistTemplate(sessionId: number, items: { id?: number; text: string }[]): Promise<{ ok: true; template: { id: number; text: string }[] }> {
+    return this.req(this.http.put<{ ok: true; template: { id: number; text: string }[] }>(`/api/admin/session-checklists/${sessionId}/template`, { items }));
+  }
+
+  addSessionChecklistItem(sessionId: number, slotId: number, text: string): Promise<{ id: number }> {
+    return this.req(this.http.post<{ id: number }>(`/api/admin/session-checklists/${sessionId}/slots/${slotId}/items`, { text }));
+  }
+
+  updateSessionChecklistItem(itemId: number, body: { done?: boolean; text?: string }): Promise<{ ok: true }> {
+    return this.req(this.http.put<{ ok: true }>(`/api/admin/session-checklists/items/${itemId}`, body));
+  }
+
+  deleteSessionChecklistItem(itemId: number): Promise<{ ok: true }> {
+    return this.req(this.http.delete<{ ok: true }>(`/api/admin/session-checklists/items/${itemId}`));
+  }
+
   updateExperimentalSession(
     id: number,
-    body: { sessionDate: string; label: string | null; notes: string | null }
+    body: { sessionDate: string; label: string | null; notes: string | null; groupId?: number | null }
   ): Promise<{ ok: true }> {
     return this.req(this.http.put<{ ok: true }>(`/api/admin/experimental-sessions/${id}`, body));
   }
@@ -2453,6 +2552,8 @@ export interface ProtocolCell {
   status: ProtocolProgressStatus;
   activity?: SheetsActivity | null;
   activityAt?: string | null;
+  /** When the participant started the task (Sheets: pressed Start; Generic task: opened it). */
+  startedAt?: string | null;
   scheduledFor: string | null;
   sentAt: string | null;
   completedAt: string | null;
@@ -2513,6 +2614,7 @@ export interface ProtocolTimelineStep {
   completedBy: string | null;
   activity?: SheetsActivity | null;
   activityAt?: string | null;
+  startedAt?: string | null;
   linkUrl: string | null;
   linkExpired: boolean;
 }

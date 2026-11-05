@@ -36,6 +36,20 @@ export class SheetsComponent {
   readonly busyId = signal<string | null>(null);
   readonly bulkBusy = signal(false);
   readonly exporting = signal(false);
+  /** ZIP per group: 'all' or a group id. */
+  readonly zipGroup = signal<string>('all');
+  readonly zipBusy = signal(false);
+  /** The download dialog: its language choice ('sr' = the original, 'en' = translated to English), attempt counter and error. */
+  readonly zipOpen = signal(false);
+  readonly zipLang = signal<'sr' | 'en'>('sr');
+  readonly zipAttempt = signal(0);
+  readonly zipError = signal<string | null>(null);
+  private zipCancelled = false;
+  readonly zipGroupOptions = computed<SelectOption[]>(() => [
+    { value: 'all', label: this.translate.instant('SHEETS.ZIP_ALL_GROUPS') },
+    ...(this.overview()?.groups ?? []).map((g) => ({ value: String(g.id), label: g.name })),
+  ]);
+  readonly hasGroups = computed(() => (this.overview()?.groups?.length ?? 0) > 0);
   readonly message = signal<Msg>(null);
   readonly copiedId = signal<string | null>(null);
 
@@ -216,6 +230,52 @@ export class SheetsComponent {
       this.say('SHEETS.EXPORT_ERROR', 'error');
     } finally {
       this.exporting.set(false);
+    }
+  }
+
+  openZip(): void {
+    this.zipError.set(null);
+    this.zipAttempt.set(0);
+    this.zipOpen.set(true);
+  }
+
+  closeZip(): void {
+    // closing while a translation is running stops waiting for it (what was translated is kept and reused next time)
+    this.zipCancelled = true;
+    this.zipOpen.set(false);
+  }
+
+  /** Downloads the ZIP. A translation of a big export can take longer than one request allows; it is simply asked again (what was translated is remembered). */
+  async exportZip(): Promise<void> {
+    if (this.researchId == null || this.zipBusy()) return;
+    this.zipBusy.set(true);
+    this.zipError.set(null);
+    this.zipCancelled = false;
+    const g = this.zipGroup();
+    const lang = this.zipLang();
+    const maxAttempts = lang === 'en' ? 6 : 1;
+    try {
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        this.zipAttempt.set(attempt);
+        try {
+          await this.api.exportSheetsZip(this.researchId, g === 'all' ? null : Number(g), lang);
+          this.zipOpen.set(false);
+          return;
+        } catch (err) {
+          const code = (err as Error).message;
+          if (code === 'TRANSLATION_TIMEOUT' && attempt < maxAttempts && !this.zipCancelled) continue;
+          this.zipError.set(
+            code === 'NO_ENTRIES' ? 'SHEETS.ZIP_EMPTY'
+            : code === 'TRANSLATION_NOT_CONFIGURED' ? 'SHEETS.ZIP_ERR_NOT_CONFIGURED'
+            : code === 'TRANSLATION_TOO_LARGE' ? 'SHEETS.ZIP_ERR_TOO_LARGE'
+            : code === 'TRANSLATION_TIMEOUT' ? 'SHEETS.ZIP_ERR_TIMEOUT'
+            : code === 'TRANSLATION_FAILED' ? 'SHEETS.ZIP_ERR_FAILED'
+            : 'SHEETS.EXPORT_ERROR');
+          return;
+        }
+      }
+    } finally {
+      this.zipBusy.set(false);
     }
   }
 

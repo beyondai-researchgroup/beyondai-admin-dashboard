@@ -297,7 +297,8 @@ export class ProtocolParticipantsComponent {
     const base = this.translate.instant('PROTOCOL_PROGRESS.STATUS_' + (c?.status ?? 'NOT_REACHED'));
     const label = c?.activity ? base + ' - ' + this.translate.instant('PROTOCOL_PROGRESS.ACTIVITY_' + c.activity) : base;
     const when = c?.completedAt ?? c?.scheduledFor ?? c?.sentAt;
-    return when ? `${label} · ${new Date(when).toLocaleString()}` : label;
+    const started = c?.startedAt ? ` · ${this.translate.instant('PROTOCOL_PROGRESS.STARTED_AT')} ${new Date(c.startedAt).toLocaleString()}` : '';
+    return (when ? `${label} · ${new Date(when).toLocaleString()}` : label) + started;
   }
 
   statusIcon(status: ProtocolProgressStatus): string {

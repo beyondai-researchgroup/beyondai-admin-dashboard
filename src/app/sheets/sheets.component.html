@@ -10,6 +10,9 @@
         <button type="button" class="btn-ghost" [disabled]="exporting()" (click)="exportExcel()">
           {{ (exporting() ? 'SHEETS.EXPORT_SAVING' : (severalTemplates() ? 'SHEETS.EXPORT_ALL' : 'SHEETS.EXPORT')) | translate }}
         </button>
+        @if (hasGroups()) {
+          <button type="button" class="btn-ghost" (click)="openZip()" [attr.title]="'SHEETS.ZIP_HINT' | translate">{{ 'SHEETS.ZIP_BUTTON' | translate }}</button>
+        }
       }
     </div>
   }
@@ -148,8 +151,9 @@
                       @if (p.entry!.timedOut) { <span class="pill pill--warn">{{ 'SHEETS.ENTRY_TIMED_OUT' | translate }}</span> }
                       @if (p.entry!.durationMin != null) { <span class="muted duration">{{ 'SHEETS.ENTRY_DURATION' | translate: { min: p.entry!.durationMin } }}</span> }
                     } @else if (p.timeUp) { <span class="pill pill--warn">{{ 'SHEETS.ENTRY_TIME_UP' | translate }}</span> }
-                    @else if (!p.entry) { <span class="muted">{{ (p.startedAt ? 'SHEETS.ENTRY_STARTED' : 'SHEETS.ENTRY_NONE') | translate }}</span> }
+                    @else if (!p.entry) { <span class="muted">{{ (p.startedAt ? 'SHEETS.ENTRY_STARTED' : 'SHEETS.ENTRY_NONE') | translate: { date: (p.startedAt | date: 'dd.MM.yyyy. HH:mm') } }}</span> }
                     @else { <span class="pill pill--draft">{{ 'SHEETS.ENTRY_DRAFT' | translate }}</span> }
+                    @if (p.startedAt && (p.entry || p.timeUp)) { <span class="muted duration">{{ 'SHEETS.STARTED_AT' | translate: { date: (p.startedAt | date: 'dd.MM.yyyy. HH:mm') } }}</span> }
                   </td>
                   <td class="actions">
                     @if (p.entry) {
@@ -224,6 +228,49 @@
           </div>
         }
       }
+    </div>
+  </div>
+}
+
+@if (zipOpen()) {
+  <div class="zip-backdrop" (click)="zipBusy() ? null : closeZip()">
+    <div class="zip-modal" role="dialog" aria-modal="true" [attr.aria-label]="'SHEETS.ZIP_MODAL_TITLE' | translate" (click)="$event.stopPropagation()">
+      <h3 class="zip-title">{{ 'SHEETS.ZIP_MODAL_TITLE' | translate }}</h3>
+      <p class="zip-hint">{{ 'SHEETS.ZIP_HINT' | translate }}</p>
+
+      <div class="field-group">
+        <label class="field-label">{{ 'SHEETS.ZIP_GROUP_LABEL' | translate }}</label>
+        <app-select [options]="zipGroupOptions()" [value]="zipGroup()" [disabled]="zipBusy()" (valueChange)="zipGroup.set('' + $event)"></app-select>
+      </div>
+
+      <div class="field-group">
+        <span class="field-label">{{ 'SHEETS.ZIP_LANG_LABEL' | translate }}</span>
+        <div class="zip-langs">
+          <label class="zip-lang" [class.zip-lang--on]="zipLang() === 'sr'">
+            <input type="radio" name="zip-lang" [checked]="zipLang() === 'sr'" [disabled]="zipBusy()" (change)="zipLang.set('sr')" />
+            <span><strong>{{ 'SHEETS.ZIP_LANG_ORIGINAL' | translate }}</strong><small>{{ 'SHEETS.ZIP_LANG_ORIGINAL_HINT' | translate }}</small></span>
+          </label>
+          <label class="zip-lang" [class.zip-lang--on]="zipLang() === 'en'">
+            <input type="radio" name="zip-lang" [checked]="zipLang() === 'en'" [disabled]="zipBusy()" (change)="zipLang.set('en')" />
+            <span><strong>{{ 'SHEETS.ZIP_LANG_EN' | translate }}</strong><small>{{ 'SHEETS.ZIP_LANG_EN_HINT' | translate }}</small></span>
+          </label>
+        </div>
+        @if (zipLang() === 'en') {
+          <p class="zip-privacy">{{ 'SHEETS.ZIP_PRIVACY' | translate }}</p>
+        }
+      </div>
+
+      @if (zipBusy() && zipLang() === 'en') {
+        <p class="zip-progress">{{ (zipAttempt() > 1 ? 'SHEETS.ZIP_TRANSLATING_AGAIN' : 'SHEETS.ZIP_TRANSLATING') | translate: { n: zipAttempt() } }}</p>
+      }
+      @if (zipError(); as e) { <p class="zip-error">{{ e | translate }}</p> }
+
+      <div class="zip-actions">
+        <button type="button" class="btn-ghost" (click)="closeZip()">{{ (zipBusy() ? 'SHEETS.ZIP_STOP' : 'SHEETS.ZIP_CANCEL') | translate }}</button>
+        <button type="button" class="btn-primary form-submit" [disabled]="zipBusy()" (click)="exportZip()">
+          {{ (zipBusy() ? 'SHEETS.EXPORT_SAVING' : 'SHEETS.ZIP_DOWNLOAD') | translate }}
+        </button>
+      </div>
     </div>
   </div>
 }

@@ -105,11 +105,43 @@ async function sheetActivityByGuid(sql, researchId) {
   const map = new Map();
   for (const r of rows) {
     const activity = r.Submitted ? (r.TimedOut ? 'TIMED_OUT' : 'SUBMITTED') : r.HasRows ? 'WORKING' : r.StartedAt ? 'STARTED' : 'NOT_OPENED';
-    map.set(r.ParticipantGuid, { activity, activityAt: r.UpdatedAt ?? r.StartedAt ?? null });
+    map.set(r.ParticipantGuid, { activity, activityAt: r.UpdatedAt ?? r.StartedAt ?? null, startedAt: r.StartedAt ?? null });
+  }
+  return map;
+}
+
+/**
+ * The same for a Generic Task: the link was opened in the task app (STARTED is shown as WORKING: the participant is on the task),
+ * the files were handed in (SUBMITTED) or the time ran out (TIMED_OUT). Keyed by participant guid. A participant with no row of
+ * either kind has not opened the task yet.
+ */
+async function genericTaskActivityByGuid(sql, researchId) {
+  const rows = await sql`
+    SELECT p."Guid" AS "ParticipantGuid", st."StartedAt", sub."SubmittedAt", sub."IsTimedOut", (sub."ParticipantGuid" IS NOT NULL) AS "Submitted"
+    FROM "Participant" p
+    LEFT JOIN "GenericTaskStart" st ON st."ParticipantGuid" = p."Guid"
+    LEFT JOIN "GenericTaskSubmission" sub ON sub."ParticipantGuid" = p."Guid"
+    WHERE p."ResearchId" = ${researchId}
+  `;
+  const map = new Map();
+  for (const r of rows) {
+    const activity = r.Submitted ? (r.IsTimedOut ? 'TIMED_OUT' : 'SUBMITTED') : r.StartedAt ? 'WORKING' : 'NOT_OPENED';
+    map.set(r.ParticipantGuid, { activity, activityAt: r.SubmittedAt ?? r.StartedAt ?? null, startedAt: r.StartedAt ?? null });
   }
   return map;
 }
 const isSheetsStep = (s) => s.StepType === 'EXPERIMENT' && s.Config?.taskKind === 'SHEETS';
+const isGenericTaskStep = (s) => s.StepType === 'EXPERIMENT' && s.Config?.taskKind === 'GENERIC_TASK';
+/** Steps whose work state (and start time) the platform can follow. */
+const tracksActivity = (s) => isSheetsStep(s) || isGenericTaskStep(s);
+/** The activity maps of a research, one per kind of task its protocol has. */
+async function activityMaps(sql, researchId, steps) {
+  return {
+    sheets: steps.some(isSheetsStep) ? await sheetActivityByGuid(sql, researchId) : new Map(),
+    generic: steps.some(isGenericTaskStep) ? await genericTaskActivityByGuid(sql, researchId) : new Map(),
+  };
+}
+const activityOf = (maps, step, guid) => (isSheetsStep(step) ? maps.sheets.get(guid) : isGenericTaskStep(step) ? maps.generic.get(guid) : null) ?? null;
 
 const mapEngine = (r) => ({
   ok: r.ok, reason: r.reason ?? null, sentStepIds: r.sent ?? [], currentStepId: r.current ?? null, finished: !!r.finished,
@@ -124,8 +156,8 @@ router.get('/:researchId/participants', async (req, res) => {
     const steps = await sql`
       SELECT "Id","StepType","TitleSr","TitleEn","Delivery","Config" FROM "ResearchProtocolStep" WHERE "ResearchId" = ${research.Id} ORDER BY "SortOrder","Id"
     `;
-    const sheetSteps = steps.filter(isSheetsStep);
-    const activity = sheetSteps.length ? await sheetActivityByGuid(sql, research.Id) : new Map();
+    const activitySteps = steps.filter(tracksActivity);
+    const maps = await activityMaps(sql, research.Id, steps);
     const participants = await sql`
       SELECT p."Guid", p."ParticipantId", p."ParticipantCode", p."Email", p."Language", p."GroupId", g."Name" AS "GroupName",
              p."ResearchTaskId", t."Name" AS "TaskName", p."GroupAssignedBy", p."TaskAssignedBy",
@@ -170,12 +202,10 @@ router.get('/:researchId/participants', async (req, res) => {
       steps: steps.map((s) => ({ id: s.Id, stepType: s.StepType, titleSr: s.TitleSr, titleEn: s.TitleEn, delivery: s.Delivery })),
       participants: participants.map((p) => {
         const statuses = byGuid.get(p.Guid) ?? {};
-        const act = activity.get(p.Guid);
-        if (act) {
-          for (const s of sheetSteps) {
-            const cell = statuses[s.Id];
-            if (cell && (cell.status === 'SENT' || cell.status === 'COMPLETED')) { cell.activity = act.activity; cell.activityAt = act.activityAt; }
-          }
+        for (const s of activitySteps) {
+          const act = activityOf(maps, s, p.Guid);
+          const cell = statuses[s.Id];
+          if (act && cell && (cell.status === 'SENT' || cell.status === 'COMPLETED')) { cell.activity = act.activity; cell.activityAt = act.activityAt; cell.startedAt = act.startedAt; }
         }
         const started = Object.keys(statuses).length > 0;
         const finished = started && steps.length > 0 && steps.every((s) => ['COMPLETED', 'SKIPPED'].includes(statuses[s.Id]?.status));
@@ -223,7 +253,7 @@ router.get('/:researchId/participants/:participantId', async (req, res) => {
       WHERE l."ParticipantGuid" = ${p.Guid} AND w."ResearchId" = ${research.Id} ORDER BY l."CreatedAt" DESC LIMIT 1
     `)[0] ?? null;
     const progress = new Map(rows.map((r) => [r.StepId, r]));
-    const sheetActivity = steps.some(isSheetsStep) ? await sheetActivityByGuid(sql, research.Id) : new Map();
+    const maps = await activityMaps(sql, research.Id, steps);
     const stepLinkById = new Map(stepLinks.map((l) => [l.StepId, l]));
     const moduleLinkByType = new Map(moduleLinks.map((l) => [l.SurveyType, l]));
     const u = urls();
@@ -273,9 +303,9 @@ router.get('/:researchId/participants/:participantId', async (req, res) => {
       steps: steps.map((s) => {
         const r = progress.get(s.Id);
         const status = r?.Status ?? 'NOT_REACHED';
-        const act = isSheetsStep(s) && (status === 'SENT' || status === 'COMPLETED') ? sheetActivity.get(p.Guid) : null;
+        const act = (status === 'SENT' || status === 'COMPLETED') ? activityOf(maps, s, p.Guid) : null;
         return {
-          activity: act?.activity ?? null, activityAt: act?.activityAt ?? null,
+          activity: act?.activity ?? null, activityAt: act?.activityAt ?? null, startedAt: act?.startedAt ?? null,
           id: s.Id, stepType: s.StepType, titleSr: s.TitleSr, titleEn: s.TitleEn, delivery: s.Delivery, delayDays: s.DelayDays,
           status, scheduledFor: r?.ScheduledFor ?? null, sentAt: r?.SentAt ?? null,
           completedAt: r?.CompletedAt ?? null, completedBy: r?.CompletedBy ?? null,

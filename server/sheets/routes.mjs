@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
 import ExcelJS from 'exceljs';
+import { ZipArchive } from 'archiver';
+import { translateTexts, translationConfigured, TranslationError, needsTranslation } from '../translate/translator.mjs';
 import { getDb } from '../db.mjs';
 import { requireAuth } from '../auth/middleware.mjs';
 import { resolveResearchScope, ScopeForbiddenError } from '../scope.mjs';
@@ -127,7 +129,9 @@ router.get('/:researchId', async (req, res) => {
     const research = await loadResearch(sql, researchId);
     if (!research) { res.status(404).json({ error: 'Research not found' }); return; }
     const win = await loadSheetsWindow(sql, researchId);
+    const groupRows = await sql`SELECT "Id","Name" FROM "ResearchGroup" WHERE "ResearchId" = ${researchId} ORDER BY "Id"`;
     const base = {
+      groups: groupRows.map((g) => ({ id: g.Id, name: g.Name })),
       usesSheets: research.UsesSheets, appUrl: appUrl(), canWrite: hasMinRole(req.researcher, researchId, WRITE_ROLES),
       window: { opensAt: win.opensAt?.toISOString() ?? null, closesAt: win.closesAt?.toISOString() ?? null },
       // The countdown (minutes) that runs from the moment a participant presses Start; null = none.
@@ -397,7 +401,10 @@ router.get('/:researchId/participants/:participantId/entry', async (req, res) =>
 // One worksheet per template sheet: the template's header (merged cells included) with a ParticipantId column in
 // front and a Status column at the end, then one row per filled row of every participant. All templates of the research
 // go into one file (each sheet name starts with the template's label), or just one with ?workbookId=.
-function addWorkbookSheets(book, wb, entries, { hasCodes, hasGroups, hasTasks, hasTimer, prefix, withTemplate }, usedNames) {
+// `tr` (default: no change) is applied to every text that ends up in the file: header cells, sheet names, group / task / template
+// names and the participants' answers. The ZIP export uses it to translate the whole file.
+const same = (s) => s;
+function addWorkbookSheets(book, wb, entries, { hasCodes, hasGroups, hasTasks, hasTimer, prefix, withTemplate, tr = same }, usedNames) {
   const hasRules = !!(wb.InstructionsSr?.trim() || wb.InstructionsEn?.trim());
   const order = wb.Snapshot.sheetOrder ?? Object.keys(wb.Snapshot.sheets);
   for (const id of order) {
@@ -405,7 +412,7 @@ function addWorkbookSheets(book, wb, entries, { hasCodes, hasGroups, hasTasks, h
     const snap = wb.Snapshot.sheets[id];
     if (!rules || !snap) continue;
     // the label is shortened, not the sheet name: Excel cuts sheet names at 31 characters
-    const raw = prefix ? `${prefix.slice(0, 18)} - ${snap.name || id}` : String(snap.name || id);
+    const raw = prefix ? `${tr(prefix).slice(0, 18)} - ${tr(String(snap.name || id))}` : tr(String(snap.name || id));
     let name = raw.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || id;
     while (usedNames.has(name.toLowerCase())) name = `${name.slice(0, 28)}_${usedNames.size}`;
     usedNames.add(name.toLowerCase());
@@ -415,9 +422,9 @@ function addWorkbookSheets(book, wb, entries, { hasCodes, hasGroups, hasTasks, h
     // After Status, in this order, only the columns that apply: Group, Task, Template, RulesAcknowledged.
     const extras = [];
     if (hasCodes) extras.push({ header: 'Code', width: 10, value: (e) => e.ParticipantCode ?? '' });
-    if (hasGroups) extras.push({ header: 'Group', width: 16, value: (e) => e.GroupName ?? '' });
-    if (hasTasks) extras.push({ header: 'Task', width: 16, value: (e) => e.TaskName ?? '' });
-    if (withTemplate) extras.push({ header: 'Template', width: 24, value: () => wb.Label || wb.Title });
+    if (hasGroups) extras.push({ header: 'Group', width: 16, value: (e) => tr(e.GroupName ?? '') });
+    if (hasTasks) extras.push({ header: 'Task', width: 16, value: (e) => tr(e.TaskName ?? '') });
+    if (withTemplate) extras.push({ header: 'Template', width: 24, value: () => tr(wb.Label || wb.Title) });
     if (hasRules) extras.push({ header: 'RulesAcknowledged', width: 22, value: (e) => (e.RulesAcknowledgedAt ? new Date(e.RulesAcknowledgedAt).toISOString() : '') });
     // Timing: when the participant pressed Start, when the table was handed in, how many minutes that took, and (with a countdown) whether
     // the time ran out. Every one of them is empty for a participant who has not started / not handed in.
@@ -431,7 +438,7 @@ function addWorkbookSheets(book, wb, entries, { hasCodes, hasGroups, hasTasks, h
     // header rows: ParticipantId (merged down), template header cells, Status and the extra columns (merged down)
     for (let r = 0; r < rules.headerRows; r++) {
       for (let c = 0; c < cols; c++) {
-        const text = cellText(snap.cellData?.[r]?.[c]);
+        const text = tr(cellText(snap.cellData?.[r]?.[c]));
         if (text) ws.getCell(r + 1, c + 2).value = text;
       }
     }
@@ -464,7 +471,7 @@ function addWorkbookSheets(book, wb, entries, { hasCodes, hasGroups, hasTasks, h
       const rows = e.Rows?.[id] ?? {};
       for (const r of Object.keys(rows).map(Number).sort((a, b) => a - b)) {
         ws.getCell(rowNo, 1).value = e.ParticipantId;
-        for (const [c, v] of Object.entries(rows[r])) ws.getCell(rowNo, Number(c) + 2).value = v;
+        for (const [c, v] of Object.entries(rows[r])) ws.getCell(rowNo, Number(c) + 2).value = typeof v === 'string' ? tr(v) : v;
         ws.getCell(rowNo, statusCol).value = e.Status;
         extras.forEach((x, i) => { ws.getCell(rowNo, extraCol(i)).value = x.value(e); });
         rowNo++;
@@ -472,6 +479,109 @@ function addWorkbookSheets(book, wb, entries, { hasCodes, hasGroups, hasTasks, h
     }
   }
 }
+
+// ZIP: one folder per group, in it one Excel file per template that group's participants filled in. "groupId=all" (default) is every
+// group (+ a folder for participants without one), a number is a single group. A research with no groups gets the files side by side.
+const safeName = (s) => String(s ?? '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'x';
+const ZIP_LANGS = ['sr', 'en'];
+const TRANSLATION_STATUS = { TRANSLATION_NOT_CONFIGURED: 503, TRANSLATION_TIMEOUT: 504, TRANSLATION_FAILED: 502, TRANSLATION_TOO_LARGE: 413 };
+
+router.get('/:researchId/export-zip', async (req, res) => {
+  const researchId = parseId(req, res);
+  if (researchId == null) return;
+  try {
+    const sql = getDb();
+    const raw = req.query.groupId;
+    const only = raw == null || raw === '' || raw === 'all' ? null : Number(raw);
+    if (only != null && (!Number.isInteger(only) || only <= 0)) { res.status(400).json({ error: 'Invalid groupId' }); return; }
+    // lang=en: the whole file is translated from Serbian to English (see server/translate/translator.mjs); sr (default) is the original
+    const lang = req.query.lang == null || req.query.lang === '' ? 'sr' : String(req.query.lang);
+    if (!ZIP_LANGS.includes(lang)) { res.status(400).json({ error: 'Invalid lang' }); return; }
+    if (lang === 'en' && !translationConfigured()) { res.status(503).json({ error: 'TRANSLATION_NOT_CONFIGURED' }); return; }
+    const english = lang === 'en';
+    const slots = await loadWorkbookSlots(sql, researchId);
+    if (!slots.length) { res.status(404).json({ error: 'NO_WORKBOOK' }); return; }
+    const groups = await sql`SELECT "Id","Name" FROM "ResearchGroup" WHERE "ResearchId" = ${researchId} ORDER BY "Id"`;
+    if (only != null && !groups.some((g) => g.Id === only)) { res.status(404).json({ error: 'NO_GROUP' }); return; }
+    const hasGroups = groups.length > 0;
+    const hasTasks = (await sql`SELECT 1 FROM "ResearchTask" WHERE "ResearchId" = ${researchId} LIMIT 1`).length > 0;
+    const hasCodes = (await sql`SELECT 1 FROM "Participant" WHERE "ResearchId" = ${researchId} AND "ParticipantCode" IS NOT NULL LIMIT 1`).length > 0;
+    const hasTimer = !!(await loadResearch(sql, researchId))?.SheetsTimerMinutes;
+    // what to build: a research with groups gets a folder per group (and one for people without a group when all are wanted)
+    const targets = !hasGroups ? [{ kind: 'any', gid: null, folder: '', noGroup: false }]
+      : [...groups.filter((g) => only == null || g.Id === only).map((g) => ({ kind: 'group', gid: g.Id, folder: g.Name, noGroup: false })),
+         ...(only == null ? [{ kind: 'none', gid: null, folder: '', noGroup: true }] : [])];
+
+    // phase 1: read what goes into every file (no empty files)
+    const plan = [];
+    for (const t of targets) {
+      for (const slot of slots) {
+        const wb = await loadWorkbookById(sql, researchId, slot.Id);
+        const entries = await sql`
+          SELECT p."ParticipantId", p."ParticipantCode", g."Name" AS "GroupName", tk."Name" AS "TaskName", l."RulesAcknowledgedAt", e."Rows", e."Status", e."SubmittedAt", e."IsTimedOut"
+          FROM "SheetEntry" e JOIN "Participant" p ON p."Guid" = e."ParticipantGuid"
+          LEFT JOIN "ResearchGroup" g ON g."Id" = p."GroupId"
+          LEFT JOIN "ResearchTask" tk ON tk."Id" = p."ResearchTaskId"
+          LEFT JOIN "SheetAccessLink" l ON l."ParticipantGuid" = e."ParticipantGuid" AND l."WorkbookId" = e."WorkbookId"
+          WHERE e."WorkbookId" = ${wb.Id} AND p."ResearchId" = ${researchId}
+            AND (${t.kind} = 'any' OR (${t.kind} = 'none' AND p."GroupId" IS NULL) OR (${t.kind} = 'group' AND p."GroupId" = ${t.gid}::int))
+          ORDER BY p."ParticipantId"
+        `;
+        if (entries.length) plan.push({ t, wb, entries });
+      }
+    }
+    if (!plan.length) { res.status(404).json({ error: 'NO_ENTRIES' }); return; }
+
+    // phase 2: build the files. With lang=en a dry run first collects every text, they are translated together (cached per research),
+    // then the real files are built with the translations.
+    const flags = { hasCodes, hasGroups, hasTasks, hasTimer, prefix: '', withTemplate: false };
+    const build = (tr, write) => {
+      const files = [];
+      const used = new Set();
+      for (const { t, wb, entries } of plan) {
+        const book = new ExcelJS.Workbook();
+        addWorkbookSheets(book, wb, entries, { ...flags, tr }, new Set());
+        const folder = t.noGroup ? (english ? 'no-group' : 'bez-grupe') : tr(t.folder);
+        const base = safeName(tr(wb.Label || wb.Title || `${english ? 'template' : 'sablon'}-${wb.Id}`));
+        const dir = folder ? safeName(folder) : '';
+        let path = dir ? `${dir}/${base}.xlsx` : `${base}.xlsx`;
+        for (let n = 2; used.has(path.toLowerCase()); n++) path = dir ? `${dir}/${base} (${n}).xlsx` : `${base} (${n}).xlsx`;
+        used.add(path.toLowerCase());
+        files.push({ path, book: write ? book : null });
+      }
+      return files;
+    };
+    let tr = same;
+    if (english) {
+      const seen = new Set();
+      build((s) => { if (typeof s === 'string' && needsTranslation(s)) seen.add(s); return s; }, false);
+      for (const g of groups) if (only == null || g.Id === only) seen.add(g.Name);
+      const map = await translateTexts(sql, researchId, [...seen]);
+      tr = (s) => (typeof s === 'string' ? (map.get(s) ?? s) : s);
+    }
+    const files = build(tr, true);
+    const groupName = only != null ? groups.find((g) => g.Id === only).Name : null;
+    const label = only != null ? safeName(tr(groupName)).replace(/ /g, '-') : (english ? 'all-groups' : 'sve-grupe');
+    const buffers = [];
+    for (const f of files) buffers.push({ path: f.path, buffer: Buffer.from(await f.book.xlsx.writeBuffer()) });
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${english ? 'tables' : 'tabele'}-${label}.zip"`);
+    const archive = new ZipArchive({ zlib: { level: 9 } });
+    archive.on('error', (err) => { console.error('[sheets] zip stream error:', err); res.destroy(err); });
+    archive.pipe(res);
+    for (const f of buffers) archive.append(f.buffer, { name: f.path });
+    await archive.finalize();
+  } catch (err) {
+    if (err instanceof TranslationError) {
+      console.error('[sheets] zip translation:', err.message);
+      if (!res.headersSent) res.status(TRANSLATION_STATUS[err.code] ?? 502).json({ error: err.code });
+      return;
+    }
+    console.error('[sheets] zip export error:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Database error' });
+  }
+});
 
 router.get('/:researchId/export', async (req, res) => {
   const researchId = parseId(req, res);

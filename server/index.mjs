@@ -20,6 +20,7 @@ import demographicResultsRoutes from './demographic-results/routes.mjs';
 import questionnaireResultsRoutes from './questionnaire-results/routes.mjs';
 import sheetsRoutes from './sheets/routes.mjs';
 import protocolRoutes from './protocol/routes.mjs';
+import sessionChecklistRoutes from './session-checklists/routes.mjs';
 import questionnairesRoutes from './questionnaires/routes.mjs';
 import protocolProgressRoutes from './protocol-progress/routes.mjs';
 import researchDesignRoutes from './research-design/routes.mjs';
@@ -75,6 +76,7 @@ app.use('/api/admin/sheets', sheetsRoutes);
 // router and base path (route-collision discipline), both gated to FlowMode='PROTOCOL' researches
 // where they touch protocol data.
 app.use('/api/admin/protocol', protocolRoutes);
+app.use('/api/admin/session-checklists', sessionChecklistRoutes);
 app.use('/api/admin/questionnaires', questionnairesRoutes);
 app.use('/api/admin/protocol-progress', protocolProgressRoutes);
 // Study design, variables and participant groups of a PROTOCOL research (own router, own base path).

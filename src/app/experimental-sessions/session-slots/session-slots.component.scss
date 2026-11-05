@@ -264,3 +264,6 @@
   .slot-notes { grid-template-columns: 1fr; }
   .slot-actions { margin-left: 0; }
 }
+
+.slot-notes__text { resize: vertical; min-height: 56px; line-height: 1.45; flex: 1; }
+.slot-notes__saved { align-self: center; font-size: 13px; }

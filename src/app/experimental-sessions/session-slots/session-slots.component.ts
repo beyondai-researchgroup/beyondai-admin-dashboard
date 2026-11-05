@@ -1,4 +1,4 @@
-import { Component, HostListener, computed, inject, input, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, input, output, signal } from '@angular/core';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FormsModule } from '@angular/forms';
 import { LoadingSpinnerComponent } from '../../shared/loading-spinner/loading-spinner.component';
@@ -132,9 +132,13 @@ export class SessionSlotsComponent {
     }
   }
 
+  /** Fired after the termini of the session were reloaded (added, changed or removed), so the checklist can follow. */
+  readonly slotsChanged = output<void>();
+
   private async reloadSlots(): Promise<void> {
     const res = await this.api.getSessionSlots(this.experimentalSessionId());
     this.slots.set(res.slots);
+    this.slotsChanged.emit();
     this.calendarConnected.set(res.calendarConnected);
     this.noteDrafts.set({});
   }
@@ -325,10 +329,24 @@ export class SessionSlotsComponent {
     return predefinedTagTone(id) ?? 'neutral';
   }
 
+  /** The slot whose note was just saved (shows "Saved" for a moment). */
+  readonly noteSavedFor = signal<number | null>(null);
+
   async saveNotes(s: SessionSlot, tag?: string): Promise<void> {
     const tags = tag === undefined ? s.tags : tag ? [tag] : [];
-    await this.runOn(s, () => this.api.updateSessionSlotNotesTags(s.id, this.noteDraft(s).trim() || null, tags));
+    const done = await this.runOn(s, async () => { await this.api.updateSessionSlotNotesTags(s.id, this.noteDraft(s).trim() || null, tags); return true; });
     await this.reloadSlots();
+    if (done) {
+      this.noteDrafts.update((d) => { const { [s.id]: _gone, ...rest } = d; return rest; });
+      this.noteSavedFor.set(s.id);
+      setTimeout(() => { if (this.noteSavedFor() === s.id) this.noteSavedFor.set(null); }, 2500);
+    }
+  }
+
+  /** Leaving the box saves it, so a note is never lost by moving on. */
+  async saveNotesIfChanged(s: SessionSlot): Promise<void> {
+    if (this.noteDraft(s).trim() === (s.notes ?? '').trim()) return;
+    await this.saveNotes(s);
   }
 
   async remove(s: SessionSlot): Promise<void> {

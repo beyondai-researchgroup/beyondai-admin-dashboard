@@ -96,20 +96,22 @@
         </div>
 
         <div class="slot-notes">
-          <input
-            type="text"
-            class="text-input"
+          <textarea
+            class="text-input slot-notes__text"
+            rows="2"
             maxlength="4000"
             [placeholder]="'SESSION_SLOTS.NOTES_PLACEHOLDER' | translate"
             [ngModel]="noteDraft(s)"
             (ngModelChange)="setNoteDraft(s, $event)"
-          />
+            (blur)="saveNotesIfChanged(s)"
+          ></textarea>
           <div class="slot-notes__tag">
             <app-select [options]="tagOptions()" [value]="tagValue(s)" (valueChange)="saveNotes(s, $any($event))"></app-select>
           </div>
           <button type="button" class="btn-ghost btn-ghost--small" [disabled]="busySlot() === s.id" (click)="saveNotes(s)">
             {{ 'EXPERIMENTAL_SESSIONS.SAVE_NOTE' | translate }}
           </button>
+          @if (noteSavedFor() === s.id) { <span class="field-success slot-notes__saved">{{ 'EXPERIMENTAL_SESSIONS.NOTE_SAVED' | translate }}</span> }
         </div>
       </div>
     }

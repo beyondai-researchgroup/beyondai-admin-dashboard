@@ -1,0 +1,90 @@
+<section class="cl">
+  <h3 class="cl-heading">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_HEADING' | translate }}</h3>
+  <p class="cl-hint">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_HINT' | translate }}</p>
+
+  @if (error()) {
+    <div class="empty-state">{{ 'COMMON.LOAD_ERROR' | translate }}</div>
+  } @else {
+  @if (data(); as d) {
+    <div class="card cl-template">
+      <h4 class="cl-sub">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_TEMPLATE' | translate }}</h4>
+      @if (!templateDraft().length) {
+        <p class="cl-muted">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_TEMPLATE_EMPTY' | translate }}</p>
+      }
+      <ul class="cl-items">
+        @for (t of templateDraft(); track i; let i = $index) {
+          <li class="cl-item">
+            <input type="text" class="text-input" maxlength="300" [disabled]="!d.canWrite || busy()" [ngModel]="t.text" (ngModelChange)="setTemplateText(i, $event)" (blur)="commitTemplateText(i)" (keydown.enter)="$any($event.target).blur()" />
+            @if (d.canWrite) {
+              <button type="button" class="btn-ghost btn-ghost--small cl-remove" [attr.aria-label]="'EXPERIMENTAL_SESSIONS.CHECKLIST_REMOVE' | translate" [disabled]="busy()" (click)="removeTemplateItem(i)">✕</button>
+            }
+          </li>
+        }
+      </ul>
+      @if (d.canWrite) {
+        <div class="cl-add">
+          <input type="text" class="text-input" maxlength="300" [placeholder]="'EXPERIMENTAL_SESSIONS.CHECKLIST_ADD_PLACEHOLDER' | translate" [disabled]="busy()" [ngModel]="newTemplateItem()" (ngModelChange)="newTemplateItem.set($event)" (keydown.enter)="addTemplateItem()" />
+          <button type="button" class="btn-ghost" [disabled]="busy() || !newTemplateItem().trim()" (click)="addTemplateItem()">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_ADD' | translate }}</button>
+        </div>
+      }
+      @if (message(); as m) {
+        <p class="cl-message" [class.cl-message--error]="m.endsWith('ERROR')">{{ m | translate }}</p>
+      }
+    </div>
+
+    <div class="cl-people-head">
+      <h4 class="cl-sub">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_SLOTS' | translate: { count: d.slots.length } }}
+        @if (totals.total) { <span class="cl-muted"> · {{ totals.done }}/{{ totals.total }}</span> }
+      </h4>
+      @if (d.slots.length > 1) {
+        <div class="cl-bulk">
+          <button type="button" class="btn-ghost btn-ghost--small" (click)="expandAll(true)">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_OPEN_ALL' | translate }}</button>
+          <button type="button" class="btn-ghost btn-ghost--small" (click)="expandAll(false)">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_CLOSE_ALL' | translate }}</button>
+        </div>
+      }
+    </div>
+
+    @if (!d.slots.length) {
+      <div class="empty-state">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_NO_SLOTS' | translate }}</div>
+    }
+
+    @for (s of d.slots; track s.slotId) {
+      <div class="card cl-person" [class.cl-person--done]="s.items.length > 0 && s.doneCount === s.items.length">
+        <button type="button" class="cl-person-head" [attr.aria-expanded]="isOpen(s)" (click)="toggle(s)">
+          <span class="cl-caret" aria-hidden="true">{{ isOpen(s) ? '▾' : '▸' }}</span>
+          <span class="cl-name">{{ s.startTime }}<span class="cl-muted"> · {{ s.durationMinutes }} min</span></span>
+          <span class="cl-group">{{ ('SESSION_SLOTS.KIND_' + s.kind) | translate }}</span>
+          <span class="cl-audience">{{ audience(s) }}</span>
+          <span class="cl-progress" role="progressbar" [attr.aria-valuenow]="percent(s)" aria-valuemin="0" aria-valuemax="100"><span class="cl-progress-fill" [style.width.%]="percent(s)"></span></span>
+          <span class="cl-count">{{ s.doneCount }}/{{ s.items.length }}</span>
+        </button>
+        @if (isOpen(s)) {
+          <ul class="cl-items cl-items--person">
+            @for (it of s.items; track it.id) {
+              <li class="cl-item cl-item--person">
+                <label class="cl-check">
+                  <input type="checkbox" [checked]="it.done" [disabled]="!d.canWrite" (change)="tick(s, it.id, $any($event.target).checked)" />
+                  <span class="cl-text" [class.cl-text--done]="it.done">{{ it.text }}</span>
+                </label>
+                @if (it.done && it.doneAt) {
+                  <span class="cl-muted cl-when">{{ it.doneBy ?? '' }} {{ it.doneAt | date: 'dd.MM. HH:mm' }}</span>
+                }
+                @if (d.canWrite) {
+                  <button type="button" class="btn-ghost btn-ghost--small cl-remove" [attr.aria-label]="'EXPERIMENTAL_SESSIONS.CHECKLIST_REMOVE' | translate" (click)="removeItem(it.id)">✕</button>
+                }
+              </li>
+            }
+          </ul>
+          @if (!s.items.length) { <p class="cl-muted">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_LIST_EMPTY' | translate }}</p> }
+          @if (d.canWrite) {
+            <div class="cl-add">
+              <input type="text" class="text-input" maxlength="300" [placeholder]="'EXPERIMENTAL_SESSIONS.CHECKLIST_ADD_ONE_PLACEHOLDER' | translate" [ngModel]="newItem()[s.slotId] ?? ''" (ngModelChange)="setNewItem(s.slotId, $event)" (keydown.enter)="addItem(s)" />
+              <button type="button" class="btn-ghost btn-ghost--small" [disabled]="!(newItem()[s.slotId] ?? '').trim()" (click)="addItem(s)">{{ 'EXPERIMENTAL_SESSIONS.CHECKLIST_ADD' | translate }}</button>
+            </div>
+          }
+        }
+      </div>
+    }
+  }
+  }
+</section>

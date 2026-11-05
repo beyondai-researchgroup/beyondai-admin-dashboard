@@ -12,6 +12,7 @@ import { createEvent, updateEvent, deleteEvent } from '../calendar/googleCalenda
 import { decrypt } from '../calendar/tokenCrypto.mjs';
 import { notifyResearchMembers } from '../notifications/create.mjs';
 import { hasMinRole } from '../roles.mjs';
+import { loadWorkEvents, loadMembers, effectiveGroup, workForSession } from './members.mjs';
 
 const router = Router();
 router.use(requireAuth);
@@ -123,25 +124,38 @@ router.get('/', async (req, res) => {
   try {
     const sql = getDb();
     const rows = await sql`
-      SELECT es."Id", es."ResearchId", es."SessionDate", es."Label", es."Notes", es."CreatedAt",
+      SELECT es.*,
              (SELECT COUNT(*)::int FROM "ParticipantSession" ps WHERE ps."ExperimentalSessionId" = es."Id") AS "ParticipantSessionCount",
              (SELECT COUNT(*)::int FROM "SessionSlot" sl WHERE sl."ExperimentalSessionId" = es."Id") AS "SlotCount"
       FROM "ExperimentalSession" es
       WHERE (${researchId}::int IS NULL OR es."ResearchId" = ${researchId})
       ORDER BY es."SessionDate" DESC, es."Id" DESC
     `;
-    res.json(
-      rows.map((r) => ({
+    // The participants of a session: who worked a task that day (read from the tasks themselves), plus attendees of its termini and assigned sessions.
+    const researchIds = [...new Set(rows.map((r) => r.ResearchId))];
+    const eventsBy = new Map();
+    const groupsBy = new Map();
+    for (const id of researchIds) {
+      eventsBy.set(id, await loadWorkEvents(sql, id));
+      groupsBy.set(id, await sql`SELECT "Id","Name" FROM "ResearchGroup" WHERE "ResearchId" = ${id}`);
+    }
+    const out = [];
+    for (const r of rows) {
+      const members = await loadMembers(sql, r, eventsBy.get(r.ResearchId), groupsBy.get(r.ResearchId));
+      out.push({
         id: r.Id,
         researchId: r.ResearchId,
         sessionDate: dateOnly(r.SessionDate),
         label: r.Label,
         notes: r.Notes,
+        groupId: r.GroupId ?? null,
         createdAt: r.CreatedAt,
         participantSessionCount: r.ParticipantSessionCount,
         slotCount: r.SlotCount,
-      }))
-    );
+        memberCount: members.size,
+      });
+    }
+    res.json(out);
   } catch (err) {
     console.error('[experimental-sessions] list error:', err);
     res.status(500).json({ error: 'Database error' });
@@ -149,7 +163,7 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { researchId, sessionDate, label, notes } = req.body ?? {};
+  const { researchId, sessionDate, label, notes, groupId } = req.body ?? {};
   const resolvedResearchId = scopeGuard(req, res, researchId);
   if (resolvedResearchId === undefined) return;
   if (resolvedResearchId === null) {
@@ -168,9 +182,14 @@ router.post('/', async (req, res) => {
 
   try {
     const sql = getDb();
+    const gid = groupId == null || groupId === '' ? null : Number(groupId);
+    if (gid != null && (!Number.isInteger(gid) || !(await sql`SELECT 1 FROM "ResearchGroup" WHERE "Id" = ${gid} AND "ResearchId" = ${resolvedResearchId}`).length)) {
+      res.status(400).json({ error: 'UNKNOWN_GROUP' });
+      return;
+    }
     const rows = await sql`
-      INSERT INTO "ExperimentalSession" ("ResearchId", "SessionDate", "Label", "Notes", "CreatedByResearcherId")
-      VALUES (${resolvedResearchId}, ${sessionDate}, ${label ?? null}, ${notes ?? null}, ${req.researcher.id})
+      INSERT INTO "ExperimentalSession" ("ResearchId", "SessionDate", "Label", "Notes", "GroupId", "CreatedByResearcherId")
+      VALUES (${resolvedResearchId}, ${sessionDate}, ${label ?? null}, ${notes ?? null}, ${gid}, ${req.researcher.id})
       RETURNING "Id"
     `;
     res.status(201).json({ id: rows[0].Id });
@@ -232,6 +251,10 @@ router.get('/:id', async (req, res) => {
       sessionDate: dateOnly(session.SessionDate),
       label: session.Label,
       notes: session.Notes,
+      groupId: session.GroupId ?? null,
+      // the group the session shows: the chosen one, else the group whose name the session carries
+      effectiveGroupId: effectiveGroup(session, await sql`SELECT "Id","Name" FROM "ResearchGroup" WHERE "ResearchId" = ${session.ResearchId}`).id,
+      groupFromLabel: effectiveGroup(session, await sql`SELECT "Id","Name" FROM "ResearchGroup" WHERE "ResearchId" = ${session.ResearchId}`).fromLabel,
       createdAt: session.CreatedAt,
       participantSessions: participantSessions.map((r) => ({
         participantId: r.ParticipantId,
@@ -250,6 +273,26 @@ router.get('/:id', async (req, res) => {
     });
   } catch (err) {
     console.error('[experimental-sessions] get error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// The participants who worked a task on this session's day (and group): read from the tasks themselves, nothing to add by hand.
+router.get('/:id/work', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) { res.status(400).json({ error: 'Invalid id' }); return; }
+  try {
+    const sql = getDb();
+    const session = await loadOwnedSession(req, res, sql, id);
+    if (!session) return;
+    const groups = await sql`SELECT "Id","Name" FROM "ResearchGroup" WHERE "ResearchId" = ${session.ResearchId}`;
+    const events = await loadWorkEvents(sql, session.ResearchId);
+    res.json(workForSession(session, events, groups).map((e) => ({
+      participantId: e.participantId, code: e.code, groupName: e.groupName, taskName: e.taskName, kind: e.kind,
+      startedAt: e.startedAt, submittedAt: e.submittedAt, status: e.status, durationMin: e.durationMin,
+    })));
+  } catch (err) {
+    console.error('[experimental-sessions] work error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -357,10 +400,20 @@ router.put('/:id', async (req, res) => {
     if (!session) return;
 
     const dateChanged = dateOnly(session.SessionDate) !== sessionDate;
+    // groupId: absent = leave as is (the calendar drag only sends the date), null = no group, a number = that group of the research
+    let groupId = session.GroupId ?? null;
+    if (req.body && 'groupId' in req.body) {
+      const g = req.body.groupId == null || req.body.groupId === '' ? null : Number(req.body.groupId);
+      if (g != null && (!Number.isInteger(g) || !(await sql`SELECT 1 FROM "ResearchGroup" WHERE "Id" = ${g} AND "ResearchId" = ${session.ResearchId}`).length)) {
+        res.status(400).json({ error: 'UNKNOWN_GROUP' });
+        return;
+      }
+      groupId = g;
+    }
 
     await sql`
       UPDATE "ExperimentalSession"
-      SET "SessionDate" = ${sessionDate}, "Label" = ${label ?? null}, "Notes" = ${notes ?? null}
+      SET "SessionDate" = ${sessionDate}, "Label" = ${label ?? null}, "Notes" = ${notes ?? null}, "GroupId" = ${groupId}
       WHERE "Id" = ${id}
     `;
     res.json({ ok: true });

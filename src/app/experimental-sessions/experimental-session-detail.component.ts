@@ -12,6 +12,8 @@ import {
 } from '../services/admin-api.service';
 import { SelectComponent, SelectOption } from '../shared/select/select.component';
 import { SessionSlotsComponent } from './session-slots/session-slots.component';
+import { SessionWorkComponent } from './session-work/session-work.component';
+import { SessionChecklistComponent } from './session-checklist/session-checklist.component';
 import { MAX_TAGS, PREDEFINED_TAGS, PredefinedTag, predefinedTagLabel, predefinedTagTone } from './session-tags';
 
 /**
@@ -23,7 +25,7 @@ import { MAX_TAGS, PREDEFINED_TAGS, PredefinedTag, predefinedTagLabel, predefine
 @Component({
   selector: 'app-experimental-session-detail',
   standalone: true,
-  imports: [TranslateModule, ReactiveFormsModule, RouterLink, DatePipe, SelectComponent, LoadingSpinnerComponent, SessionSlotsComponent],
+  imports: [TranslateModule, ReactiveFormsModule, RouterLink, DatePipe, SelectComponent, LoadingSpinnerComponent, SessionSlotsComponent, SessionWorkComponent, SessionChecklistComponent],
   templateUrl: './experimental-session-detail.component.html',
   styleUrl: './experimental-session-detail.component.scss',
 })
@@ -47,6 +49,12 @@ export class ExperimentalSessionDetailComponent {
 
   readonly deleting = signal(false);
   readonly deleteError = signal(false);
+
+  /** Group of the session ('' = none) and the groups of the research to pick from. */
+  readonly groupValue = signal<string>('');
+  readonly groupOptions = signal<SelectOption[]>([]);
+  /** Bumped after saving, so the work list and the checklist re-read who belongs to the session. */
+  readonly refreshKey = signal(0);
 
   form = this.fb.group({
     sessionDate: [''],
@@ -110,6 +118,11 @@ export class ExperimentalSessionDetailComponent {
     return this.predefinedTags.filter((t) => !row.tags.includes(t.id));
   }
 
+  /** Makes the work list and the checklist read the session again (its group or its termini changed). */
+  bumpRefresh(): void {
+    this.refreshKey.update((n) => n + 1);
+  }
+
   constructor() {
     this.load();
   }
@@ -125,6 +138,13 @@ export class ExperimentalSessionDetailComponent {
         label: detail.label ?? '',
         notes: detail.notes ?? '',
       });
+      try {
+        const groups = (await this.api.getResearchDesign(detail.researchId)).groups.filter((g) => g.id != null);
+        this.groupOptions.set([{ value: '', label: this.translate.instant('EXPERIMENTAL_SESSIONS.GROUP_NONE') }, ...groups.map((g) => ({ value: String(g.id), label: g.name }))]);
+      } catch {
+        this.groupOptions.set([]); // groups are optional here; the page works without them
+      }
+      this.groupValue.set(detail.groupId != null ? String(detail.groupId) : detail.groupFromLabel && detail.effectiveGroupId != null ? String(detail.effectiveGroupId) : '');
       if (detail.flowMode !== 'PROTOCOL') this.participants.set(await this.api.getParticipants(detail.researchId));
     } catch {
       this.notFound.set(true);
@@ -143,8 +163,10 @@ export class ExperimentalSessionDetailComponent {
         sessionDate: this.form.value.sessionDate!,
         label: this.form.value.label?.trim() || null,
         notes: this.form.value.notes?.trim() || null,
+        ...(this.groupOptions().length > 1 ? { groupId: this.groupValue() === '' ? null : Number(this.groupValue()) } : {}),
       });
       this.saved.set(true);
+      this.refreshKey.update((n) => n + 1);
     } catch {
       this.saveError.set(true);
     } finally {

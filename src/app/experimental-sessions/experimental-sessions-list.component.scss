@@ -78,3 +78,6 @@
   padding-right: 40px;
   margin-bottom: 20px;
 }
+
+// Notes keep their line breaks; a long one is cut after three lines (the full text is the tooltip and on the session page).
+.notes-preview { white-space: pre-wrap; max-width: 520px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.45; }
