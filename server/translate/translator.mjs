@@ -66,15 +66,19 @@ async function callModel(items, { fetchImpl, deadline }) {
         body: JSON.stringify({
           model,
           max_tokens: 8000,
-          temperature: 0,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: JSON.stringify({ items }) }],
         }),
         signal: AbortSignal.timeout(Math.max(1000, Math.min(45_000, deadline - Date.now()))),
       });
+      if (res.status === 401 || res.status === 403) console.error('[translate] Anthropic API refused the key', res.status);
       if (res.status === 401 || res.status === 403) throw new TranslationError('TRANSLATION_FAILED', 'the translation key was refused');
       if (res.status === 429 || res.status >= 500) throw new Error(`HTTP ${res.status}`); // worth another try
-      if (!res.ok) throw new TranslationError('TRANSLATION_FAILED', `HTTP ${res.status}`);
+      if (!res.ok) {
+        const detail = (await res.text().catch(() => '')).slice(0, 300);
+        console.error('[translate] Anthropic API answered', res.status, detail);
+        throw new TranslationError('TRANSLATION_FAILED', `HTTP ${res.status} ${detail}`);
+      }
       const body = await res.json();
       const text = (body.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join('');
       const parsed = JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, '').trim());
